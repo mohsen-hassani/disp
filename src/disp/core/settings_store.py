@@ -22,7 +22,11 @@ from disp.core.registry import Registry
 logger = structlog.get_logger(__name__)
 
 SECRET_UNCHANGED_SENTINEL = "***"  # noqa: S105 - masking placeholder, not a credential
-SECRET_FIELD_MARKER = "secret"  # noqa: S105 - json_schema_extra convention key, not a credential
+# WEB-SPEC §3 amendment A2: this convention key is emitted verbatim into the JSON Schema the
+# dashboard manifest serializes (dashboard.py's SettingsPanelOut.schema_), so a JS client can
+# detect secret fields directly from the schema as "x-secret": true. Renamed from the old
+# internal-only "secret" key now that it's client-visible.
+SECRET_FIELD_MARKER = "x-secret"  # noqa: S105 - json_schema_extra convention key, not a credential
 
 
 class SettingsDecryptionError(Exception):

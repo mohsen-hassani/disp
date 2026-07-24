@@ -1,17 +1,23 @@
 import asyncio
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
 import structlog
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from disp import __version__
 from disp.core.auth import CurrentUser, current_user
 from disp.core.config import get_settings
-from disp.core.contract import NotificationTypeSpec, TileContext, TileData, TileSpec
+from disp.core.contract import (
+    NotificationTypeSpec,
+    SettingsPanelSpec,
+    TileContext,
+    TileData,
+    TileSpec,
+)
 from disp.core.db import get_session
 from disp.core.errors import AppError
 from disp.core.platform import Platform
@@ -31,6 +37,13 @@ class SettingsPanelOut(BaseModel):
     title: str
     description: str | None
     scope: Literal["user", "global"]
+    # JSON Schema (WEB-SPEC §3 amendment A1), produced from schema_model.model_json_schema()
+    # so a JS client can render a settings form without a Pydantic-aware codegen step.
+    # mode="serialization" (not the default "validation") per the amendment's literal text —
+    # a field with a custom serializer could otherwise disagree with what the client receives.
+    # Aliased to "schema" on the wire; the attribute itself can't be named `schema` without
+    # shadowing pydantic.BaseModel's own deprecated `.schema()` method.
+    schema_: dict[str, Any] = Field(alias="schema")
 
 
 class ModuleManifestOut(BaseModel):
@@ -74,6 +87,16 @@ def _now_local() -> datetime:
     return datetime.now(ZoneInfo(get_settings().timezone))
 
 
+def _serialize_panel(panel: SettingsPanelSpec) -> SettingsPanelOut:
+    return SettingsPanelOut(
+        key=panel.key,
+        title=panel.title,
+        description=panel.description,
+        scope=panel.scope,
+        schema=panel.schema_model.model_json_schema(mode="serialization"),
+    )
+
+
 @router.get(
     "/manifest",
     response_model=DashboardManifestResponse,
@@ -86,26 +109,45 @@ async def get_manifest(
     user: Annotated[CurrentUser, Depends(current_user)],
 ) -> DashboardManifestResponse:
     registry: Registry = request.app.state.registry
-    modules = [
-        ModuleManifestOut(
-            domain=dm.manifest.domain,
-            name=dm.manifest.name,
-            version=dm.manifest.version,
-            description=dm.manifest.description,
-            tiles=list(dm.manifest.tiles),
-            settings_panels=[
-                SettingsPanelOut(
-                    key=panel.key,
-                    title=panel.title,
-                    description=panel.description,
-                    scope=panel.scope,
-                )
-                for panel in dm.manifest.settings_panels
-            ],
-            notification_types=list(dm.manifest.notification_types),
+    modules: list[ModuleManifestOut] = []
+    seen_panel_keys: set[str] = set()
+    for dm in registry.modules:
+        modules.append(
+            ModuleManifestOut(
+                domain=dm.manifest.domain,
+                name=dm.manifest.name,
+                version=dm.manifest.version,
+                description=dm.manifest.description,
+                tiles=list(dm.manifest.tiles),
+                settings_panels=[_serialize_panel(panel) for panel in dm.manifest.settings_panels],
+                notification_types=list(dm.manifest.notification_types),
+            )
         )
-        for dm in registry.modules
+        seen_panel_keys.update(panel.key for panel in dm.manifest.settings_panels)
+
+    # Settings panels registered directly on the core platform (via
+    # Registry.register_core_settings_panel, e.g. core.notifier) belong to no
+    # discovered module (disp.modules/* discovery never sees `core`), so the
+    # loop above never surfaces them. Without this, the manifest silently
+    # omits every core-owned panel even though GET/PUT /api/settings/{domain}
+    # already serves them. Surface the remainder under a synthetic "core"
+    # entry so the client's /settings index has something to list at all.
+    core_only_panels = [
+        panel for key, panel in registry.settings_panels.items() if key not in seen_panel_keys
     ]
+    if core_only_panels:
+        modules.append(
+            ModuleManifestOut(
+                domain="core",
+                name="Core",
+                version=__version__,
+                description="Built-in platform settings.",
+                tiles=[],
+                settings_panels=[_serialize_panel(panel) for panel in core_only_panels],
+                notification_types=[],
+            )
+        )
+
     return DashboardManifestResponse(platform_version=__version__, modules=modules)
 
 

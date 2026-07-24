@@ -40,7 +40,7 @@ class NotifierSettingsSchema(BaseModel):
     channels: list[ChannelConfig] = Field(default_factory=list)
     routing: dict[str, list[str]] = Field(default_factory=dict)
     # Write-only: never returned in plaintext by any API (§14.1, §14.3).
-    urls: dict[str, str] = Field(default_factory=dict, json_schema_extra={"secret": True})
+    urls: dict[str, str] = Field(default_factory=dict, json_schema_extra={"x-secret": True})
 
 
 NOTIFIER_SETTINGS_PANEL = SettingsPanelSpec(

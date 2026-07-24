@@ -70,10 +70,19 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 | Doc | Covers |
 |---|---|
 | [`TECHNICAL-SPEC.md`](TECHNICAL-SPEC.md) | The full normative specification this platform was built against. |
+| [`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) | Normative spec for the React PWA web client that consumes this API. |
 | [`docs/auth.md`](docs/auth.md) | Credential types and lifetimes, refresh rotation and reuse detection, adopting an external OIDC provider later. |
 | [`docs/adding-a-module.md`](docs/adding-a-module.md) | Four-step recipe for a new module, with a complete minimal example. |
 | [`docs/operations.md`](docs/operations.md) | Backups, a verified restore drill, key rotation, log locations, health endpoints. |
 | `./dev` (run with no args) | Every local dev command: `up`, `migrate`, `test`, `lint`, `seed`, `openapi`, … |
+
+The web client's implementation is sequenced at [`milestones/client/M00-M12`](milestones/client/) —
+`M00` (backend amendments enabling the client's generic settings UI) is complete; `M01` onward build
+the client itself and haven't started yet.
+
+`GET /api/dashboard/manifest` serializes each settings panel's schema as JSON Schema (with a secret
+field marked `"x-secret": true`), including panels registered directly on the core platform (e.g.
+`core.notifier`) under a synthetic `"core"` module entry — see `milestones/client/M00-backbone-amendments.md`.
 
 ## Deployment
 

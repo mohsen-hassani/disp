@@ -62,7 +62,10 @@ async def test_hello_module_appears_in_manifest_and_renders_tile(
             manifest_response = await client.get("/api/dashboard/manifest", headers=headers)
             assert manifest_response.status_code == 200
             domains = {m["domain"] for m in manifest_response.json()["modules"]}
-            assert domains == {"hello"}
+            # "core" is a synthetic entry surfacing core-registered settings panels
+            # (core.notifier, wired unconditionally in create_app()) that belong to
+            # no discovered module — see dashboard.py's get_manifest().
+            assert domains == {"hello", "core"}
 
             tiles_response = await client.get("/api/dashboard/tiles", headers=headers)
             assert tiles_response.status_code == 200

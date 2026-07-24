@@ -10,6 +10,11 @@ extend this project, that spec (and `docs/`) is the source of truth, not assumpt
 FastAPI projects. See `README.md` for the architecture overview and `milestones/M00-M16` for the
 full build history, including every resolved spec ambiguity and bug found along the way.
 
+A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
+sequence at `milestones/client/M00-M12` — unlike the backend's `M00-M16`, those are prospective
+(not-yet-built) briefs, not retrospective build logs. Exception: `milestones/client/M00` (backend
+amendments) is implemented — see below.
+
 ## Commands
 
 ```
@@ -40,6 +45,27 @@ A module under `src/disp/modules/<domain>/` may **not**:
 
 Violating any of these fails the build, not a lint warning. See `docs/adding-a-module.md` for the
 four-step recipe to add a new one.
+
+## Settings panel JSON Schema (`GET /api/dashboard/manifest`)
+
+Each `SettingsPanelSpec.schema_model` is serialized to JSON Schema on every manifest response
+(`SettingsPanelOut.schema_`, aliased to the wire key `"schema"` — it can't be a literal `schema`
+attribute, since that shadows `pydantic.BaseModel`'s own deprecated `.schema()` method and warns on
+every construction) via `model_json_schema(mode="serialization")`, so a non-Python client can render
+a settings form without a Pydantic-aware codegen step. A field is marked secret with
+`Field(json_schema_extra={"x-secret": True})` — the marker key is `x-secret` end-to-end (not the
+internal-only `"secret"` this used to be before a web client needed to see it), read back by
+`settings_store._field_is_secret()`.
+
+**Core-registered panels need a synthetic manifest entry.** A panel added via
+`Registry.register_core_settings_panel()` (e.g. `core.notifier`, wired unconditionally in
+`create_app()`) belongs to no discovered module — `disp.modules/*` discovery never sees `core` — so
+`get_manifest()` cannot find it by walking `registry.modules` the way module-declared panels are
+found. `dashboard.get_manifest()` therefore also appends a synthetic `domain="core"` module entry
+for whatever's left in `registry.settings_panels` after the per-module loop. This means the
+manifest's `modules` list always includes a `"core"` domain in addition to real modules — a test
+asserting an exact domain set (e.g. `{"notes"}`) needs `{"notes", "core"}` instead; two pre-existing
+tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_proof.py`).
 
 ## Testing
 

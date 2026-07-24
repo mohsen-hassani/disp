@@ -136,7 +136,10 @@ async def test_modules_plain_and_json(cli_env: str, cli_db: AsyncSession) -> Non
     assert as_json.exit_code == 0, as_json.output
     body = json.loads(as_json.output)
     domains = {m["domain"] for m in body["modules"]}
-    assert domains == {"notes"}
+    # "core" is a synthetic entry surfacing core-registered settings panels
+    # (e.g. core.notifier) that belong to no discovered module — see
+    # dashboard.py's get_manifest().
+    assert domains == {"notes", "core"}
 
 
 async def test_health_plain_output(cli_env: str, cli_db: AsyncSession) -> None:
