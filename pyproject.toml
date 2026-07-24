@@ -1,0 +1,92 @@
+[project]
+name = "disp"
+version = "1.0.0"
+description = "DISP platform: FastAPI backbone + auth subsystem + notes demo module + disp Typer CLI"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "psycopg[binary,pool]>=3.2",
+    "alembic>=1.14",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "procrastinate>=2.9",
+    "apprise>=1.9",
+    "pwdlib[argon2]>=0.2.1",
+    "pyjwt>=2.9",
+    "cryptography>=43",
+    "python-dateutil>=2.9",
+    "structlog>=24.4",
+    "typer>=0.15",
+    "rich>=13.9",
+    "httpx>=0.28",
+    "platformdirs>=4.3",
+    "tomli-w>=1.1",
+    "slowapi>=0.1.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "testcontainers[postgres]>=4.8",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-python-dateutil",
+]
+
+[project.scripts]
+disp = "disp.cli.main:app"
+disp-admin = "disp.core.cli_admin:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/disp"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated.*:UserWarning",
+]
+
+[tool.coverage.run]
+source = ["src/disp"]
+branch = true
+# SQLAlchemy's async engine bridges to asyncpg via greenlet_spawn; coverage's
+# default (non-greenlet-aware) tracer silently drops lines that resume after
+# a greenlet switch (i.e. most code after an `await session.execute(...)`),
+# understating coverage for anything that touches the database.
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "S", "A", "C4", "DTZ", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"**/migrations/versions/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "disp.core.*"
+strict = true

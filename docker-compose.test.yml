@@ -1,0 +1,26 @@
+# Minimal local-dev override: just Postgres. `./dev up`/`./dev down` use this
+# file (not docker-compose.yml, the production stack) because local
+# development runs the API and worker directly via `uv run` against this
+# database, rather than containerized. The automated test suite does NOT use
+# this file either — `tests/conftest.py` starts its own ephemeral Postgres 16
+# via testcontainers, per §22.1.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: disp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-disp}
+      POSTGRES_DB: disp
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U disp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata_dev:

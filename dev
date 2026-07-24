@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+if [[ -f .env ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source .env
+    set +a
+fi
+
+usage() {
+    cat <<'EOF'
+Usage: ./dev <command> [args...]
+
+Commands:
+  up                          docker compose up -d
+  down                        docker compose down
+  migrate [branch]            Upgrade all branches, or one, to head
+  makemigration <branch> MSG  Autogenerate a revision for a branch
+  downgrade <branch> <rev>    Downgrade one branch
+  test [args...]              pytest with coverage gates
+  lint                        ruff check + ruff format --check + mypy
+  fmt                         ruff format + ruff check --fix
+  shell                       psql into the dev database
+  seed                        Seed an admin and three sample notes
+  openapi                     Write openapi.json to the repo root
+EOF
+}
+
+cmd="${1:-}"
+shift || true
+
+case "$cmd" in
+    up)
+        # docker-compose.test.yml, not docker-compose.yml (the production
+        # stack): local dev runs the API/worker via `uv run` directly against
+        # this Postgres-only container, not containerized.
+        docker compose -f docker-compose.test.yml up -d
+        ;;
+    down)
+        docker compose -f docker-compose.test.yml down
+        ;;
+    migrate)
+        branch="${1:-}"
+        if [[ -n "$branch" ]]; then
+            uv run alembic --name="$branch" upgrade head
+        else
+            uv run alembic --name=core upgrade head
+            for dir in src/disp/modules/*/; do
+                name="$(basename "$dir")"
+                if [[ "$name" != "notes" ]]; then
+                    continue
+                fi
+                uv run alembic --name="$name" upgrade head
+            done
+        fi
+        # procrastinate's schema --apply isn't idempotent (fails with
+        # "already exists" on a second run), so only apply it if its tables
+        # aren't there yet.
+        if ! uv run python -c "
+import sys
+import psycopg
+from disp.core.config import get_settings
+
+url = get_settings().database_url_sync.replace('+psycopg', '')
+with psycopg.connect(url) as conn, conn.cursor() as cur:
+    cur.execute(\"SELECT to_regclass('public.procrastinate_jobs')\")
+    sys.exit(0 if cur.fetchone()[0] is not None else 1)
+"; then
+            uv run procrastinate --app=disp.core.scheduler.app schema --apply
+        fi
+        ;;
+    makemigration)
+        branch="${1:?branch required}"
+        msg="${2:?migration message required}"
+        uv run alembic --name="$branch" revision --autogenerate -m "$msg"
+        ;;
+    downgrade)
+        branch="${1:?branch required}"
+        rev="${2:?revision required}"
+        uv run alembic --name="$branch" downgrade "$rev"
+        ;;
+    test)
+        uv run pytest \
+            --cov=disp --cov-report=term-missing \
+            --cov-fail-under=85 \
+            "$@"
+        ;;
+    lint)
+        uv run ruff check .
+        uv run ruff format --check .
+        uv run mypy src
+        ;;
+    fmt)
+        uv run ruff format .
+        uv run ruff check --fix .
+        ;;
+    shell)
+        docker compose -f docker-compose.test.yml exec postgres psql -U disp -d disp
+        ;;
+    seed)
+        uv run disp-admin seed-admin --email dev@example.com --display-name "Dev Admin"
+        ;;
+    openapi)
+        uv run python -c "
+import json
+from disp.core.app import create_app
+
+app = create_app()
+with open('openapi.json', 'w') as f:
+    json.dump(app.openapi(), f, indent=2)
+"
+        ;;
+    *)
+        usage
+        exit 2
+        ;;
+esac
