@@ -6,7 +6,7 @@ import { client } from '../../../src/api/client';
 import { setAuthState } from '../../../src/auth/authState';
 import { getToken } from '../../../src/auth/tokenStore';
 import { setNavigate } from '../../../src/lib/navigate';
-import { LoginPage, resolveNextPath } from '../../../src/routes/login';
+import { LoginPage, resolveNextPath } from '../../../src/routes/-login';
 import { loginResponse, problemResponse } from '../auth/testUtils';
 
 beforeAll(() => {

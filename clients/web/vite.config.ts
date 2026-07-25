@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -14,7 +15,15 @@ const pkg = JSON.parse(
 ) as { version: string };
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    // Must run before @vitejs/plugin-react: it generates src/routeTree.gen.ts
+    // from src/routes/* and (via autoCodeSplitting) rewrites each route's
+    // heavy exports into their own chunk — WEB-SPEC §9's "every route is a
+    // lazy chunk" requirement, without hand-written React.lazy() per route.
+    tanstackRouter({ target: 'react', autoCodeSplitting: true }),
+    react(),
+    tailwindcss(),
+  ],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
