@@ -1,6 +1,13 @@
 import { queryOptions } from '@tanstack/react-query';
 
-import { dashboardManifest, dashboardTiles, settingsGet } from './generated';
+import {
+  authListInvites,
+  authListTokens,
+  authMe,
+  dashboardManifest,
+  dashboardTiles,
+  settingsGet,
+} from './generated';
 import type { DashboardManifestResponse } from './generated';
 import type { ProblemDetail } from './problem';
 import { qk } from './queryKeys';
@@ -117,4 +124,63 @@ export function describeSettingsError(problem: ProblemDetail): string {
     return `Something went wrong on the server. Reference: ${problem.request_id}`;
   }
   return problem.detail || 'Something went wrong. Please try again.';
+}
+
+/**
+ * §15.1: `AuthProvider`'s bootstrap already seeds this cache key with a
+ * full `MeResponse` (including `auth_method`, which the plain `UserOut` the
+ * login/accept-invite paths store does not carry) when that path runs — see
+ * `auth/AuthProvider.tsx`'s `onMeFetched` callback. This `queryFn` is the
+ * fallback for every other case (a fresh login with no prior bootstrap, a
+ * cold/expired cache): the account screen must work correctly either way,
+ * not only right after a page-reload bootstrap.
+ */
+export function meQueryOptions() {
+  return queryOptions({
+    queryKey: qk.auth.me(),
+    queryFn: async () => {
+      const { data, error, response } = await authMe();
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load your account.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['auth','me'] — 5 min staleTime, no refetch on focus.
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** §15.2: the caller's own API tokens (PATs) — name/prefix/created/last-used/expires, never the plaintext. */
+export function tokensQueryOptions() {
+  return queryOptions({
+    queryKey: qk.auth.tokens(),
+    queryFn: async () => {
+      const { data, error, response } = await authListTokens();
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load API tokens.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['auth','tokens'] — 30s staleTime, no refetch on focus.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** §15.3: pending invites — admin-only, enforced server-side (403) and by M04's route guard. */
+export function invitesQueryOptions() {
+  return queryOptions({
+    queryKey: qk.auth.invites(),
+    queryFn: async () => {
+      const { data, error, response } = await authListInvites();
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load invites.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['auth','invites'] — 30s staleTime, no refetch on focus.
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
 }

@@ -37,12 +37,13 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 
 A React PWA at `clients/web/` consumes this API — see
 [`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) for the full spec and
-[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M06` are implemented**
+[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M07` are implemented**
 (backend amendments, the generated API client, browser auth, routing/shell, the dashboard's generic
-tile rendering, and generic settings rendering — `SchemaForm` was pulled forward a milestone early
-in M05 since tile action dialogs need it too); `M07` onward — account/tokens/invites, notes, and
-everything else that fills in the shell's `<Outlet>` — have not started. There is no production
-Docker image or Compose service for it yet either (that's `M12`).
+tile rendering, generic settings rendering, and the account/API-tokens/admin-invites screens —
+`SchemaForm` was pulled forward a milestone early in M05 since tile action dialogs need it too);
+`M08` onward — the notes screens and everything else that fills in the shell's `<Outlet>` — have
+not started. There is no production Docker image or Compose service for it yet either (that's
+`M12`).
 
 ### Local development
 
