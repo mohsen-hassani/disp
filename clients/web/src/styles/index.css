@@ -17,6 +17,12 @@
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+
+  /* WEB-SPEC §11.6's xl breakpoint: "3 columns, max content width 1200px,
+     centred". Named rather than an arbitrary `max-w-[1200px]` bracket value
+     (§11.2 forbids those) — Tailwind v4's `max-w-*` utilities resolve from
+     the `--container-*` namespace, so this becomes `max-w-content`. */
+  --container-content: 1200px;
 }
 
 [data-theme='light'] {
@@ -82,6 +88,8 @@
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
+
+  --container-content: var(--container-content);
 }
 
 /*

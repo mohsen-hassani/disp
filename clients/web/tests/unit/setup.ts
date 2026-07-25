@@ -10,3 +10,14 @@ import { afterEach } from 'vitest';
 afterEach(() => {
   cleanup();
 });
+
+// jsdom doesn't implement ResizeObserver at all — Radix's Switch (and other
+// primitives using `@radix-ui/react-use-size`) call it unconditionally on
+// mount, so any test rendering one throws `ResizeObserver is not defined`
+// without this stub. No test asserts on resize behavior, so a no-op is enough.
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub;

@@ -1,6 +1,6 @@
 import { queryOptions } from '@tanstack/react-query';
 
-import { dashboardManifest } from './generated';
+import { dashboardManifest, dashboardTiles } from './generated';
 import type { DashboardManifestResponse } from './generated';
 import { qk } from './queryKeys';
 
@@ -40,4 +40,21 @@ export function settingsPanelDomains(manifest: DashboardManifestResponse): strin
   return manifest.modules
     .filter((module) => module.settings_panels.length > 0)
     .map((module) => module.domain);
+}
+
+/** §13.1's bulk fetch — one `TileData` per tile, on first render. */
+export function dashboardTilesQueryOptions() {
+  return queryOptions({
+    queryKey: qk.dashboard.tiles(),
+    queryFn: async () => {
+      const { data, error, response } = await dashboardTiles();
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load dashboard tiles.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['dashboard','tiles'] — always stale, refetch on focus.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
 }

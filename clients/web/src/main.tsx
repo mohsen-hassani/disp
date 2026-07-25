@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { isProblem } from './api/problem';
 import { AuthProvider } from './auth/AuthProvider';
 import { setQueryCacheClearer } from './auth/refresh';
+import { ToastProvider } from './components/feedback/ToastProvider';
 import { setNavigate } from './lib/navigate';
 import { routeTree } from './routeTree.gen';
 import './styles/index.css';
@@ -57,9 +58,11 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ToastProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

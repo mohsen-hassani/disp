@@ -22,7 +22,7 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps): ReactElement {
   const { state } = useAuth();
   const manifestQuery = useQuery(dashboardManifestQueryOptions());
-  const manifestDomains = manifestQuery.data?.modules.map((module) => module.domain) ?? [];
+  const manifestDomains = manifestQuery.data?.modules?.map((module) => module.domain) ?? [];
   const items = computeNavItems({ manifestDomains, isAdmin: isAdmin(state) });
 
   return (
@@ -30,7 +30,10 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       <TopBar />
       <div className="flex flex-1">
         <SideNav items={items} />
-        <main id="main-content" className="min-w-0 flex-1 p-4 pb-20 md:p-6 md:pb-6">
+        <main
+          id="main-content"
+          className="min-w-0 flex-1 p-4 pb-20 md:p-6 md:pb-6 xl:mx-auto xl:max-w-content"
+        >
           {children}
         </main>
       </div>
