@@ -1,6 +1,6 @@
 # M02 — Generated API client and HTTP layer
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/openapi-ts.config.ts`, `clients/web/src/api/{generated/,client.ts,problem.ts,
 queryKeys.ts}`.
@@ -184,3 +184,79 @@ milestone's** concern to apply at the call site; this file only defines the keys
   malformed/empty body does not throw and returns `code: 'internal_error'`.
 - Unit test: a request to a non-auth endpoint carries no `X-Requested-With` header; a request to
   `/auth/refresh` carries `X-Requested-With: disp` exactly.
+
+---
+
+## Implementation notes (this milestone is now built)
+
+`@hey-api/openapi-ts` is at `0.99.0` (M01 pinned it against current registry versions, far past
+the spec's `>=0.64` floor written against an older release), and its output shape has moved on
+from what §5/§6 describe. Three real deviations found and resolved:
+
+### 1. The generated client is now fully self-contained — `@hey-api/client-fetch` is dead weight
+
+§5's tree lists three generated files (`types.gen.ts`, `sdk.gen.ts`,
+`@tanstack/react-query.gen.ts`) importing a separate `@hey-api/client-fetch` runtime package. At
+`0.99.0`, `output.path` instead produces 17 files across `client/`, `core/`, and the three
+top-level ones, with the fetch-based client runtime bundled directly into `client/client.gen.ts` —
+confirmed with `grep -r '@hey-api/client-fetch' src/api/generated/` returning nothing. This matches
+the deprecation notice M01 already flagged ("Starting with v0.73.0, this package is bundled
+directly inside @hey-api/openapi-ts"). The standalone `@hey-api/client-fetch` dependency M01 added
+per §4's literal table has been **removed from `package.json`** — it installs fine but nothing
+imports it, and M01's own note asked M02 to check exactly this.
+
+### 2. `output.lint: 'eslint'` directly contradicts §6.2's own ESLint-ignore requirement
+
+Running the spec's literal `openapi-ts.config.ts` failed outright: `output.lint: 'eslint'` makes
+codegen invoke `eslint src/api/generated` as a post-processing step, but `eslint.config.js`
+(correctly, per §6.2: "ESLint MUST ignore that directory") has that exact path in its `ignores`.
+Under ESLint 9+, explicitly targeting an ignored path is a **hard error** ("all matching files are
+ignored"), not the silent no-op older ESLint versions used to treat it as. §6.1 and §6.2 are in
+direct tension here, and §6.2's normative "MUST ignore" wins: `output.lint`/`output.format` are
+replaced with `output.postProcess: ['prettier']` (dropping `'eslint'`), matching the tool's own
+deprecation guidance for both keys and giving generated code consistent formatting without fighting
+the ignore rule. (One more wrinkle: the runtime deprecation message reads `postProcess: [...]` as
+if it were a top-level config key, but the actual published type only accepts it nested under
+`output` — confirmed by reading `@hey-api/openapi-ts`'s shipped `.d.mts`. Placing it top-level
+fails typecheck; nesting it under `output` is what actually type-checks and runs.)
+
+### 3. `baseUrl: '/api'` would double-prefix or mis-prefix real routes — use `''`
+
+§7.1 says to configure `baseUrl: '/api'`, which assumes every operation path in the generated SDK
+is relative (e.g. `/auth/refresh`). This backend's actual `openapi.json` already emits each
+operation's **full absolute path exactly as mounted** — `/api/auth/refresh`, `/api/notes`,
+`/api/settings/{domain}`, but plain `/health` and `/health/live` with **no** `/api` prefix
+(confirmed by listing `openapi.json`'s `paths` directly). Configuring `baseUrl: '/api'` would have
+produced `/api/api/auth/refresh` for every API call and incorrectly prefixed the two health routes
+to `/api/health...`. `src/api/client.ts` uses `baseUrl: ''` instead — each operation's own absolute
+path resolves against the current origin, which is exactly what §2.1's same-origin/relative-URL
+requirement wants, just without an extra prefix layered on top.
+
+### Extension points for M03, as anticipated
+
+`setAccessTokenGetter(getter)` and `setUnauthorizedHandler(handler)` are exported from
+`client.ts`, exactly the shape the milestone's "open questions" section anticipated. Until M03
+registers them: no token is ever attached (safe default), and a 401 passes through completely
+unhandled (no silent swallowing, no crash) — verified in `tests/unit/api/client.test.ts`.
+
+### Testing note: Node's native `Request` needs an absolute URL, unlike a real browser
+
+`tests/unit/api/client.test.ts` overrides `client`'s `baseUrl` to `http://localhost` for the
+duration of that file only. Under Vitest + jsdom, the global `fetch`/`Request` are Node's native
+(undici) implementations — jsdom itself ships no fetch/Request of its own — and undici's `Request`
+constructor throws `Failed to parse URL from /health/live` for a relative URL, because unlike a
+real browser it has no document location to resolve against. This is purely a test-environment
+artifact (confirmed by tracing a swallowed error through the generated client's `throwOnError:
+false` default, which silently returns `{ error }` instead of surfacing the `TypeError` — a good
+reminder to inspect `result.error instanceof Error` rather than trust a resolved promise means
+success). Production behavior is unaffected: real browsers resolve relative URLs against
+`document.location` exactly as §2.1 assumes.
+
+### Verification actually performed
+
+- `./dev openapi` (backend) → `pnpm api:generate` → 17 files under `src/api/generated/`, committed.
+- `pnpm api:check` passes with the generated output staged (no diff on regeneration).
+- `pnpm typecheck`, `pnpm lint`, `pnpm build`, `pnpm test` (9 tests: 5 for `problem.ts`, 4 for
+  `client.ts`'s header/timeout/401-passthrough behavior) all pass.
+- Confirmed directly in `types.gen.ts` that `SettingsPanelOut.schema` (M00's A1) is present and
+  required, proving the amendment flows all the way through codegen to a usable TS type.
