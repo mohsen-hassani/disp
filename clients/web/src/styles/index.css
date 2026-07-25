@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+
+/*
+ * WEB-SPEC Appendix C, copied verbatim — these exact light/dark pairs were
+ * verified against the §21 A1 contrast requirement (4.5:1 body text, 3:1
+ * large text/UI boundaries). Substituting different hex values would
+ * silently break that guarantee, so don't.
+ */
+:root {
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-overlay: 0 8px 24px -4px rgb(0 0 0 / 0.16);
+  --duration-fast: 120ms;
+  --duration-slow: 200ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+
+[data-theme='light'] {
+  --color-surface: #ffffff;
+  --color-surface-raised: #f7f7f8;
+  --color-surface-sunken: #efeff1;
+  --color-text: #16181d;
+  --color-text-muted: #63666e;
+  --color-border: #dcdde1;
+  --color-border-strong: #b9bbc2;
+  --color-accent: #2f5fd0;
+  --color-accent-text: #ffffff;
+  --color-danger: #c02636;
+  --color-success: #1c7a4a;
+  --color-warning: #8a5a00;
+}
+
+[data-theme='dark'] {
+  --color-surface: #131519;
+  --color-surface-raised: #1b1e24;
+  --color-surface-sunken: #0e1013;
+  --color-text: #e8e9ec;
+  --color-text-muted: #9a9da6;
+  --color-border: #2a2e36;
+  --color-border-strong: #414651;
+  --color-accent: #7ba0f0;
+  --color-accent-text: #0e1013;
+  --color-danger: #f0808c;
+  --color-success: #5cc48d;
+  --color-warning: #e0b155;
+}
+
+/*
+ * Tailwind v4 theme layer: `inline` so each utility resolves the CSS custom
+ * property at use time rather than baking in the :root value at build time —
+ * required for the [data-theme] swap above to actually affect already-
+ * generated utility classes like `bg-surface` or `text-text-muted`.
+ * `--easing` is deliberately left out: its name doesn't fit Tailwind's
+ * `--ease-*` utility namespace and the spec names it `--easing` verbatim, so
+ * components read it directly via var(--easing) instead (§11.7, M04+).
+ */
+@theme inline {
+  --color-surface: var(--color-surface);
+  --color-surface-raised: var(--color-surface-raised);
+  --color-surface-sunken: var(--color-surface-sunken);
+  --color-text: var(--color-text);
+  --color-text-muted: var(--color-text-muted);
+  --color-border: var(--color-border);
+  --color-border-strong: var(--color-border-strong);
+  --color-accent: var(--color-accent);
+  --color-accent-text: var(--color-accent-text);
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+
+  --shadow-overlay: var(--shadow-overlay);
+  --duration-fast: var(--duration-fast);
+  --duration-slow: var(--duration-slow);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/*
+ * Root document styling only (§11.2-11.3 is CSS tokens; component patterns
+ * are M04+). This is enough to make the theme-bootstrap script's effect
+ * visible — without it, an incorrect data-theme wouldn't produce a visible
+ * flash for M01's own verification step to catch.
+ */
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}

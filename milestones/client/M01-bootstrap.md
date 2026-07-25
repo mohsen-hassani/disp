@@ -1,6 +1,6 @@
 # M01 — Bootstrap client scaffold
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/{package.json,pnpm-lock.yaml,tsconfig.json,tsconfig.node.json,vite.config.ts,
 tailwind.config.ts,eslint.config.js,.prettierrc,playwright.config.ts,vitest.config.ts,index.html,
@@ -130,3 +130,74 @@ tree and configs this milestone creates.
 - Open `dist/index.html` directly (or via `pnpm preview`) and confirm the theme-bootstrap script
   sets `data-theme` before the page paints, with no visible flash, in both an OS-light and OS-dark
   environment.
+
+---
+
+## Implementation notes (this milestone is now built)
+
+### Dependency versions
+
+All `package.json` versions were resolved against the real npm registry at implementation time
+(current dates put the ecosystem well past this spec's original minimums — e.g. Vite 8, React
+19.2, TanStack Router 1.170, ESLint 10 are all current "latest"), pinned with `^` ranges per §4's
+"minimum version" framing, mirroring how the backend's own `M00-bootstrap.md` pinned exact current
+versions rather than the versions that happened to exist when TECHNICAL-SPEC.md was written.
+
+**One deliberate exception:** `typescript` is pinned to `^6.0.3`, not the actual latest `7.0.2`.
+`typescript-eslint@8.65.0` (required by §4's own lint stack) declares a hard peer ceiling of
+`typescript: ">=4.8.4 <6.1.0"` — TypeScript 7 is a very recent native-compiler release the
+type-aware lint tooling hasn't caught up to yet. Using 7.x produced an unmet-peer warning on
+install; 6.0.3 is the newest version inside typescript-eslint's declared support window and still
+clears the spec's own `>=5.6` floor by a wide margin.
+
+`eslint-plugin-jsx-a11y@6.10.2`'s declared peer range (`eslint: ^3...^9`) is similarly behind
+`eslint@10.8.0`, producing an unmet-peer warning pnpm can't fully suppress — but functionally the
+plugin only consumes ESLint's stable rule-context API and its flat `recommended` config lints
+correctly under ESLint 10 (verified: `pnpm lint` passes clean). Left as-is rather than downgrading
+ESLint, since this is a stale peer-range declaration, not an actual incompatibility.
+
+`@hey-api/client-fetch` is flagged deprecated by its own maintainers as of `@hey-api/openapi-ts
+>=0.73` ("bundled directly inside @hey-api/openapi-ts" per the install-time warning) — we're on
+`0.99.0`. It still installs and is what §4's stack table names explicitly, so it's kept for now;
+**M02 should check whether the generated SDK actually imports from this package or from
+`@hey-api/openapi-ts`'s own bundled client** before wiring `src/api/client.ts`'s interceptors, and
+drop the standalone dependency if it turns out to be dead weight.
+
+### A real TypeScript tooling incompatibility: `tsc -b --noEmit`
+
+§24.2 specifies the `typecheck` script verbatim as `"tsc -b --noEmit"`. This does not work: passing
+`--noEmit` on the command line together with `--build` (project references) fails with
+`TS6310: Referenced project '...' may not disable emit` — a long-standing, deliberate TypeScript
+restriction (build mode's incremental model requires referenced projects to actually be able to
+emit `.tsbuildinfo`/declaration output; forcing `noEmit` contradicts that, regardless of whether the
+referenced project's own config sets `noEmit`). This reproduces with any composite project
+reference graph, not something fixable by tweaking `tsconfig.node.json` — confirmed by testing both
+with and without an explicit `noEmit` in the referenced config.
+
+**Resolution:** `package.json`'s `typecheck` script is `"tsc -b"` (no `--noEmit`). `tsconfig.node.json`
+(the referenced, composite project covering `vite.config.ts` and friends) is given
+`"declaration": true, "emitDeclarationOnly": true` plus an `outDir`/`tsBuildInfoFile` pointed inside
+`node_modules/.tsbuildcache/` (gitignored) so `tsc -b` still performs full type-checking — a type
+error anywhere in the graph still fails the command with a non-zero exit — but its incidental output
+never lands in the source tree. The root `tsconfig.json` (covering `src`/`tests`) keeps
+`"noEmit": true` since nothing references it, which project references permit. Both `tsc -b`
+(typecheck) and `tsc -b && vite build` (build) were run repeatedly during implementation to confirm
+neither leaves stray `.js`/`.d.ts`/`.tsbuildinfo` files anywhere outside `node_modules`.
+
+### Icon and theme-bootstrap verification actually performed
+
+- Rasterized `public/favicon.svg` (a plain vector mark: an accent-colored rounded square with a
+  white ring) into real, non-placeholder pixel content for all five required PNGs via
+  `rsvg-convert` — `icon-192/512.png` from the rounded-corner mark, `icon-maskable-192/512.png` and
+  `apple-touch-icon.png` from a full-bleed (no corner radius) variant, since a maskable icon's
+  safe-zone content should be edge-to-edge background with the OS applying its own mask shape,
+  not a pre-rounded square underneath a circular crop.
+- Verified the actual shipped `public/theme-bootstrap.js` (not just the logic in the abstract) with
+  a small jsdom harness exercising all five relevant combinations of stored preference
+  (`"dark"`/`"light"`/`"system"`/absent) crossed with `prefers-color-scheme`: an explicit stored
+  `light`/`dark` always wins over the OS preference; `system` or no stored value always falls back
+  to `prefers-color-scheme` correctly. `pnpm build` output was inspected directly
+  (`dist/index.html`) to confirm the script tag is non-module, unhashed, and ordered before the
+  bundled app script — the three properties that make it CSP-compliant and FOUC-safe.
+- `pnpm typecheck`, `pnpm lint` (ESLint + Prettier), and `pnpm build` all pass clean from a fresh
+  `pnpm install` against a trivial `main.tsx`.
