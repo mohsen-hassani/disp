@@ -1,6 +1,6 @@
 # M03 — Authentication in the browser
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/auth/{tokenStore.ts,AuthProvider.tsx,refresh.ts,useAuth.ts,guards.tsx}`,
 `clients/web/src/routes/{login.tsx,accept-invite.tsx}`.
@@ -187,3 +187,104 @@ with Appendix D copy.
 
 Full Playwright e2e coverage of these against a real backend is M11's job; this milestone should at
 minimum pass all 14 as Vitest/RTL + MSW component/unit tests before being considered done.
+
+---
+
+## Implementation notes (this milestone is now built)
+
+### No router exists yet — a router-agnostic navigation shim, not a workaround
+
+M04 (routing/shell) hasn't landed, so `src/routes/login.tsx` and `accept-invite.tsx` are plain
+exported React components, not `createFileRoute`-wrapped route files — wiring them into
+TanStack Router's file-based tree is M04's job. Reading `next`/`token` from
+`window.location.search` directly (rather than router-provided typed search params) and
+navigating via a new `src/lib/navigate.ts` (a swappable `navigate()`/`setNavigate()` pair,
+defaulting to `window.location.assign`) both work correctly today — a full-page reload after
+login still lands on a working, authenticated page, since `AuthProvider` re-bootstraps from the
+`HttpOnly` refresh cookie on every mount exactly as the first page load would. M04 should call
+`setNavigate(router.navigate)` once the router exists, trading the one avoidable round-trip for
+client-side navigation; nothing about `login.tsx`/`accept-invite.tsx`'s internal logic needs to
+change for that swap. The same shim backs `guards.tsx`'s redirect and `refresh.ts`'s logout paths.
+
+### File layout deviates from the milestone's literal 5-file list — deliberately
+
+The literal scope list names `tokenStore.ts, AuthProvider.tsx, refresh.ts, useAuth.ts, guards.tsx`.
+Two small additions were needed to avoid a circular import between `AuthProvider.tsx` (needs
+`refresh.ts`'s `scheduleProactiveRefresh` after login) and `refresh.ts` (needs logout side effects
+that also live conceptually with "session state"):
+
+- **`src/auth/authState.ts`** (new, ~30 lines): the `AuthState` type plus a plain module-scoped
+  external store (`getAuthState`/`setAuthState`/`subscribeAuthState`), consumed via
+  `useSyncExternalStore` rather than React Context. This is what lets `refresh.ts` — which runs
+  outside any component, registered on `client.ts` at module load — transition auth state (e.g.
+  into `revoked` on reuse detection) without depending on React at all. `AuthProvider.tsx` and
+  `useAuth.ts` both subscribe to the same store instead of one depending on the other for state.
+- **`src/lib/navigate.ts`** (new, ~15 lines): see above — not auth-specific, so it lives beside
+  M01's `lib/theme.ts`/`lib/cn.ts` rather than in `auth/`.
+
+With `authState.ts` as the shared, dependency-free primitive, the actual dependency graph is
+one-directional: `refresh.ts` depends on `authState.ts` + `tokenStore.ts` + `lib/navigate.ts` only;
+`AuthProvider.tsx` depends on `refresh.ts` (for `scheduleProactiveRefresh`/`softLogout`) plus the
+same primitives; `useAuth.ts` depends on `AuthProvider.tsx`'s action exports plus `authState.ts`.
+Login/explicit-logout/accept-invite actions live as plain exported functions in `AuthProvider.tsx`
+itself (not a separate `actions.ts`) since keeping the file list this close to the specified five
+seemed worth it once the two real primitives above resolved the actual circularity problem.
+
+### §8.4's step ordering, read literally, could never trigger hard logout — resolved by intent, not letter
+
+§8.4 numbers "check for `auth.refresh_token_reused`" as step 3, *after* step 2's "don't retry
+/auth/refresh, /auth/login, /auth/logout, /auth/accept-invite requests." Read as a strict
+if-elif chain, step 2 would catch every failure of `/auth/refresh` itself and return before step 3
+ever runs — but `auth.refresh_token_reused` is a code *only* the refresh endpoint ever returns
+(confirmed against `src/disp/core/auth/routes.py`), so literally that ordering makes step 3
+unreachable in practice. The implemented interceptor (`handleUnauthorizedResponse` in
+`refresh.ts`) instead treats "reused" as one of two possible **outcomes of step 5's own refresh
+attempt** (the other being a generic "failed"), branching to hard-logout vs. soft-logout
+accordingly — this is what step 3 and step 7 clearly intend together, just not what a literal
+top-to-bottom reading of the numbered list produces. Bootstrap (`AuthProvider.bootstrap`) has its
+own, separate, direct handling of the same code on its own `/auth/refresh` call, per §8.3 — it was
+never supposed to go through this interceptor's retry logic at all, since bootstrap isn't retrying
+anything.
+
+### A redundant-but-harmless extra call, kept because the spec asks for it
+
+The backend's `/api/auth/refresh` and `/api/auth/login` responses both already include the full
+`user` object (confirmed: `AuthRefreshResponse`/`AuthLoginResponse` are both the generated
+`LoginResponse` type, `user: UserOut` included) — meaning bootstrap's explicit step 3
+("call `GET /api/auth/me`") is provably redundant with data already in hand. Implemented it anyway,
+exactly as specified: it's cheap, correct, and an explicit MUST, unlike the other deviations above
+which were genuine contradictions forcing a choice. `login()`/`acceptInvite()` don't make the
+extra call, matching §8.7/§8.8's text, which — unlike §8.3 — never asks for one.
+
+### One rule from §8.8 is not client-checkable at all
+
+"Password ≠ the invited email" (mirroring backend §10.3) can't be enforced in
+`accept-invite.tsx`: the invited email isn't known to an unauthenticated client before submission
+— there's no "look up an invite by token" endpoint, by design. Client-side validation covers the
+length bounds (12–128, confirmed against `src/disp/core/auth/passwords.py`) and the
+confirm-password match; the email-equality rule surfaces only via the server's
+`422 auth.password_policy` response, mapped to the password field like any other server-side
+validation failure. Documented in the file itself so a future pass doesn't "fix" this as a bug.
+
+### Extension points left for later milestones, mirroring M02's pattern
+
+- `refresh.setQueryCacheClearer(fn)` — a no-op until M04's QueryClient exists to actually clear
+  (§8.6's "clear the TanStack Query cache" logout step).
+- `AuthProvider`'s `getCachedUser` prop — the §8.3-step-6/§18.4 offline-degraded-mode hook M09
+  wires a real query-cache lookup into; today it's simply never provided, so that branch always
+  falls through to `anonymous`, which is the spec's own documented fallback.
+
+### Verification actually performed
+
+- `pnpm typecheck`, `pnpm lint` (ESLint incl. `eslint-plugin-jsx-a11y` on the two forms, Prettier)
+  all pass clean.
+- `pnpm test`: 34 tests across 9 files, all passing — the 14 required cases plus a few extra
+  (guards.tsx's `RequireAuth`/`RequireAdmin`, a couple of accept-invite smoke tests not in the
+  required list but cheap insurance for a screen that otherwise had zero coverage).
+  `src/auth/` sits at ~84–94% line coverage per file; M11 owns tightening this to the spec's ≥95%
+  gate once the full suite (and the remaining milestones' code) exists.
+- `pnpm build` succeeds. Notably the production bundle size is **unchanged from M02** — none of
+  this milestone's code is reachable from `main.tsx` yet (still M01's trivial stub), so nothing new
+  is actually bundled into the shipped app until M04 wires `AuthProvider` and the two screens into
+  a real router and entry point. Confirmed clean type-checking and passing tests are what this
+  milestone can prove on its own; end-to-end behavior against a running app is M04's to prove.
