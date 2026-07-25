@@ -116,7 +116,15 @@ function renderControl(params: {
 }): ReactNode {
   const { name, schema, defs, depth, required, disabled, describedBy, invalid } = params;
 
-  if (schema['x-secret']) {
+  // Appendix B's only `x-secret` row is `{"type":"string","x-secret":true}`
+  // — confirmed against a live manifest that a non-string secret exists
+  // (`core.notifier`'s `urls: dict[str, str]`, masked server-side as
+  // `{key: "***", ...}` per field, not a single `"***"` scalar). Routing
+  // that to `SecretWidget` unconditionally would bind a dict to a text
+  // input; falling through to the normal type dispatch below correctly
+  // lands it on the disabled fallback instead (no widget in this table
+  // renders a *map* of secrets).
+  if (schema['x-secret'] && schema.type === 'string') {
     return (
       <SecretWidget name={name} disabled={disabled} describedBy={describedBy} invalid={invalid} />
     );

@@ -50,6 +50,25 @@ describe('schemaToZod', () => {
     expect(zodSchema.safeParse({ weird: [1, 2, 3] }).success).toBe(true);
   });
 
+  it('falls back to unknown for a non-string x-secret field (a masked dict, not a masked scalar)', () => {
+    // Confirmed against a live `core.notifier` manifest: `urls: dict[str,
+    // str]` with `x-secret: true` has no `properties` key at all (it's a
+    // free-form map via `additionalProperties`), and the server masks it
+    // per-entry (`{key: "***", ...}`), not as a single "***" scalar.
+    // Appendix B's only `x-secret` row is `{"type":"string","x-secret":
+    // true}` — this must not be treated as a maskable string.
+    const schema: JsonSchema = {
+      type: 'object',
+      properties: {
+        // No `properties` key — a free-form map, not a fixed-shape object.
+        urls: { type: 'object', 'x-secret': true },
+      },
+    };
+    const zodSchema = schemaToZod(schema);
+    expect(zodSchema.safeParse({ urls: { a: '***', b: '***' } }).success).toBe(true);
+    expect(zodSchema.safeParse({}).success).toBe(true);
+  });
+
   it('falls back to unknown past the three-level nesting cap', () => {
     const schema: JsonSchema = {
       type: 'object',

@@ -132,7 +132,7 @@ function baseZod(
   depth: number,
   required: boolean,
 ): ZodTypeAny {
-  if (schema['x-secret']) {
+  if (schema['x-secret'] && schema.type === 'string') {
     // §14.4: an untouched secret is omitted from the payload entirely, and
     // the masked "***" sentinel is never a real value the client sends —
     // always optional client-side regardless of `required`, since a

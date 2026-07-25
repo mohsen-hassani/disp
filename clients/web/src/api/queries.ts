@@ -1,7 +1,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
-import { dashboardManifest, dashboardTiles } from './generated';
+import { dashboardManifest, dashboardTiles, settingsGet } from './generated';
 import type { DashboardManifestResponse } from './generated';
+import type { ProblemDetail } from './problem';
 import { qk } from './queryKeys';
 
 /**
@@ -57,4 +58,63 @@ export function dashboardTilesQueryOptions() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+}
+
+/** §14.1: current values for a domain's settings panel, secrets masked as `"***"`. */
+export function settingsQueryOptions(domain: string) {
+  return queryOptions({
+    queryKey: qk.settings.domain(domain),
+    queryFn: async () => {
+      const { data, error, response } = await settingsGet({ path: { domain } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load settings.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['settings', domain] — 60s staleTime, no refetch on focus.
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * §14.1: "Only changed keys are sent" — not an optimization, it's what
+ * keeps an untouched secret's `"***"` sentinel from ever being echoed back
+ * (§14.4's own per-field omission handles the secret key itself; this is
+ * the same principle applied to every other top-level field). Pulled out
+ * as a pure function — `routes/_app.settings.$domain.tsx` can't export it
+ * directly for testing without also disabling that route's own code
+ * splitting (confirmed in M05: any non-`Route` export blocks
+ * `@tanstack/router-plugin`'s per-route lazy chunk).
+ */
+export function filterDirtyValues(
+  values: Record<string, unknown>,
+  dirtyFields: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.keys(values)
+      .filter((key) => dirtyFields[key])
+      .map((key) => [key, values[key]]),
+  );
+}
+
+// Appendix D, verbatim. `settings.decryption_failed` is a real operational
+// signal (the server's encryption key changed) the user needs to escalate,
+// not a generic retryable error — it does NOT go through the generic 5xx
+// toast copy.
+const DECRYPTION_FAILED_COPY =
+  "This setting can't be read — the server's encryption key may have changed. Contact your administrator.";
+const PERMISSION_DENIED_COPY = "You don't have permission to do that.";
+
+export function describeSettingsError(problem: ProblemDetail): string {
+  if (problem.code === 'settings.decryption_failed') {
+    return DECRYPTION_FAILED_COPY;
+  }
+  if (problem.status === 403) {
+    return PERMISSION_DENIED_COPY;
+  }
+  if (problem.status >= 500) {
+    return `Something went wrong on the server. Reference: ${problem.request_id}`;
+  }
+  return problem.detail || 'Something went wrong. Please try again.';
 }
