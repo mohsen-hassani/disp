@@ -33,6 +33,61 @@ uv run disp notes list
 
 Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` before committing.
 
+## Web client
+
+A React PWA at `clients/web/` consumes this API — see
+[`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) for the full spec and
+[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M04` are implemented**
+(backend amendments, the generated API client, browser auth, and routing/shell); `M05` onward — the
+dashboard, notes screens, settings, and everything else that fills in the shell's `<Outlet>` — have
+not started, so running it today gets you a working shell with placeholder screens. There is no
+production Docker image or Compose service for it yet either (that's `M12`).
+
+### Local development
+
+Requires Node.js `>=22.11 <23` and `pnpm >=9.12`.
+
+```sh
+cd clients/web
+pnpm install
+pnpm dev            # Vite dev server on http://localhost:5173
+```
+
+The dev server has **no proxy to the backend configured** — §2.1 of the web spec requires the
+client and API to be same-origin in production (Traefik path-routes `/api` to the backend
+container, §24.4), and no local dev-time equivalent exists yet. Until `M12` (or an earlier
+milestone adds a Vite proxy), pages that call the API won't reach it when run standalone with
+`pnpm dev`. Run the real backend alongside it regardless (`uv run uvicorn disp.main:app --reload`
+per the quickstart above) so this is a non-issue once routing/proxying is wired up.
+
+Regenerate the typed API client after any backend route change:
+
+```sh
+./dev openapi                 # from the repo root: writes openapi.json
+cd clients/web && pnpm api:generate   # regenerates src/api/generated/, commit the result
+```
+
+Other useful commands, run from `clients/web/`:
+
+```sh
+pnpm typecheck   # tsc -b
+pnpm lint        # eslint + prettier --check
+pnpm fmt         # eslint --fix + prettier --write
+pnpm test        # vitest run --coverage
+pnpm test:watch  # vitest, interactive
+pnpm build       # tsc -b && vite build -> dist/
+pnpm preview     # serve the production build locally
+```
+
+### Production
+
+Not yet implemented — `clients/web/` has no `Dockerfile` and `docker-compose.yml` has no `web`
+service. `milestones/client/M12-pwa-deploy-acceptance.md` specifies the intended shape: a
+two-stage build (`pnpm build` → static `dist/`) served by `nginx:1.27-alpine` behind Traefik,
+sharing the same host as the API with Traefik path-routing `/api`, `/health`, and `/openapi.json`
+to the backend container and everything else to the web container. Follow that milestone doc when
+implementing it rather than improvising a deployment shape ahead of it.
+
 ## Architecture
 
 ```
@@ -59,7 +114,9 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
   registry, the dashboard/settings HTTP surface. It never imports anything from `disp/modules/`.
 - **Modules** (`src/disp/modules/`) are self-contained plug-ins, each with its own Postgres schema
   and Alembic migration branch. Adding one requires zero edits to `core/` — see
-  [`docs/adding-a-module.md`](docs/adding-a-module.md).
+  [`docs/adding-a-module.md`](docs/adding-a-module.md). Each module has its own README covering
+  what it does and how to develop it — see [`src/disp/modules/notes/README.md`](src/disp/modules/notes/README.md)
+  for the one shipped module.
 - **The worker** (`src/disp/worker.py`) is a separate process running the same module wiring
   (event subscriptions, scheduled tasks) without an HTTP server, via Procrastinate.
 - **The CLI** (`src/disp/cli/`) talks to the HTTP API exactly like any other client — it holds no
@@ -76,9 +133,8 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 | [`docs/operations.md`](docs/operations.md) | Backups, a verified restore drill, key rotation, log locations, health endpoints. |
 | `./dev` (run with no args) | Every local dev command: `up`, `migrate`, `test`, `lint`, `seed`, `openapi`, … |
 
-The web client's implementation is sequenced at [`milestones/client/M00-M12`](milestones/client/) —
-`M00` (backend amendments enabling the client's generic settings UI) is complete; `M01` onward build
-the client itself and haven't started yet.
+See "Web client" above for how to run what exists of `clients/web/` today, and
+[`milestones/client/`](milestones/client/) for its build sequence.
 
 `GET /api/dashboard/manifest` serializes each settings panel's schema as JSON Schema (with a secret
 field marked `"x-secret": true`), including panels registered directly on the core platform (e.g.
