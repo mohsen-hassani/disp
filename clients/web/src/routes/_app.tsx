@@ -4,6 +4,7 @@ import { dashboardManifestQueryOptions } from '../api/queries';
 import { getAuthState } from '../auth/authState';
 import { isAuthenticated } from '../auth/guards';
 import { AppShell } from '../components/layout/AppShell';
+import { CreateNoteDialogProvider } from '../components/notes/CreateNoteDialogProvider';
 
 // WEB-SPEC §9: every authenticated screen nests under this pathless layout,
 // which owns the auth guard. By the time this ever runs, `AuthProvider`
@@ -33,8 +34,14 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayout() {
   return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
+    // §16.3/§16.5: the create-note dialog is reachable from any screen (the
+    // `n` shortcut is global, not `/notes`-scoped) — mounted here, above
+    // `AppShell`, so both it and every routed page underneath can reach the
+    // one shared dialog instance via `useCreateNoteDialog()`.
+    <CreateNoteDialogProvider>
+      <AppShell>
+        <Outlet />
+      </AppShell>
+    </CreateNoteDialogProvider>
   );
 }

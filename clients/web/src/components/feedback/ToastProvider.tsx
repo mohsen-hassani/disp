@@ -12,14 +12,20 @@ import { cn } from '../../lib/cn';
 
 type ToastVariant = 'default' | 'danger';
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: string;
   title: string;
   variant: ToastVariant;
+  action?: ToastAction;
 }
 
 interface ToastContextValue {
-  showToast: (title: string, variant?: ToastVariant) => void;
+  showToast: (title: string, variant?: ToastVariant, action?: ToastAction) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -33,10 +39,13 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export function ToastProvider({ children }: { children: ReactNode }): ReactElement {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = useCallback((title: string, variant: ToastVariant = 'default') => {
-    const id = crypto.randomUUID();
-    setToasts((current) => [...current, { id, title, variant }]);
-  }, []);
+  const showToast = useCallback(
+    (title: string, variant: ToastVariant = 'default', action?: ToastAction) => {
+      const id = crypto.randomUUID();
+      setToasts((current) => [...current, { id, title, variant, action }]);
+    },
+    [],
+  );
 
   const dismiss = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -61,6 +70,15 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
             )}
           >
             <Toast.Title className="text-text text-sm">{toast.title}</Toast.Title>
+            {toast.action && (
+              <Toast.Action
+                altText={toast.action.label}
+                onClick={toast.action.onClick}
+                className="text-accent focus-visible:outline-accent mt-1 block text-sm font-medium underline focus-visible:outline focus-visible:outline-2"
+              >
+                {toast.action.label}
+              </Toast.Action>
+            )}
             <Toast.Close
               aria-label="Dismiss"
               className="text-text-muted focus-visible:outline-accent absolute top-2 right-2 rounded-sm focus-visible:outline focus-visible:outline-2"

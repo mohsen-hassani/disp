@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
 import {
   authListInvites,
@@ -6,6 +6,8 @@ import {
   authMe,
   dashboardManifest,
   dashboardTiles,
+  notesGet,
+  notesList,
   settingsGet,
 } from './generated';
 import type { DashboardManifestResponse } from './generated';
@@ -182,5 +184,58 @@ export function invitesQueryOptions() {
     // WEB-SPEC §10.2: ['auth','invites'] — 30s staleTime, no refetch on focus.
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+  });
+}
+
+export interface NotesListFilters {
+  q?: string;
+  pinned?: boolean;
+}
+
+/**
+ * §16.1/§10.5: cursor pagination via `useInfiniteQuery`, an explicit "Load
+ * more" button rather than scroll-triggered loading. Server ordering
+ * (`pinned DESC, created_at DESC, id DESC` — confirmed in
+ * `src/disp/modules/notes/service.py`) is never re-sorted client-side.
+ */
+export function notesListInfiniteQueryOptions(filters: NotesListFilters) {
+  return infiniteQueryOptions({
+    queryKey: qk.notes.list(filters),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, response } = await notesList({
+        query: {
+          limit: 20,
+          cursor: pageParam,
+          q: filters.q || undefined,
+          pinned: filters.pinned,
+        },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load notes.');
+      }
+      return data;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    // WEB-SPEC §10.2: ['notes','list',filters] — 30s staleTime, refetch on focus.
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** §16.2: a single note. 404 is handled by the route's `loader`, which turns it into `notFound()`. */
+export function noteDetailQueryOptions(noteId: string) {
+  return queryOptions({
+    queryKey: qk.notes.detail(noteId),
+    queryFn: async () => {
+      const { data, error, response } = await notesGet({ path: { note_id: noteId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the note.');
+      }
+      return data;
+    },
+    // WEB-SPEC §10.2: ['notes','detail',id] — 60s staleTime, refetch on focus.
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 }

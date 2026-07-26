@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ReactElement, ReactNode } from 'react';
+import { type ReactElement, type ReactNode, useState } from 'react';
 
 import { dashboardManifestQueryOptions } from '../../api/queries';
 import { isAdmin } from '../../auth/guards';
 import { useAuth } from '../../auth/useAuth';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useCreateNoteDialog } from '../notes/CreateNoteDialogProvider';
+import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog';
 import { BottomNav } from './BottomNav';
 import { computeNavItems } from './navItems';
 import { SideNav } from './SideNav';
@@ -25,6 +28,13 @@ export function AppShell({ children }: AppShellProps): ReactElement {
   const manifestDomains = manifestQuery.data?.modules?.map((module) => module.domain) ?? [];
   const items = computeNavItems({ manifestDomains, isAdmin: isAdmin(state) });
 
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const { open: openCreateNote } = useCreateNoteDialog();
+  useKeyboardShortcuts({
+    onOpenCreateNote: openCreateNote,
+    onOpenShortcuts: () => setShortcutsOpen(true),
+  });
+
   return (
     <div className="flex min-h-screen flex-col px-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
       <TopBar />
@@ -38,6 +48,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
         </main>
       </div>
       <BottomNav items={items} />
+      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );
 }
