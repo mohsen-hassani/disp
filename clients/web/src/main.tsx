@@ -3,11 +3,14 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import type { MeResponse } from './api/generated';
 import { isProblem } from './api/problem';
+import { qk } from './api/queryKeys';
 import { AuthProvider } from './auth/AuthProvider';
 import { setQueryCacheClearer } from './auth/refresh';
 import { ToastProvider } from './components/feedback/ToastProvider';
 import { setNavigate } from './lib/navigate';
+import { UpdatePrompt } from './pwa/UpdatePrompt';
 import { routeTree } from './routeTree.gen';
 import './styles/index.css';
 
@@ -59,7 +62,17 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <AuthProvider>
+        <UpdatePrompt />
+        {/*
+          WEB-SPEC §18.4: bootstrap()'s degraded-offline branch (a refresh
+          that failed as a pure network error, not a 401) falls back to
+          whatever `['auth','me']` already holds in this QueryClient — set
+          only by a *prior* successful bootstrap/account-screen fetch in
+          this same session, since nothing here persists the cache across a
+          real reload. It MUST NOT be used when the server actively
+          rejected the refresh (bootstrap() already gates that itself).
+        */}
+        <AuthProvider getCachedUser={() => queryClient.getQueryData<MeResponse>(qk.auth.me())}>
           <RouterProvider router={router} />
         </AuthProvider>
       </ToastProvider>

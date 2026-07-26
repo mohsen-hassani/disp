@@ -22,10 +22,22 @@ interface ToastItem {
   title: string;
   variant: ToastVariant;
   action?: ToastAction;
+  persistent?: boolean;
 }
 
 interface ToastContextValue {
-  showToast: (title: string, variant?: ToastVariant, action?: ToastAction) => void;
+  /**
+   * `persistent` (§17.4): the update-available toast must stay up until the
+   * user acts — auto-reloading mid-edit destroys unsaved input — so it opts
+   * out of the Provider's default 6s auto-dismiss via Radix's per-`Toast.Root`
+   * `duration` override rather than a new dismiss mechanism.
+   */
+  showToast: (
+    title: string,
+    variant?: ToastVariant,
+    action?: ToastAction,
+    persistent?: boolean,
+  ) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -40,9 +52,14 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback(
-    (title: string, variant: ToastVariant = 'default', action?: ToastAction) => {
+    (
+      title: string,
+      variant: ToastVariant = 'default',
+      action?: ToastAction,
+      persistent?: boolean,
+    ) => {
       const id = crypto.randomUUID();
-      setToasts((current) => [...current, { id, title, variant, action }]);
+      setToasts((current) => [...current, { id, title, variant, action, persistent }]);
     },
     [],
   );
@@ -58,6 +75,7 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
         {toasts.map((toast) => (
           <Toast.Root
             key={toast.id}
+            duration={toast.persistent ? Infinity : undefined}
             onOpenChange={(open) => {
               if (!open) {
                 dismiss(toast.id);

@@ -28,6 +28,42 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
   handleUnauthorized = handler;
 }
 
+function requestMethod(input: RequestInfo | URL, init?: RequestInit): string {
+  if (init?.method) {
+    return init.method.toUpperCase();
+  }
+  if (input instanceof Request) {
+    return input.method;
+  }
+  return 'GET';
+}
+
+/**
+ * WEB-SPEC §18.1/§18.5, test case 44: mutations require a connection, and
+ * an offline attempt must "issue no request" — not merely fail after
+ * issuing one. Enforced here, once, for every mutation in the app (every
+ * generated SDK call and `useTileAction`'s raw `client.request()` both
+ * funnel through this one `fetch` implementation), rather than teaching
+ * every mutating button its own offline check. GET/HEAD are exempt: an
+ * offline *read* must still be attempted so the service worker's
+ * NetworkFirst runtime caching (§18.2) can serve it from cache — blocking
+ * those here would break read-only-offline entirely.
+ *
+ * The rejection mirrors a genuine network failure (a real offline `fetch()`
+ * already rejects with a `TypeError` today) rather than a new failure shape.
+ * The generated client's own pipeline catches it and resolves with
+ * `{ error, response: undefined }` — every existing "no response" handling
+ * path (AuthProvider, useTileAction's `toActionError`, etc.) already
+ * branches on exactly that.
+ */
+function isBlockedOffline(input: RequestInfo | URL, init?: RequestInit): boolean {
+  if (navigator.onLine) {
+    return false;
+  }
+  const method = requestMethod(input, init);
+  return method !== 'GET' && method !== 'HEAD';
+}
+
 /**
  * A fresh AbortSignal.timeout() per call, combined with any caller-supplied
  * signal — a single shared signal instance would only fire once for
@@ -35,6 +71,9 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler): void {
  * apply a rolling per-request timeout to every request.
  */
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (isBlockedOffline(input, init)) {
+    return Promise.reject(new TypeError('Failed to fetch: offline, mutation blocked.'));
+  }
   const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const signal = init?.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
   return fetch(input, { ...init, signal });

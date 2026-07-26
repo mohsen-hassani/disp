@@ -20,6 +20,7 @@
     "vitest.config.ts",
     "playwright.config.ts",
     "openapi-ts.config.ts",
-    "tailwind.config.ts"
+    "tailwind.config.ts",
+    "src/pwa/workboxConfig.ts"
   ]
 }

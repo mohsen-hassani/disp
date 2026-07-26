@@ -10,18 +10,21 @@ import { relativeTime } from '../../lib/format';
 interface NoteCardProps {
   note: NoteOut;
   pinPending: boolean;
+  /** §18.5: disables the pin toggle and the menu's mutating items (not Open) while offline. */
+  offline: boolean;
   onTogglePinned: (note: NoteOut) => void;
   onShare: (note: NoteOut) => void;
   onDelete: (note: NoteOut) => void;
 }
 
 const menuItemClass =
-  'text-text hover:bg-surface-sunken focus-visible:bg-surface-sunken data-[highlighted]:bg-surface-sunken block w-full cursor-pointer rounded-sm px-3 py-1.5 text-left text-sm outline-none';
+  'text-text hover:bg-surface-sunken focus-visible:bg-surface-sunken data-[highlighted]:bg-surface-sunken block w-full cursor-pointer rounded-sm px-3 py-1.5 text-left text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50';
 
 /** §16.1's list row: pin indicator, title (or first line of body), a two-line preview, relative time, overflow menu. */
 export function NoteCard({
   note,
   pinPending,
+  offline,
   onTogglePinned,
   onShare,
   onDelete,
@@ -36,7 +39,8 @@ export function NoteCard({
       <button
         type="button"
         onClick={() => onTogglePinned(note)}
-        disabled={pinPending}
+        disabled={pinPending || offline}
+        title={offline ? "You're offline." : undefined}
         aria-pressed={note.pinned}
         aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
         className="text-text-muted focus-visible:outline-accent mt-0.5 shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
@@ -77,14 +81,23 @@ export function NoteCard({
                 Open
               </Link>
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={menuItemClass} onSelect={() => onTogglePinned(note)}>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              disabled={offline}
+              onSelect={() => onTogglePinned(note)}
+            >
               {note.pinned ? 'Unpin' : 'Pin'}
             </DropdownMenu.Item>
-            <DropdownMenu.Item className={menuItemClass} onSelect={() => onShare(note)}>
+            <DropdownMenu.Item
+              className={menuItemClass}
+              disabled={offline}
+              onSelect={() => onShare(note)}
+            >
               Share
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className={menuItemClass}
+              disabled={offline}
               onSelect={() => setConfirmDeleteOpen(true)}
             >
               Delete

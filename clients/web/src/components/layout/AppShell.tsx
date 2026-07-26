@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/useAuth';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useCreateNoteDialog } from '../notes/CreateNoteDialogProvider';
 import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog';
+import { OfflineBanner } from '../feedback/OfflineBanner';
 import { BottomNav } from './BottomNav';
 import { computeNavItems } from './navItems';
 import { SideNav } from './SideNav';
@@ -37,6 +38,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
 
   return (
     <div className="flex min-h-screen flex-col px-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+      <OfflineBanner />
       <TopBar />
       <div className="flex flex-1">
         <SideNav items={items} />

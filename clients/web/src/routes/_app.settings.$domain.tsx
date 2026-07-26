@@ -12,9 +12,11 @@ import {
   settingsQueryOptions,
 } from '../api/queries';
 import { qk } from '../api/queryKeys';
+import { SavedDataLabel } from '../components/feedback/SavedDataLabel';
 import { useToast } from '../components/feedback/ToastProvider';
 import { SchemaForm, type ServerFieldError } from '../components/schema-form/SchemaForm';
 import type { JsonSchemaDoc } from '../components/schema-form/types';
+import { useOfflineState } from '../hooks/useOfflineState';
 import { NotFoundPage } from './-not-found';
 
 // The domain-validity check in `beforeLoad` is M04's; this milestone adds
@@ -40,6 +42,7 @@ function ModuleSettingsPage(): ReactElement {
   const valuesQuery = useQuery(settingsQueryOptions(domain));
   const queryClient = useQueryClient();
   const { showToast } = useToast();
+  const isOffline = useOfflineState();
   const [formError, setFormError] = useState<string | undefined>();
   const [serverErrors, setServerErrors] = useState<ServerFieldError[] | undefined>();
 
@@ -92,6 +95,7 @@ function ModuleSettingsPage(): ReactElement {
     <>
       <h1>{panel.title}</h1>
       {panel.description && <p className="text-text-muted text-sm">{panel.description}</p>}
+      <SavedDataLabel show={isOffline} />
       <SchemaForm
         schema={panel.schema as JsonSchemaDoc}
         initialValue={valuesQuery.data}

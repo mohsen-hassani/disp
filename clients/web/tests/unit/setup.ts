@@ -21,3 +21,30 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 globalThis.ResizeObserver ??= ResizeObserverStub;
+
+// jsdom doesn't implement matchMedia at all — src/lib/theme.ts and
+// src/hooks/useInstallPrompt.ts (system dark-mode / standalone-display-mode
+// detection) call it unconditionally. A default-false stub is enough for
+// tests that don't care about the result; tests that do (e.g.
+// useInstallPrompt.test.ts) `vi.spyOn(window, 'matchMedia')` over this, which
+// needs a real function already present to spy on in the first place.
+window.matchMedia ??= (query: string): MediaQueryList =>
+  ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }) as MediaQueryList;
+
+// jsdom doesn't implement the Pointer Capture API — Radix's Toast (its
+// swipe-to-dismiss gesture handling) calls `hasPointerCapture` on any
+// pointer event targeting it, including a plain click on a `Toast.Action`
+// button, which otherwise throws and fails the whole run via an unhandled
+// exception rather than the specific test.
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};

@@ -7,8 +7,10 @@ import type { NoteOut } from '../../api/generated';
 import { notesListInfiniteQueryOptions } from '../../api/queries';
 import { qk } from '../../api/queryKeys';
 import { EmptyState } from '../feedback/EmptyState';
+import { SavedDataLabel } from '../feedback/SavedDataLabel';
 import { useToast } from '../feedback/ToastProvider';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { useOfflineState } from '../../hooks/useOfflineState';
 import { NoteCard } from './NoteCard';
 import { ShareDialog } from './ShareDialog';
 import { describeNoteError, useDeleteNote, useTogglePinned } from './useNoteMutations';
@@ -48,6 +50,7 @@ export function NoteList({
   onNewNote,
 }: NoteListProps): ReactElement {
   const { showToast } = useToast();
+  const isOffline = useOfflineState();
   const [inputValue, setInputValue] = useState(q ?? '');
   const lastDispatchedRef = useRef(q ?? '');
   const debouncedInput = useDebouncedValue(inputValue, 300);
@@ -111,10 +114,18 @@ export function NoteList({
             <label htmlFor="notes-pinned-only">Pinned only</label>
           </div>
         </div>
-        <button type="button" onClick={onNewNote} className={primaryButtonClass}>
+        <button
+          type="button"
+          onClick={onNewNote}
+          disabled={isOffline}
+          title={isOffline ? "You're offline." : undefined}
+          className={primaryButtonClass}
+        >
           New note
         </button>
       </div>
+
+      <SavedDataLabel show={isOffline && notesQuery.isSuccess} />
 
       {notesQuery.isPending && (
         <div className="flex flex-col gap-3">
@@ -145,7 +156,13 @@ export function NoteList({
           icon={StickyNote}
           title="No notes yet."
           action={
-            <button type="button" onClick={onNewNote} className={primaryButtonClass}>
+            <button
+              type="button"
+              onClick={onNewNote}
+              disabled={isOffline}
+              title={isOffline ? "You're offline." : undefined}
+              className={primaryButtonClass}
+            >
               Create your first note
             </button>
           }
@@ -171,6 +188,7 @@ export function NoteList({
               <NoteCard
                 note={note}
                 pinPending={pinPendingId === note.id}
+                offline={isOffline}
                 onTogglePinned={(target) =>
                   pinMutation.mutate(
                     { id: target.id, pinned: !target.pinned },

@@ -6,6 +6,7 @@ import { client } from '../../../src/api/client';
 import type { NoteOut } from '../../../src/api/generated';
 import { NoteList } from '../../../src/components/notes/NoteList';
 import { jsonResponse } from '../auth/testUtils';
+import { setOnline } from '../pwa/testUtils';
 import { renderNotes } from './testUtils';
 
 beforeAll(() => {
@@ -18,6 +19,7 @@ afterAll(() => {
 let fetchSpy: ReturnType<typeof vi.spyOn>;
 afterEach(() => {
   fetchSpy?.mockRestore();
+  setOnline(true);
 });
 
 function note(overrides: Partial<NoteOut> = {}): NoteOut {
@@ -241,4 +243,39 @@ it('deleting removes the row optimistically and restores it on error (case 37)',
   resolveDelete();
   // Restored once the DELETE 500s.
   await waitFor(() => expect(screen.getByText('First note')).toBeInTheDocument());
+});
+
+// Case 43: cached list data renders offline with the "Showing saved data" label.
+it('shows "Showing saved data" when offline and notes are already loaded', async () => {
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(pageResponse([note()]));
+  setOnline(false);
+  await renderNotes(
+    <NoteList
+      q={undefined}
+      pinned={undefined}
+      onQChange={noop}
+      onPinnedChange={noop}
+      onNewNote={noop}
+    />,
+  );
+
+  await screen.findByText('First note');
+  expect(screen.getByText('Showing saved data.')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /^new note$/i })).toBeDisabled();
+});
+
+it('does not show "Showing saved data" while online', async () => {
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(pageResponse([note()]));
+  await renderNotes(
+    <NoteList
+      q={undefined}
+      pinned={undefined}
+      onQChange={noop}
+      onPinnedChange={noop}
+      onNewNote={noop}
+    />,
+  );
+
+  await screen.findByText('First note');
+  expect(screen.queryByText('Showing saved data.')).not.toBeInTheDocument();
 });
