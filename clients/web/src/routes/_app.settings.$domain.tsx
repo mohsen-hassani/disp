@@ -88,7 +88,7 @@ function ModuleSettingsPage(): ReactElement {
     // GET) directly into the cache is what `SchemaForm` watches to do that,
     // without a second round-trip to re-fetch what this response already is.
     queryClient.setQueryData(qk.settings.domain(domain), data);
-    showToast('Settings saved.');
+    showToast('Settings saved.', 'success');
   };
 
   return (

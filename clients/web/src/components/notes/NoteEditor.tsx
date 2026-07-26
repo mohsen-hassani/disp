@@ -5,11 +5,16 @@ import { type KeyboardEvent, type ReactElement, useEffect, useId, useRef, useSta
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { mapValidationErrors, type ServerFieldError } from '../../lib/mapValidationErrors';
+import { SubmitButton } from '../feedback/SubmitButton';
+
 const BODY_MAX_LENGTH = 20000;
 const COUNTER_THRESHOLD = 19000;
+// WEB-SPEC §19.2: note title 0-200.
+const TITLE_MAX_LENGTH = 200;
 
 const noteSchema = z.object({
-  title: z.string().optional(),
+  title: z.string().max(TITLE_MAX_LENGTH, `Title must be at most ${TITLE_MAX_LENGTH} characters.`),
   body: z
     .string()
     .min(1, 'Body is required')
@@ -17,6 +22,7 @@ const noteSchema = z.object({
   pinned: z.boolean(),
 });
 type NoteFormValues = z.infer<typeof noteSchema>;
+const NOTE_FIELDS = new Set(['title', 'body']);
 
 export interface NoteEditorSubmitValues {
   title?: string;
@@ -31,6 +37,8 @@ interface NoteEditorProps {
   initialPinned?: boolean;
   submitting: boolean;
   error?: string;
+  /** §19.3's 422 → field mapping for the title/body fields. */
+  serverErrors?: ServerFieldError[];
   onSubmit: (values: NoteEditorSubmitValues) => void;
   onCancel?: () => void;
 }
@@ -55,10 +63,12 @@ export function NoteEditor({
   initialPinned,
   submitting,
   error,
+  serverErrors,
   onSubmit,
   onCancel,
 }: NoteEditorProps): ReactElement {
   const titleId = useId();
+  const titleErrorId = useId();
   const bodyId = useId();
   const bodyErrorId = useId();
   const pinnedId = useId();
@@ -70,6 +80,8 @@ export function NoteEditor({
     handleSubmit,
     control,
     watch,
+    setError,
+    setFocus,
     formState: { errors, isDirty },
   } = useForm<NoteFormValues>({
     resolver: zodResolver(noteSchema),
@@ -82,6 +94,21 @@ export function NoteEditor({
   const { ref: registerBodyRef, ...bodyField } = register('body');
 
   const bodyLength = watch('body')?.length ?? 0;
+
+  const { fieldErrors: mappedServerErrors, unmapped: unmappedServerErrors } = mapValidationErrors(
+    serverErrors ?? [],
+    NOTE_FIELDS,
+  );
+
+  useEffect(() => {
+    for (const { field, message } of mappedServerErrors) {
+      setError(field as 'title' | 'body', { message });
+    }
+    if (mappedServerErrors[0]) {
+      setFocus(mappedServerErrors[0].field as 'title' | 'body');
+    }
+    // Deliberately keyed on `serverErrors` (and the stable `setError`/`setFocus`) only.
+  }, [serverErrors, setError, setFocus]);
 
   useEffect(() => {
     // Only on mount — `mode` never changes for a given instance (a create
@@ -127,7 +154,20 @@ export function NoteEditor({
             <label htmlFor={titleId} className="text-text text-sm font-medium">
               Title (optional)
             </label>
-            <input id={titleId} type="text" onKeyDown={handleKeyDown} {...register('title')} />
+            <input
+              id={titleId}
+              type="text"
+              maxLength={TITLE_MAX_LENGTH}
+              aria-invalid={errors.title ? true : undefined}
+              aria-describedby={errors.title ? titleErrorId : undefined}
+              onKeyDown={handleKeyDown}
+              {...register('title')}
+            />
+            {errors.title && (
+              <p id={titleErrorId} role="alert" className="text-danger text-xs">
+                {errors.title.message}
+              </p>
+            )}
           </div>
         )}
 
@@ -183,22 +223,16 @@ export function NoteEditor({
           </div>
         )}
 
-        {error && (
+        {(error || unmappedServerErrors.length > 0) && (
           <p role="alert" className="text-danger text-sm">
-            {error}
+            {[error, ...unmappedServerErrors.map((e) => e.msg)].filter(Boolean).join(' ')}
           </p>
         )}
 
         <div className="flex gap-2">
-          <button type="submit" disabled={submitting} className={primaryButtonClass}>
-            {mode === 'create'
-              ? submitting
-                ? 'Creating…'
-                : 'Create note'
-              : submitting
-                ? 'Saving…'
-                : 'Save'}
-          </button>
+          <SubmitButton submitting={submitting} className={primaryButtonClass}>
+            {mode === 'create' ? 'Create note' : 'Save'}
+          </SubmitButton>
           {mode === 'edit' && (
             <button type="button" onClick={requestCancel} className={secondaryButtonClass}>
               Cancel

@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import type { ProblemDetail } from '../../api/problem';
+import { mapValidationErrors } from '../../lib/mapValidationErrors';
+import { SubmitButton } from '../feedback/SubmitButton';
 import { useToast } from '../feedback/ToastProvider';
 import { describeNoteError, useShareNote } from './useNoteMutations';
 
@@ -16,11 +18,13 @@ interface ShareDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// WEB-SPEC §19.2: email ≤254.
 const shareSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email address.'),
+  email: z.string().min(1, 'Email is required').max(254).email('Enter a valid email address.'),
   permission: z.enum(['read', 'write']),
 });
 type ShareFormValues = z.infer<typeof shareSchema>;
+const SHARE_FIELDS = new Set(['email', 'permission']);
 
 const dialogContentClass =
   'border-border bg-surface shadow-overlay fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border p-4';
@@ -62,7 +66,7 @@ export function ShareDialog({
     try {
       await mutation.mutateAsync({ email: values.email, permission: values.permission });
       onOpenChange(false);
-      showToast(`Shared with ${values.email}.`);
+      showToast(`Shared with ${values.email}.`, 'success');
     } catch (thrown) {
       const problem = thrown as ProblemDetail;
       if (problem.code === 'notes.user_not_found') {
@@ -77,12 +81,28 @@ export function ShareDialog({
         setFocus('email');
         return;
       }
-      if (problem.status === 403) {
+      if (problem.code === 'acl.forbidden') {
         onOpenChange(false);
-        showToast('Only the owner can share this note.', 'danger');
+        showToast('Only the owner can share this note.', 'error');
         return;
       }
-      showToast(describeNoteError(problem), 'danger');
+      // §19.3: any other 422 (e.g. an invalid `permission` value) maps to
+      // its field rather than falling through to a generic toast.
+      if (problem.status === 422 && problem.errors) {
+        const { fieldErrors, unmapped } = mapValidationErrors(problem.errors, SHARE_FIELDS);
+        if (fieldErrors.length > 0) {
+          for (const { field, message } of fieldErrors) {
+            setError(field as 'email' | 'permission', { message });
+          }
+          setFocus(fieldErrors[0]!.field as 'email' | 'permission');
+          return;
+        }
+        if (unmapped.length > 0) {
+          showToast(unmapped.map((e) => e.msg).join(' '), 'error');
+          return;
+        }
+      }
+      showToast(describeNoteError(problem), 'error');
     }
   });
 
@@ -97,7 +117,7 @@ export function ShareDialog({
             </Dialog.Title>
             <Dialog.Close
               aria-label="Close"
-              className="text-text-muted focus-visible:outline-accent rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+              className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Dialog.Close>
@@ -139,13 +159,13 @@ export function ShareDialog({
                 Write — can view and edit
               </label>
             </fieldset>
-            <button
-              type="submit"
-              disabled={isSubmitting || !noteId}
+            <SubmitButton
+              submitting={isSubmitting}
+              disabled={!noteId}
               className={`self-start ${primaryButtonClass}`}
             >
-              {isSubmitting ? 'Sharing…' : 'Share'}
-            </button>
+              Share
+            </SubmitButton>
           </form>
         </Dialog.Content>
       </Dialog.Portal>

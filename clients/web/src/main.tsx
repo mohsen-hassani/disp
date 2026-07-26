@@ -8,6 +8,9 @@ import { isProblem } from './api/problem';
 import { qk } from './api/queryKeys';
 import { AuthProvider } from './auth/AuthProvider';
 import { setQueryCacheClearer } from './auth/refresh';
+import { ErrorBoundary } from './components/feedback/ErrorBoundary';
+import { RootErrorFallback } from './components/feedback/RootErrorFallback';
+import { RouteErrorFallback } from './components/feedback/RouteErrorFallback';
 import { ToastProvider } from './components/feedback/ToastProvider';
 import { setNavigate } from './lib/navigate';
 import { UpdatePrompt } from './pwa/UpdatePrompt';
@@ -38,6 +41,13 @@ const router = createRouter({
   routeTree,
   context: { queryClient },
   scrollRestoration: true,
+  // §20.2 level 2: every matched route gets its own boundary (TanStack
+  // Router wraps each route match individually), so a leaf route's crash
+  // swaps only that route's own slot inside `<Outlet/>` — `AppShell`'s nav
+  // is rendered by the parent route around the outlet, not inside it, so it
+  // stays mounted and usable.
+  defaultErrorComponent: RouteErrorFallback,
+  defaultOnCatch: (error) => console.error(error),
 });
 
 declare module '@tanstack/react-router' {
@@ -60,22 +70,27 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <UpdatePrompt />
-        {/*
-          WEB-SPEC §18.4: bootstrap()'s degraded-offline branch (a refresh
-          that failed as a pure network error, not a 401) falls back to
-          whatever `['auth','me']` already holds in this QueryClient — set
-          only by a *prior* successful bootstrap/account-screen fetch in
-          this same session, since nothing here persists the cache across a
-          real reload. It MUST NOT be used when the server actively
-          rejected the refresh (bootstrap() already gates that itself).
-        */}
-        <AuthProvider getCachedUser={() => queryClient.getQueryData<MeResponse>(qk.auth.me())}>
-          <RouterProvider router={router} />
-        </AuthProvider>
-      </ToastProvider>
-    </QueryClientProvider>
+    {/* §20.2 level 1: the outermost boundary — catches anything the router's
+        own per-route boundaries below can't (a crash in ToastProvider or
+        AuthProvider itself, or before the router ever mounts). */}
+    <ErrorBoundary fallback={<RootErrorFallback />}>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <UpdatePrompt />
+          {/*
+            WEB-SPEC §18.4: bootstrap()'s degraded-offline branch (a refresh
+            that failed as a pure network error, not a 401) falls back to
+            whatever `['auth','me']` already holds in this QueryClient — set
+            only by a *prior* successful bootstrap/account-screen fetch in
+            this same session, since nothing here persists the cache across a
+            real reload. It MUST NOT be used when the server actively
+            rejected the refresh (bootstrap() already gates that itself).
+          */}
+          <AuthProvider getCachedUser={() => queryClient.getQueryData<MeResponse>(qk.auth.me())}>
+            <RouterProvider router={router} />
+          </AuthProvider>
+        </ToastProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

@@ -1,4 +1,5 @@
 import * as Toast from '@radix-ui/react-toast';
+import { CheckCircle2, Info, XCircle } from 'lucide-react';
 import {
   type ReactElement,
   type ReactNode,
@@ -10,7 +11,31 @@ import {
 
 import { cn } from '../../lib/cn';
 
-type ToastVariant = 'default' | 'danger';
+type ToastVariant = 'success' | 'error' | 'info';
+
+// WEB-SPEC §20.1.
+const VARIANT_DURATIONS: Record<ToastVariant, number> = {
+  success: 4000,
+  error: 8000,
+  info: 5000,
+};
+
+const VARIANT_ICON: Record<ToastVariant, typeof CheckCircle2> = {
+  success: CheckCircle2,
+  error: XCircle,
+  info: Info,
+};
+
+// §21 A8: status is never colour-alone — the icon (and the message text
+// itself) carries the meaning independently of the border/icon colour.
+const VARIANT_CLASS: Record<ToastVariant, string> = {
+  success: 'border-success text-success',
+  error: 'border-danger text-danger',
+  info: 'border-border text-text',
+};
+
+// Max concurrent toasts (§20.1) — a 4th push drops the oldest.
+const MAX_CONCURRENT = 3;
 
 interface ToastAction {
   label: string;
@@ -29,7 +54,7 @@ interface ToastContextValue {
   /**
    * `persistent` (§17.4): the update-available toast must stay up until the
    * user acts — auto-reloading mid-edit destroys unsaved input — so it opts
-   * out of the Provider's default 6s auto-dismiss via Radix's per-`Toast.Root`
+   * out of the variant's default auto-dismiss via Radix's per-`Toast.Root`
    * `duration` override rather than a new dismiss mechanism.
    */
   showToast: (
@@ -42,24 +67,18 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-/**
- * Formally M10's file. Pulled forward because §13.6/§7.3 need a toast
- * surface for tile-action errors before M10's dedicated feedback milestone
- * exists — same call as M04 made for M06's SchemaForm. M10 owns polishing
- * this further (e.g. §21's broader toast-stacking a11y requirements).
- */
 export function ToastProvider({ children }: { children: ReactNode }): ReactElement {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback(
-    (
-      title: string,
-      variant: ToastVariant = 'default',
-      action?: ToastAction,
-      persistent?: boolean,
-    ) => {
+    (title: string, variant: ToastVariant = 'info', action?: ToastAction, persistent?: boolean) => {
       const id = crypto.randomUUID();
-      setToasts((current) => [...current, { id, title, variant, action, persistent }]);
+      // §20.1: maximum three concurrent — the oldest collapses (is dropped)
+      // once a fourth arrives.
+      setToasts((current) => [
+        ...current.slice(-(MAX_CONCURRENT - 1)),
+        { id, title, variant, action, persistent },
+      ]);
     },
     [],
   );
@@ -70,42 +89,58 @@ export function ToastProvider({ children }: { children: ReactNode }): ReactEleme
 
   return (
     <ToastContext.Provider value={{ showToast }}>
-      <Toast.Provider swipeDirection="right" duration={6000}>
+      <Toast.Provider swipeDirection="right" duration={5000}>
         {children}
-        {toasts.map((toast) => (
-          <Toast.Root
-            key={toast.id}
-            duration={toast.persistent ? Infinity : undefined}
-            onOpenChange={(open) => {
-              if (!open) {
-                dismiss(toast.id);
-              }
-            }}
-            className={cn(
-              'border-border bg-surface-raised shadow-overlay rounded-md border p-3 pr-8',
-              'data-[state=open]:animate-in data-[state=closed]:animate-out',
-              toast.variant === 'danger' && 'border-danger',
-            )}
-          >
-            <Toast.Title className="text-text text-sm">{toast.title}</Toast.Title>
-            {toast.action && (
-              <Toast.Action
-                altText={toast.action.label}
-                onClick={toast.action.onClick}
-                className="text-accent focus-visible:outline-accent mt-1 block text-sm font-medium underline focus-visible:outline focus-visible:outline-2"
-              >
-                {toast.action.label}
-              </Toast.Action>
-            )}
-            <Toast.Close
-              aria-label="Dismiss"
-              className="text-text-muted focus-visible:outline-accent absolute top-2 right-2 rounded-sm focus-visible:outline focus-visible:outline-2"
+        {toasts.map((toast) => {
+          const Icon = VARIANT_ICON[toast.variant];
+          return (
+            <Toast.Root
+              key={toast.id}
+              // §20.1: "assertive" for errors, "polite" for success/info —
+              // Radix announces `type="foreground"` toasts immediately
+              // (assertive) and `type="background"` ones politely.
+              type={toast.variant === 'error' ? 'foreground' : 'background'}
+              duration={toast.persistent ? Infinity : VARIANT_DURATIONS[toast.variant]}
+              onOpenChange={(open) => {
+                if (!open) {
+                  dismiss(toast.id);
+                }
+              }}
+              className={cn(
+                'border-border bg-surface-raised shadow-overlay flex items-center gap-2 rounded-md border py-1 pr-1 pl-3',
+                'data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:transition-none',
+                VARIANT_CLASS[toast.variant],
+              )}
             >
-              ×
-            </Toast.Close>
-          </Toast.Root>
-        ))}
-        <Toast.Viewport className="fixed right-4 bottom-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 pb-[env(safe-area-inset-bottom)] outline-none" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <div className="min-w-0 flex-1 py-2">
+                <Toast.Title className="text-text text-sm">{toast.title}</Toast.Title>
+                {toast.action && (
+                  <Toast.Action
+                    altText={toast.action.label}
+                    onClick={toast.action.onClick}
+                    className="text-accent focus-visible:outline-accent mt-1 block text-sm font-medium underline focus-visible:outline focus-visible:outline-2"
+                  >
+                    {toast.action.label}
+                  </Toast.Action>
+                )}
+              </div>
+              {/* §21 A4: a 44×44 target, reserved as a flex sibling rather
+                  than absolutely positioned, so it can't overlap the
+                  adjacent toast in a 3-deep stack. */}
+              <Toast.Close
+                aria-label="Dismiss"
+                className="text-text-muted focus-visible:outline-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
+              >
+                ×
+              </Toast.Close>
+            </Toast.Root>
+          );
+        })}
+        {/* §20.1: bottom-centre on mobile (above BottomNav's z-40 fixed bar,
+            whose own height + safe-area is accounted for below), bottom-right
+            on desktop where there's no bottom nav to clear. */}
+        <Toast.Viewport className="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 mx-auto flex w-auto max-w-80 flex-col gap-2 outline-none md:inset-x-auto md:right-4 md:bottom-4 md:mx-0" />
       </Toast.Provider>
     </ToastContext.Provider>
   );

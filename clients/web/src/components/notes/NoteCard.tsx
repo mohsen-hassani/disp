@@ -43,7 +43,7 @@ export function NoteCard({
         title={offline ? "You're offline." : undefined}
         aria-pressed={note.pinned}
         aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
-        className="text-text-muted focus-visible:outline-accent mt-0.5 shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
+        className="text-text-muted focus-visible:outline-accent -mt-1 -ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2 disabled:opacity-60"
       >
         <Pin
           className={note.pinned ? 'text-accent h-4 w-4 fill-current' : 'h-4 w-4'}
@@ -66,7 +66,7 @@ export function NoteCard({
           <button
             type="button"
             aria-label={`More actions for "${heading}"`}
-            className="text-text-muted focus-visible:outline-accent shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+            className="text-text-muted focus-visible:outline-accent -mt-1 -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
           >
             <MoreVertical className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -129,7 +129,7 @@ export function NoteCard({
                 }}
                 className="bg-danger text-accent-text rounded-sm px-3 py-1.5 text-sm font-medium"
               >
-                Delete
+                Delete note
               </button>
             </div>
           </Dialog.Content>

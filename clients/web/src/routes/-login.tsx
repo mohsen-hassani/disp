@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { login } from '../auth/AuthProvider';
+import { SubmitButton } from '../components/feedback/SubmitButton';
 import { navigate } from '../lib/navigate';
 
 // Router-ignored (leading `-`, see eslint.config.js/router.config's
@@ -132,13 +133,15 @@ export function LoginPage(): ReactElement {
 
         {formError && <p role="alert">{formError}</p>}
 
-        <button type="submit" disabled={disabled}>
-          {retryAfter > 0
-            ? `Try again in ${retryAfter}s`
-            : isSubmitting
-              ? 'Signing in…'
-              : 'Sign in'}
-        </button>
+        {retryAfter > 0 ? (
+          <button type="submit" disabled>
+            {`Try again in ${retryAfter}s`}
+          </button>
+        ) : (
+          <SubmitButton submitting={isSubmitting} className="">
+            Sign in
+          </SubmitButton>
+        )}
       </form>
 
       {/* No "remember me" — the 30-day refresh cookie is the only

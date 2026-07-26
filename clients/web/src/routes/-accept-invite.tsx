@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { acceptInvite } from '../auth/AuthProvider';
+import { SubmitButton } from '../components/feedback/SubmitButton';
 import { navigate } from '../lib/navigate';
 
 // Router-ignored (leading `-`) — see -login.tsx's doc for why the page
@@ -184,9 +185,9 @@ export function AcceptInvitePage(): ReactElement {
 
         {formError && <p role="alert">{formError}</p>}
 
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account…' : 'Accept invitation'}
-        </button>
+        <SubmitButton submitting={isSubmitting} className="">
+          Accept invitation
+        </SubmitButton>
       </form>
     </main>
   );

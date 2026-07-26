@@ -23,6 +23,9 @@ interface NoteListProps {
   onNewNote: () => void;
 }
 
+// WEB-SPEC §19.2: search `q` ≤200.
+const SEARCH_MAX_LENGTH = 200;
+
 const primaryButtonClass =
   'bg-accent text-accent-text focus-visible:outline-accent rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60';
 const secondaryButtonClass =
@@ -100,6 +103,7 @@ export function NoteList({
             onChange={(event) => setInputValue(event.target.value)}
             placeholder="Search notes…"
             aria-label="Search notes"
+            maxLength={SEARCH_MAX_LENGTH}
             className="border-border bg-surface min-w-0 flex-1 rounded-sm border px-3 py-2 text-sm sm:max-w-xs"
           />
           <div className="flex items-center gap-2 text-sm">
@@ -128,7 +132,8 @@ export function NoteList({
       <SavedDataLabel show={isOffline && notesQuery.isSuccess} />
 
       {notesQuery.isPending && (
-        <div className="flex flex-col gap-3">
+        <div aria-busy="true" className="flex flex-col gap-3">
+          <span className="sr-only">Loading notes…</span>
           <SkeletonRow />
           <SkeletonRow />
           <SkeletonRow />
@@ -154,7 +159,7 @@ export function NoteList({
       {notesQuery.isSuccess && items.length === 0 && !filtersActive && (
         <EmptyState
           icon={StickyNote}
-          title="No notes yet."
+          title="No notes yet. Your first one is a click away."
           action={
             <button
               type="button"
@@ -172,7 +177,7 @@ export function NoteList({
       {notesQuery.isSuccess && items.length === 0 && filtersActive && (
         <EmptyState
           icon={SearchX}
-          title="No notes match."
+          title="No notes match your search."
           action={
             <button type="button" onClick={clearFilters} className={secondaryButtonClass}>
               Clear filters
@@ -193,14 +198,14 @@ export function NoteList({
                   pinMutation.mutate(
                     { id: target.id, pinned: !target.pinned },
                     {
-                      onError: (error) => showToast(describeNoteError(error), 'danger'),
+                      onError: (error) => showToast(describeNoteError(error), 'error'),
                     },
                   )
                 }
                 onShare={setShareTarget}
                 onDelete={(target) =>
                   deleteMutation.mutate(target.id, {
-                    onError: (error) => showToast(describeNoteError(error), 'danger'),
+                    onError: (error) => showToast(describeNoteError(error), 'error'),
                   })
                 }
               />

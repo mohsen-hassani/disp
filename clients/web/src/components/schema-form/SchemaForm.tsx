@@ -5,14 +5,13 @@ import { type ReactElement, useEffect, useId, useRef } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import type { z } from 'zod';
 
+import { mapValidationErrors, type ServerFieldError } from '../../lib/mapValidationErrors';
+import { SubmitButton } from '../feedback/SubmitButton';
 import { FieldFor } from './fieldFor';
 import { schemaToZod } from './schemaToZod';
 import type { JsonSchema, JsonSchemaDoc } from './types';
 
-export interface ServerFieldError {
-  loc: Array<string | number>;
-  msg: string;
-}
+export type { ServerFieldError };
 
 export interface SchemaFormProps {
   schema: JsonSchemaDoc;
@@ -52,19 +51,6 @@ function buildDefaultValues(
 
 function isSecret(schema: JsonSchema): boolean {
   return schema['x-secret'] === true;
-}
-
-// WEB-SPEC §19.3: drop a leading body/query/path segment, join the rest
-// with '.' to get the react-hook-form field name. A name that isn't one of
-// this form's own top-level properties is reported back as unmapped so the
-// caller can fall back to a form-level message instead of silently
-// discarding it.
-const LOC_PREFIXES = new Set(['body', 'query', 'path']);
-
-function trimLocPrefix(loc: Array<string | number>): Array<string | number> {
-  return loc.length > 0 && typeof loc[0] === 'string' && LOC_PREFIXES.has(loc[0])
-    ? loc.slice(1)
-    : loc;
 }
 
 // §14.2/§14.3: the generic settings-panel-and-tile-action-body renderer —
@@ -121,16 +107,14 @@ export function SchemaForm(props: SchemaFormProps): ReactElement {
     }
   }, [initialValue, schema, reset]);
 
-  const unmappedServerErrors = (serverErrors ?? []).filter(
-    ({ loc }) => !propertyKeys.has(String(trimLocPrefix(loc)[0])),
+  const { fieldErrors: mappedServerErrors, unmapped: unmappedServerErrors } = mapValidationErrors(
+    serverErrors ?? [],
+    propertyKeys,
   );
 
   useEffect(() => {
-    for (const { loc, msg } of serverErrors ?? []) {
-      const trimmed = trimLocPrefix(loc);
-      if (propertyKeys.has(String(trimmed[0]))) {
-        setError(trimmed.join('.'), { message: msg });
-      }
+    for (const { field, message } of mappedServerErrors) {
+      setError(field, { message });
     }
     // Deliberately keyed on `serverErrors` (and the stable `setError`) only
     // — `propertyKeys`/`schema` don't change within one form's lifetime.
@@ -187,13 +171,13 @@ export function SchemaForm(props: SchemaFormProps): ReactElement {
             {[error, ...unmappedServerErrors.map((e) => e.msg)].filter(Boolean).join(' ')}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={disabled || isSubmitting}
+        <SubmitButton
+          submitting={isSubmitting}
+          disabled={disabled}
           className="bg-accent text-accent-text focus-visible:outline-accent self-start rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
         >
-          {isSubmitting ? 'Saving…' : submitLabel}
-        </button>
+          {submitLabel}
+        </SubmitButton>
       </form>
 
       <Dialog.Root

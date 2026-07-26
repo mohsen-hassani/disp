@@ -9,11 +9,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Formally M10's file. Pulled forward because §13.8 needs one failing
-// tile's *render* to never affect its siblings — same call as M04 made for
-// M06's SchemaForm. No telemetry/error-reporting integration (§26 is
-// explicit that's out of scope), so `componentDidCatch` intentionally does
-// nothing beyond what `getDerivedStateFromError` already captured.
+// §20.2: three of these are wired up (root, route, tile) — no
+// telemetry/error-reporting integration (§1.2 is explicit that's out of
+// scope), but a boundary MUST still log the caught error to `console.error`
+// so it isn't silently swallowed for someone debugging locally.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { error: null };
 
@@ -21,8 +20,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { error };
   }
 
-  componentDidCatch(): void {
-    // No-op — see class doc.
+  componentDidCatch(error: Error): void {
+    console.error(error);
   }
 
   reset = (): void => {

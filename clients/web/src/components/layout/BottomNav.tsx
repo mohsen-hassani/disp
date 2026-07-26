@@ -71,7 +71,7 @@ function MoreSheet({ items }: { items: NavItem[] }): ReactElement {
               <button
                 type="button"
                 aria-label="Close"
-                className="text-text-muted focus-visible:outline-accent rounded-md p-1 focus-visible:outline focus-visible:outline-2"
+                className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>

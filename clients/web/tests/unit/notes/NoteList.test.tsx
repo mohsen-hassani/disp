@@ -77,7 +77,7 @@ it('debounces the search input before calling onQChange (case 35)', async () => 
       onNewNote={noop}
     />,
   );
-  await screen.findByText('No notes yet.');
+  await screen.findByText('No notes yet. Your first one is a click away.');
 
   await user.type(screen.getByLabelText('Search notes'), 'hello');
   expect(onQChange).not.toHaveBeenCalled();
@@ -115,7 +115,7 @@ it('shows the filtered empty state with a Clear filters button', async () => {
     />,
   );
 
-  expect(await screen.findByText('No notes match.')).toBeInTheDocument();
+  expect(await screen.findByText('No notes match your search.')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /clear filters/i })).toBeInTheDocument();
 });
 
@@ -236,7 +236,9 @@ it('deleting removes the row optimistically and restores it on error (case 37)',
 
   await user.click(screen.getByRole('button', { name: /more actions for "first note"/i }));
   await user.click(await screen.findByText('Delete'));
-  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^delete$/i }));
+  await user.click(
+    within(screen.getByRole('dialog')).getByRole('button', { name: /^delete note$/i }),
+  );
 
   // Optimistic: the row is gone before the deferred DELETE resolves.
   await waitFor(() => expect(screen.queryByText('First note')).not.toBeInTheDocument());

@@ -32,7 +32,7 @@ export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps): R
             </Dialog.Title>
             <Dialog.Close
               aria-label="Close"
-              className="text-text-muted focus-visible:outline-accent rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+              className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Dialog.Close>

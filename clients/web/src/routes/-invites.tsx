@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Switch from '@radix-ui/react-switch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy } from 'lucide-react';
+import { Copy, UserPlus } from 'lucide-react';
 import { type ReactElement, useEffect, useId, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -12,6 +12,8 @@ import { authCreateInvite, authDeleteInvite } from '../api/generated';
 import { parseProblem } from '../api/problem';
 import { invitesQueryOptions } from '../api/queries';
 import { qk } from '../api/queryKeys';
+import { EmptyState } from '../components/feedback/EmptyState';
+import { SubmitButton } from '../components/feedback/SubmitButton';
 import { useToast } from '../components/feedback/ToastProvider';
 import { cn } from '../lib/cn';
 import { relativeTime } from '../lib/format';
@@ -95,9 +97,9 @@ export function InvitesPage(): ReactElement {
     if (response?.ok) {
       setRevokeTarget(null);
       void queryClient.invalidateQueries({ queryKey: qk.auth.invites() });
-      showToast(`Invite to ${target.email} revoked.`);
+      showToast(`Invite to ${target.email} revoked.`, 'success');
     } else {
-      showToast('Something went wrong. Please try again.', 'danger');
+      showToast('Something went wrong. Please try again.', 'error');
     }
   }
 
@@ -115,7 +117,10 @@ export function InvitesPage(): ReactElement {
 
       {invitesQuery.isPending && <p aria-busy="true">Loading…</p>}
       {invitesQuery.isError && <p role="alert">Failed to load invites.</p>}
-      {invitesQuery.data && (
+      {invitesQuery.data?.length === 0 && (
+        <EmptyState icon={UserPlus} title="No pending invites." />
+      )}
+      {invitesQuery.data && invitesQuery.data.length > 0 && (
         <table className="mt-4 w-full text-left text-sm">
           <thead>
             <tr className="border-border border-b">
@@ -147,9 +152,6 @@ export function InvitesPage(): ReactElement {
             ))}
           </tbody>
         </table>
-      )}
-      {invitesQuery.data?.length === 0 && (
-        <p className="text-text-muted mt-4 text-sm">No pending invites.</p>
       )}
 
       <Dialog.Root
@@ -217,13 +219,12 @@ export function InvitesPage(): ReactElement {
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
+              <SubmitButton
+                submitting={isSubmitting}
                 className={cn('self-start', primaryButtonClass)}
               >
-                {isSubmitting ? 'Sending…' : 'Create invite'}
-              </button>
+                Create invite
+              </SubmitButton>
             </form>
           </Dialog.Content>
         </Dialog.Portal>
@@ -297,7 +298,7 @@ function RevealDialog({ revealed, onDismiss }: RevealDialogProps): ReactElement 
                   setCopied(true);
                 }
               }}
-              className="text-text-muted focus-visible:outline-accent shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+              className="text-text-muted focus-visible:outline-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
             >
               <Copy className="h-4 w-4" aria-hidden="true" />
             </button>

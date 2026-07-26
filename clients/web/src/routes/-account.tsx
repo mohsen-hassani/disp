@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { authChangePassword } from '../api/generated';
 import { parseProblem } from '../api/problem';
 import { meQueryOptions } from '../api/queries';
+import { SubmitButton } from '../components/feedback/SubmitButton';
 import { useToast } from '../components/feedback/ToastProvider';
 
 // Router-ignored (leading `-`) — see -login.tsx's doc for why the page
@@ -89,7 +90,7 @@ export function AccountPage(): ReactElement {
       return;
     }
     reset();
-    showToast(PASSWORD_CHANGED_COPY);
+    showToast(PASSWORD_CHANGED_COPY, 'success');
   });
 
   return (
@@ -181,13 +182,12 @@ export function AccountPage(): ReactElement {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
+          <SubmitButton
+            submitting={isSubmitting}
             className="bg-accent text-accent-text focus-visible:outline-accent self-start rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
           >
-            {isSubmitting ? 'Saving…' : 'Change password'}
-          </button>
+            Change password
+          </SubmitButton>
         </form>
       )}
     </>

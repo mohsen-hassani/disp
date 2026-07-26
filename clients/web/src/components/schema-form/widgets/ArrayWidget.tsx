@@ -60,7 +60,7 @@ export function ArrayWidget({
             onClick={() => remove(index)}
             disabled={disabled}
             aria-label={`Remove item ${index + 1}`}
-            className="text-text-muted focus-visible:outline-accent rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+            className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
           </button>

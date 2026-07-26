@@ -19,7 +19,7 @@ export function UpdatePrompt(): null {
       shownRef.current = true;
       showToast(
         'A new version is available.',
-        'default',
+        'info',
         { label: 'Reload', onClick: () => void updateServiceWorker(true) },
         true,
       );

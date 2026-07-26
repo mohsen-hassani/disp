@@ -90,6 +90,21 @@
   --font-mono: var(--font-mono);
 
   --container-content: var(--container-content);
+
+  /* §20.3's route-transition progress bar (RouteProgressBar.tsx). */
+  --animate-route-progress: route-progress 1.2s ease-in-out infinite;
+}
+
+@keyframes route-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(75%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
 }
 
 /*
@@ -105,4 +120,22 @@ body {
   color: var(--color-text);
   font-family: var(--font-sans);
   line-height: 1.5;
+}
+
+/*
+ * §21 A11: a global backstop, not a replacement for the `motion-reduce:`
+ * Tailwind variants already used on individual animated elements — this
+ * catches anything a component author forgets to pair explicitly (a third-
+ * party primitive's own transition, a future addition) rather than relying
+ * on every single animated element remembering its own opt-out.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

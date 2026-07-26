@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { type ReactElement, useId, useState } from 'react';
 
 import type { TileAction } from '../../api/generated';
-import { SchemaForm } from '../schema-form/SchemaForm';
+import { SchemaForm, type ServerFieldError } from '../schema-form/SchemaForm';
 import type { JsonSchemaDoc } from '../schema-form/types';
 import { describeActionError, type TileActionError, useTileAction } from './useTileAction';
 
@@ -25,6 +25,7 @@ export function TileActionDialog({
 }: TileActionDialogProps): ReactElement {
   const titleId = useId();
   const [error, setError] = useState<string | undefined>();
+  const [serverErrors, setServerErrors] = useState<ServerFieldError[] | undefined>();
   const mutation = useTileAction(tileKey);
 
   return (
@@ -33,6 +34,7 @@ export function TileActionDialog({
       onOpenChange={(next) => {
         if (next) {
           setError(undefined);
+          setServerErrors(undefined);
         }
         onOpenChange(next);
       }}
@@ -49,7 +51,7 @@ export function TileActionDialog({
             </Dialog.Title>
             <Dialog.Close
               aria-label="Close"
-              className="text-text-muted focus-visible:outline-accent rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+              className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Dialog.Close>
@@ -58,9 +60,11 @@ export function TileActionDialog({
             schema={(action.body_schema ?? {}) as JsonSchemaDoc}
             initialValue={{}}
             error={error}
+            serverErrors={serverErrors}
             submitLabel={action.label}
             onSubmit={async (values) => {
               setError(undefined);
+              setServerErrors(undefined);
               try {
                 await mutation.mutateAsync({
                   method: action.method,
@@ -69,7 +73,12 @@ export function TileActionDialog({
                 });
                 onOpenChange(false);
               } catch (thrown) {
-                setError(describeActionError(thrown as TileActionError));
+                const actionError = thrown as TileActionError;
+                if (actionError.problem.status === 422 && actionError.problem.errors) {
+                  setServerErrors(actionError.problem.errors);
+                } else {
+                  setError(describeActionError(actionError));
+                }
               }
             }}
           />

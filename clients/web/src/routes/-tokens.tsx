@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy } from 'lucide-react';
+import { Copy, KeyRound } from 'lucide-react';
 import { type ReactElement, useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -11,6 +11,8 @@ import { authCreateToken, authRevokeToken } from '../api/generated';
 import { parseProblem } from '../api/problem';
 import { tokensQueryOptions } from '../api/queries';
 import { qk } from '../api/queryKeys';
+import { EmptyState } from '../components/feedback/EmptyState';
+import { SubmitButton } from '../components/feedback/SubmitButton';
 import { useToast } from '../components/feedback/ToastProvider';
 import { cn } from '../lib/cn';
 import { dateTime, relativeTime } from '../lib/format';
@@ -88,9 +90,9 @@ export function TokensPage(): ReactElement {
     if (response?.ok) {
       setRevokeTarget(null);
       void queryClient.invalidateQueries({ queryKey: qk.auth.tokens() });
-      showToast(`"${target.name}" revoked.`);
+      showToast(`"${target.name}" revoked.`, 'success');
     } else {
-      showToast('Something went wrong. Please try again.', 'danger');
+      showToast('Something went wrong. Please try again.', 'error');
     }
   }
 
@@ -113,7 +115,8 @@ export function TokensPage(): ReactElement {
 
       {tokensQuery.isPending && <p aria-busy="true">Loading…</p>}
       {tokensQuery.isError && <p role="alert">Failed to load API tokens.</p>}
-      {tokensQuery.data && (
+      {tokensQuery.data?.length === 0 && <EmptyState icon={KeyRound} title="No API tokens yet." />}
+      {tokensQuery.data && tokensQuery.data.length > 0 && (
         <table className="mt-4 w-full text-left text-sm">
           <thead>
             <tr className="border-border border-b">
@@ -153,9 +156,6 @@ export function TokensPage(): ReactElement {
             ))}
           </tbody>
         </table>
-      )}
-      {tokensQuery.data?.length === 0 && (
-        <p className="text-text-muted mt-4 text-sm">No API tokens yet.</p>
       )}
 
       <Dialog.Root
@@ -220,13 +220,12 @@ export function TokensPage(): ReactElement {
                   {createError}
                 </p>
               )}
-              <button
-                type="submit"
-                disabled={isSubmitting}
+              <SubmitButton
+                submitting={isSubmitting}
                 className={cn('self-start', primaryButtonClass)}
               >
-                {isSubmitting ? 'Creating…' : 'Create token'}
-              </button>
+                Create token
+              </SubmitButton>
             </form>
           </Dialog.Content>
         </Dialog.Portal>
@@ -306,7 +305,7 @@ function RevealDialog({ revealed, onDismiss }: RevealDialogProps): ReactElement 
                   setCopied(true);
                 }
               }}
-              className="text-text-muted focus-visible:outline-accent shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+              className="text-text-muted focus-visible:outline-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
             >
               <Copy className="h-4 w-4" aria-hidden="true" />
             </button>

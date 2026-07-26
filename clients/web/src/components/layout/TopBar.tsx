@@ -7,6 +7,7 @@ import { useAuth } from '../../auth/useAuth';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import { cn } from '../../lib/cn';
 import { type ThemePreference, useTheme } from '../../lib/theme';
+import { RouteProgressBar } from './RouteProgressBar';
 
 const THEME_OPTIONS: Array<{ value: ThemePreference; label: string; Icon: typeof Sun }> = [
   { value: 'light', label: 'Light', Icon: Sun },
@@ -23,7 +24,8 @@ export function TopBar(): ReactElement {
   const { preference, setPreference } = useTheme();
 
   return (
-    <header className="border-border bg-surface flex h-14 items-center justify-between border-b px-4 pt-[env(safe-area-inset-top)]">
+    <header className="border-border bg-surface relative flex h-14 items-center justify-between border-b px-4 pt-[env(safe-area-inset-top)]">
+      <RouteProgressBar />
       <div className="flex min-w-0 items-center gap-4">
         <Link
           to="/"

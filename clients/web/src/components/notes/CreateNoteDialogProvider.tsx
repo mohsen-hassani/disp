@@ -10,6 +10,8 @@ import {
   useState,
 } from 'react';
 
+import type { ProblemDetail } from '../../api/problem';
+import type { ServerFieldError } from '../../lib/mapValidationErrors';
 import { useToast } from '../feedback/ToastProvider';
 import { NoteEditor } from './NoteEditor';
 import { describeNoteError, useCreateNote } from './useNoteMutations';
@@ -30,6 +32,7 @@ const CreateNoteDialogContext = createContext<CreateNoteDialogContextValue | nul
 export function CreateNoteDialogProvider({ children }: { children: ReactNode }): ReactElement {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [serverErrors, setServerErrors] = useState<ServerFieldError[] | undefined>();
   const titleId = useId();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -43,6 +46,7 @@ export function CreateNoteDialogProvider({ children }: { children: ReactNode }):
         onOpenChange={(next) => {
           if (next) {
             setError(undefined);
+            setServerErrors(undefined);
           }
           setOpen(next);
         }}
@@ -59,7 +63,7 @@ export function CreateNoteDialogProvider({ children }: { children: ReactNode }):
               </Dialog.Title>
               <Dialog.Close
                 aria-label="Close"
-                className="text-text-muted focus-visible:outline-accent rounded-sm p-1 focus-visible:outline focus-visible:outline-2"
+                className="text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </Dialog.Close>
@@ -69,20 +73,28 @@ export function CreateNoteDialogProvider({ children }: { children: ReactNode }):
               initialBody=""
               submitting={mutation.isPending}
               error={error}
+              serverErrors={serverErrors}
               onSubmit={(values) => {
                 setError(undefined);
+                setServerErrors(undefined);
                 mutation.mutate(
                   { title: values.title, body: values.body, pinned: values.pinned },
                   {
                     onSuccess: (note) => {
                       setOpen(false);
-                      showToast('Note created.', 'default', {
+                      showToast('Note created.', 'success', {
                         label: 'Open',
                         onClick: () =>
                           void navigate({ to: '/notes/$noteId', params: { noteId: note.id } }),
                       });
                     },
-                    onError: (thrown) => setError(describeNoteError(thrown)),
+                    onError: (thrown: ProblemDetail) => {
+                      if (thrown.status === 422 && thrown.errors) {
+                        setServerErrors(thrown.errors);
+                      } else {
+                        setError(describeNoteError(thrown));
+                      }
+                    },
                   },
                 );
               }}

@@ -5,6 +5,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, MoreVertical, Pin } from 'lucide-react';
 import { type ReactElement, useEffect, useId, useState } from 'react';
 
+import type { ProblemDetail } from '../api/problem';
 import { noteDetailQueryOptions } from '../api/queries';
 import { ShareDialog } from '../components/notes/ShareDialog';
 import { NoteEditor } from '../components/notes/NoteEditor';
@@ -14,6 +15,7 @@ import {
   useTogglePinned,
   useUpdateNote,
 } from '../components/notes/useNoteMutations';
+import type { ServerFieldError } from '../lib/mapValidationErrors';
 import { SavedDataLabel } from '../components/feedback/SavedDataLabel';
 import { useToast } from '../components/feedback/ToastProvider';
 import { useOfflineState } from '../hooks/useOfflineState';
@@ -25,7 +27,7 @@ interface NoteDetailPageProps {
 }
 
 const iconButtonClass =
-  'text-text-muted focus-visible:outline-accent rounded-sm p-1.5 focus-visible:outline focus-visible:outline-2';
+  'text-text-muted focus-visible:outline-accent flex h-11 w-11 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2';
 const secondaryButtonClass =
   'border-border text-text focus-visible:outline-accent rounded-sm border px-3 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60';
 const menuItemClass =
@@ -42,6 +44,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
   const isOffline = useOfflineState();
   const [editing, setEditing] = useState(false);
   const [editError, setEditError] = useState<string | undefined>();
+  const [editServerErrors, setEditServerErrors] = useState<ServerFieldError[] | undefined>();
   const [shareOpen, setShareOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const confirmDeleteTitleId = useId();
@@ -71,10 +74,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
   function handleDelete(): void {
     deleteMutation.mutate(noteId, {
       onSuccess: () => {
-        showToast('Note deleted.');
+        showToast('Note deleted.', 'success');
         void navigate({ to: '/notes' });
       },
-      onError: (error) => showToast(describeNoteError(error), 'danger'),
+      onError: (error) => showToast(describeNoteError(error), 'error'),
     });
   }
 
@@ -97,7 +100,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
             onClick={() =>
               pinMutation.mutate(
                 { id: noteId, pinned: !note.pinned },
-                { onError: (error) => showToast(describeNoteError(error), 'danger') },
+                { onError: (error) => showToast(describeNoteError(error), 'error') },
               )
             }
             disabled={pinMutation.isPending || isOffline}
@@ -155,18 +158,27 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
           initialBody={note.body}
           submitting={updateMutation.isPending}
           error={editError}
+          serverErrors={editServerErrors}
           onSubmit={(values) => {
             setEditError(undefined);
+            setEditServerErrors(undefined);
             updateMutation.mutate(
               { body: values.body },
               {
                 onSuccess: () => setEditing(false),
-                onError: (error) => setEditError(describeNoteError(error)),
+                onError: (error: ProblemDetail) => {
+                  if (error.status === 422 && error.errors) {
+                    setEditServerErrors(error.errors);
+                  } else {
+                    setEditError(describeNoteError(error));
+                  }
+                },
               },
             );
           }}
           onCancel={() => {
             setEditError(undefined);
+            setEditServerErrors(undefined);
             setEditing(false);
           }}
         />
@@ -222,7 +234,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
                 disabled={deleteMutation.isPending}
                 className="bg-danger text-accent-text rounded-sm px-3 py-1.5 text-sm font-medium disabled:opacity-60"
               >
-                Delete
+                Delete note
               </button>
             </div>
           </Dialog.Content>

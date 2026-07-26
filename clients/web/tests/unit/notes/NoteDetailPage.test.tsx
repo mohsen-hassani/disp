@@ -100,7 +100,9 @@ it('deleting confirms, then navigates back to the list', async () => {
 
   await user.click(screen.getByRole('button', { name: /more actions/i }));
   await user.click(await screen.findByText('Delete'));
-  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /^delete$/i }));
+  await user.click(
+    within(screen.getByRole('dialog')).getByRole('button', { name: /^delete note$/i }),
+  );
 
   await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
 });

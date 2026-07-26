@@ -44,7 +44,7 @@ export function TileActionButton({ action, tileKey }: TileActionButtonProps): Re
   const fire = (): void => {
     mutation.mutate(
       { method: action.method, path: action.path },
-      { onError: (error) => showToast(describeActionError(error as TileActionError), 'danger') },
+      { onError: (error) => showToast(describeActionError(error as TileActionError), 'error') },
     );
   };
 

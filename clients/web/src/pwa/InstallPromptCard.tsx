@@ -6,7 +6,7 @@ import { useInstallPrompt } from '../hooks/useInstallPrompt';
 const primaryButtonClass =
   'bg-accent text-accent-text focus-visible:outline-accent rounded-sm px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
 const iconButtonClass =
-  'text-text-muted focus-visible:outline-accent shrink-0 rounded-sm p-1 focus-visible:outline focus-visible:outline-2';
+  'text-text-muted focus-visible:outline-accent flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2';
 
 /**
  * §17.3: never a modal, never blocks content — a dismissible inline card,
