@@ -281,3 +281,30 @@ it('does not show "Showing saved data" while online', async () => {
   await screen.findByText('First note');
   expect(screen.queryByText('Showing saved data.')).not.toBeInTheDocument();
 });
+
+// Case 42: every mutating control on a note row is disabled while offline,
+// with the "You're offline." tooltip §18.5 requires — not just the "New
+// note" button already covered above.
+it('disables every mutating note-row control while offline (case 42)', async () => {
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(pageResponse([note()]));
+  setOnline(false);
+  const user = userEvent.setup();
+  await renderNotes(
+    <NoteList
+      q={undefined}
+      pinned={undefined}
+      onQChange={noop}
+      onPinnedChange={noop}
+      onNewNote={noop}
+    />,
+  );
+  await screen.findByText('First note');
+
+  const pinButton = screen.getByRole('button', { name: /pin note/i });
+  expect(pinButton).toBeDisabled();
+  expect(pinButton).toHaveAttribute('title', "You're offline.");
+
+  await user.click(screen.getByRole('button', { name: /more actions for "first note"/i }));
+  expect(await screen.findByText('Share')).toHaveAttribute('data-disabled');
+  expect(screen.getByText('Delete')).toHaveAttribute('data-disabled');
+});

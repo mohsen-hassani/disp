@@ -156,3 +156,45 @@ it('warns before navigating away with unsaved changes', async () => {
   await screen.findByRole('dialog');
   expect(screen.getByText(/leave without saving/i)).toBeInTheDocument();
 });
+
+it('"Stay" closes the unsaved-changes dialog without navigating away', async () => {
+  const user = userEvent.setup();
+  const { router } = await renderWithRouter(
+    <SchemaForm schema={schema} initialValue={{ name: 'Ada' }} onSubmit={vi.fn()} />,
+  );
+
+  await user.clear(screen.getByLabelText(/^Name/));
+  await user.type(screen.getByLabelText(/^Name/), 'Grace');
+  void router.history.push('/somewhere-else');
+  await screen.findByRole('dialog');
+
+  await user.click(screen.getByRole('button', { name: /^stay$/i }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(router.history.location.pathname).toBe('/');
+});
+
+it('"Leave" proceeds with the navigation', async () => {
+  const user = userEvent.setup();
+  const { router } = await renderWithRouter(
+    <SchemaForm schema={schema} initialValue={{ name: 'Ada' }} onSubmit={vi.fn()} />,
+  );
+
+  await user.clear(screen.getByLabelText(/^Name/));
+  await user.type(screen.getByLabelText(/^Name/), 'Grace');
+  void router.history.push('/somewhere-else');
+  await screen.findByRole('dialog');
+
+  await user.click(screen.getByRole('button', { name: /^leave$/i }));
+  await waitFor(() => expect(router.history.location.pathname).toBe('/somewhere-else'));
+});
+
+it('seeds a field with its schema default when absent from initialValue', async () => {
+  const schemaWithDefault: JsonSchemaDoc = {
+    type: 'object',
+    properties: { name: { type: 'string', title: 'Name', default: 'Ada' } },
+  };
+  await renderWithRouter(
+    <SchemaForm schema={schemaWithDefault} initialValue={{}} onSubmit={vi.fn()} />,
+  );
+  expect(screen.getByLabelText('Name')).toHaveValue('Ada');
+});

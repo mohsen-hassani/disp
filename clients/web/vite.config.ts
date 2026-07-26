@@ -67,4 +67,18 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  // WEB-SPEC §2.1/§23.4: e2e (Playwright, via `pnpm preview`) needs the same
+  // same-origin shape production gets from Traefik's path-routing (§24.4) —
+  // `/api`, `/health`, `/openapi.json` reaching the backend, everything else
+  // served as the SPA. The real nginx/Traefik routing config is M12's job
+  // (no `web` container image exists yet); this is a preview-only stand-in
+  // so e2e specs can run against `docker-compose.e2e.yml`'s backend without
+  // pulling that work forward. Never used by `pnpm dev` or `pnpm build`.
+  preview: {
+    proxy: {
+      '/api': 'http://localhost:8000',
+      '/health': 'http://localhost:8000',
+      '/openapi.json': 'http://localhost:8000',
+    },
+  },
 });

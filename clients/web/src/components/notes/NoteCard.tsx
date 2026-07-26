@@ -2,7 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { Link } from '@tanstack/react-router';
 import { MoreVertical, Pin } from 'lucide-react';
-import { type ReactElement, useId, useState } from 'react';
+import { type ReactElement, useId, useRef, useState } from 'react';
 
 import type { NoteOut } from '../../api/generated';
 import { relativeTime } from '../../lib/format';
@@ -31,6 +31,12 @@ export function NoteCard({
 }: NoteCardProps): ReactElement {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const confirmTitleId = useId();
+  // §21 A11: the confirm dialog opens from a dropdown *item*, which is
+  // already unmounted by the time this dialog mounts — Radix's own default
+  // focus-restore has nothing left to return to and falls back to <body>.
+  // Restoring explicitly to the menu's own trigger keeps focus somewhere
+  // real and keyboard-reachable instead.
+  const moreActionsRef = useRef<HTMLButtonElement>(null);
   const firstLine = note.body.split('\n', 1)[0]?.trim();
   const heading = note.title || firstLine || 'Untitled';
 
@@ -64,6 +70,7 @@ export function NoteCard({
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
+            ref={moreActionsRef}
             type="button"
             aria-label={`More actions for "${heading}"`}
             className="text-text-muted focus-visible:outline-accent -mt-1 -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-sm focus-visible:outline focus-visible:outline-2"
@@ -111,6 +118,10 @@ export function NoteCard({
           <Dialog.Overlay className="fixed inset-0 bg-black/40" />
           <Dialog.Content
             aria-labelledby={confirmTitleId}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              moreActionsRef.current?.focus();
+            }}
             className="border-border bg-surface shadow-overlay fixed top-1/2 left-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border p-4"
           >
             <Dialog.Title id={confirmTitleId} className="text-text mb-2 text-sm font-medium">

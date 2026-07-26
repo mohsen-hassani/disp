@@ -1,0 +1,103 @@
+# WEB-SPEC §23.4. Layered on top of the production stack — run as
+# `docker compose -f docker-compose.yml -f docker-compose.e2e.yml up` — not
+# standalone like `docker-compose.test.yml` (Postgres only, for local dev
+# against a directly `uv run`-launched API) and not a copy of
+# `docker-compose.yml` itself. Three jobs, only:
+#
+# 1. Point `api`/`worker`/`migrate` at *this* file's Postgres, not whatever
+#    `MYSTUFF_DATABASE_URL` happens to be in the developer's own `.env`
+#    (typically `localhost`, per `.env.example`'s dev-oriented default) —
+#    inside the compose network the database is reachable only as
+#    `postgres`, so the URL is always overridden here regardless of `.env`.
+# 2. Apply migrations and seed one deterministic admin user before `api`/
+#    `worker` start, via a one-shot `migrate` service. The production
+#    compose file deliberately leaves this a manual step
+#    (`docs/operations.md`) so a deploy never runs a migration by accident;
+#    e2e needs it to happen unattended instead.
+# 3. Expose the `api` container's port directly on `localhost` and disable
+#    Traefik (no real domain or ACME email exists in an e2e run). Same-origin
+#    routing for the client (§2.1) comes from `vite.config.ts`'s
+#    `preview.proxy` instead of Traefik's path routing (§24.4), since the
+#    `web` container Traefik would normally route to doesn't exist yet
+#    (`clients/web` has no Dockerfile until M12).
+#
+# Postgres uses its own `pgdata_e2e` volume — separate from
+# `docker-compose.yml`'s `pgdata` (real prod data) and
+# `docker-compose.test.yml`'s `pgdata_dev` (the persistent local-dev
+# database) — so this stack can never accidentally point at either. It's
+# still a *named* volume (survives a plain `down`), not because e2e wants
+# persistence, but because `disp-admin seed-admin` refuses to run a second
+# time once a user exists (by design — see `src/disp/core/cli_admin.py`):
+# run `docker compose -f docker-compose.yml -f docker-compose.e2e.yml down
+# -v` between e2e runs for a clean slate. §23.4's "each spec creates and
+# cleans up its own fixtures via the API" still holds regardless — nothing
+# but the one seeded admin user is ever relied on as pre-existing state.
+#
+# Requires `POSTGRES_PASSWORD` (docker-compose.yml has no default for it) —
+# export a throwaway value, e.g. `POSTGRES_PASSWORD=e2e docker compose -f
+# docker-compose.yml -f docker-compose.e2e.yml up -d --build`.
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-e2e}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_e2e:/var/lib/postgresql/data
+
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      MYSTUFF_SEED_PASSWORD: ${MYSTUFF_SEED_PASSWORD:-e2e-admin-password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        alembic --name=core upgrade head &&
+        alembic --name=notes upgrade head &&
+        procrastinate --app=disp.core.scheduler.app schema --apply &&
+        disp-admin seed-admin --email e2e-admin@example.com --display-name "E2E Admin"
+
+  api:
+    environment:
+      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      # Plain HTTP, localhost-only — no TLS terminator sits in front of this
+      # stack in e2e, so a Secure-flagged cookie would never round-trip back.
+      MYSTUFF_COOKIE_SECURE: "false"
+      MYSTUFF_ENV: development
+      MYSTUFF_RATE_LIMIT_ENABLED: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    environment:
+      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      MYSTUFF_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # Needs a real Host()/ACME email (docker-compose.yml requires
+  # PUBLIC_HOST/ACME_EMAIL); neither exists in an e2e run, and nothing here
+  # needs TLS termination. `disabled` is never passed to `--profile`, so
+  # plain `docker compose ... up` never starts it.
+  traefik:
+    profiles: ["disabled"]
+
+volumes:
+  pgdata_e2e:

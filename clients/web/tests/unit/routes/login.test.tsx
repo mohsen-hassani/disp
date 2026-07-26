@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
 import { client } from '../../../src/api/client';
-import { setAuthState } from '../../../src/auth/authState';
+import { getAuthState, setAuthState } from '../../../src/auth/authState';
 import { getToken } from '../../../src/auth/tokenStore';
 import { setNavigate } from '../../../src/lib/navigate';
 import { LoginPage, resolveNextPath } from '../../../src/routes/-login';
@@ -90,6 +90,30 @@ it('shows the same generic error for both invalid-credentials scenarios', async 
   const secondError = await screen.findByRole('alert');
   expect(secondError).toHaveTextContent(/that email and password don't match/i);
   expect(secondError.textContent).toBe(firstError.textContent);
+});
+
+// Case 3 (UI half): the persistent security banner renders on the login
+// screen when bootstrap/refresh already put auth state into `revoked`, and
+// dismissing it acknowledges the state back to `anonymous` (§8.6).
+it('renders the security banner when revoked, and Dismiss acknowledges it', async () => {
+  setAuthState({ status: 'revoked', reason: 'reuse_detected' });
+
+  render(<LoginPage />);
+
+  const banner = screen.getByRole('alert');
+  expect(banner).toHaveTextContent(/signed out because your session token was used twice/i);
+
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: /dismiss/i }));
+
+  expect(getAuthState()).toEqual({ status: 'anonymous' });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('does not render the security banner when merely anonymous', () => {
+  setAuthState({ status: 'anonymous' });
+  render(<LoginPage />);
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 
 // Case 7: a 429 disables submit for Retry-After seconds with a countdown.

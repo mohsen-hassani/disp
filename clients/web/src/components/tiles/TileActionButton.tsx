@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { type ReactElement, useId, useState } from 'react';
 
 import type { TileAction } from '../../api/generated';
+import { useOfflineState } from '../../hooks/useOfflineState';
 import { useToast } from '../feedback/ToastProvider';
 import { TileActionDialog } from './TileActionDialog';
 import { describeActionError, type TileActionError, useTileAction } from './useTileAction';
@@ -24,11 +25,18 @@ export function TileActionButton({ action, tileKey }: TileActionButtonProps): Re
   const confirmTitleId = useId();
   const { showToast } = useToast();
   const mutation = useTileAction(tileKey);
+  const isOffline = useOfflineState();
 
   if (action.body_schema) {
     return (
       <>
-        <button type="button" onClick={() => setDialogOpen(true)} className={buttonClass}>
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          disabled={isOffline}
+          title={isOffline ? "You're offline." : undefined}
+          className={buttonClass}
+        >
           {action.label}
         </button>
         <TileActionDialog
@@ -54,7 +62,8 @@ export function TileActionButton({ action, tileKey }: TileActionButtonProps): Re
         <button
           type="button"
           onClick={() => setConfirmOpen(true)}
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || isOffline}
+          title={isOffline ? "You're offline." : undefined}
           className={buttonClass}
         >
           {action.label}
@@ -93,7 +102,13 @@ export function TileActionButton({ action, tileKey }: TileActionButtonProps): Re
   }
 
   return (
-    <button type="button" onClick={fire} disabled={mutation.isPending} className={buttonClass}>
+    <button
+      type="button"
+      onClick={fire}
+      disabled={mutation.isPending || isOffline}
+      title={isOffline ? "You're offline." : undefined}
+      className={buttonClass}
+    >
       {action.label}
     </button>
   );

@@ -3,7 +3,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, MoreVertical, Pin } from 'lucide-react';
-import { type ReactElement, useEffect, useId, useState } from 'react';
+import { type ReactElement, useEffect, useId, useRef, useState } from 'react';
 
 import type { ProblemDetail } from '../api/problem';
 import { noteDetailQueryOptions } from '../api/queries';
@@ -48,6 +48,11 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
   const [shareOpen, setShareOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const confirmDeleteTitleId = useId();
+  // §21 A11: same nested-dropdown-then-dialog handoff as NoteCard.tsx — the
+  // triggering dropdown item is already unmounted by the time this dialog's
+  // focus needs somewhere to return to, so Radix's default falls back to
+  // <body> unless restored explicitly.
+  const moreActionsRef = useRef<HTMLButtonElement>(null);
 
   const updateMutation = useUpdateNote(noteId);
   const pinMutation = useTogglePinned();
@@ -117,7 +122,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
 
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button type="button" aria-label="More actions" className={iconButtonClass}>
+              <button
+                ref={moreActionsRef}
+                type="button"
+                aria-label="More actions"
+                className={iconButtonClass}
+              >
                 <MoreVertical className="h-5 w-5" aria-hidden="true" />
               </button>
             </DropdownMenu.Trigger>
@@ -217,6 +227,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps): ReactElement {
           <Dialog.Overlay className="fixed inset-0 bg-black/40" />
           <Dialog.Content
             aria-labelledby={confirmDeleteTitleId}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              moreActionsRef.current?.focus();
+            }}
             className="border-border bg-surface shadow-overlay fixed top-1/2 left-1/2 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border p-4"
           >
             <Dialog.Title id={confirmDeleteTitleId} className="text-text mb-2 text-sm font-medium">

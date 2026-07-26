@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { login } from '../auth/AuthProvider';
+import { RevokedBanner } from '../components/feedback/RevokedBanner';
 import { SubmitButton } from '../components/feedback/SubmitButton';
 import { navigate } from '../lib/navigate';
 
@@ -95,6 +96,7 @@ export function LoginPage(): ReactElement {
 
   return (
     <main id="main-content">
+      <RevokedBanner />
       <h1>Sign in</h1>
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         <div>

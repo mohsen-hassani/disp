@@ -37,18 +37,23 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 
 A React PWA at `clients/web/` consumes this API — see
 [`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) for the full spec and
-[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M10` are implemented**
+[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M11` are implemented**
 (backend amendments, the generated API client, browser auth, routing/shell, the dashboard's generic
 tile rendering, generic settings rendering, the account/API-tokens/admin-invites screens, the
 bespoke notes screens with global keyboard shortcuts, PWA/offline support — installable, an
 update-available toast, and read-only offline via a service worker with per-route runtime caching —
-and a forms/feedback/accessibility hardening pass: a shared `422`-to-field error mapper, toast
+a forms/feedback/accessibility hardening pass: a shared `422`-to-field error mapper, toast
 variants with correct durations/`aria-live` politeness/stacking limits, three-tier error boundaries
 (root/route/tile), a route-transition progress bar, width-stable button spinners, and a WCAG 2.2 AA
 pass (44px touch targets, reduced-motion support, focus-ring/empty-state/copy audits) —
-`SchemaForm` was pulled forward a milestone early in M05 since tile action dialogs need it too);
-`M11` onward — the E2E/a11y test suite and the remaining deploy milestones — have not started.
-There is no production Docker image or Compose service for it yet either (that's `M12`).
+`SchemaForm` was pulled forward a milestone early in M05 since tile action dialogs need it too —
+and the full test suite: enforced coverage gates (≥80% overall, ≥95% on `src/auth/` and
+`src/components/schema-form/`), an MSW mock layer generated against the same OpenAPI types the SDK
+uses, and a Playwright e2e suite (`clients/web/tests/e2e/`) covering auth, dashboard, notes,
+settings, and PWA/offline flows — including axe scans of five key screens and keyboard-traversal/
+focus-trap checks — against a real backend brought up by `docker-compose.e2e.yml`);
+`M12` — the production PWA deploy (a `web` Docker image, Traefik path-routing) — has not started.
+There is no production Docker image or Compose service for the web client yet either.
 
 ### Local development
 
@@ -84,7 +89,23 @@ pnpm test        # vitest run --coverage
 pnpm test:watch  # vitest, interactive
 pnpm build       # tsc -b && vite build -> dist/
 pnpm preview     # serve the production build locally
+pnpm test:e2e    # playwright, against docker-compose.e2e.yml — see below
 ```
+
+`pnpm test:e2e` needs a real backend and a built `dist/`, not the dev server — from the repo root:
+
+```sh
+POSTGRES_PASSWORD=<anything> docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+  up -d --build
+cd clients/web && pnpm build && pnpm test:e2e
+```
+
+`docker-compose.e2e.yml` (its own header comment has the full explanation) migrates and seeds one
+deterministic admin user, exposes the API on `localhost:8000`, and skips Traefik; `pnpm preview`'s
+own `preview.proxy` (`vite.config.ts`) makes `/api`/`/health`/`/openapi.json` reach it same-origin
+in the meantime, standing in for the real Traefik routing `M12` adds. Run `docker compose -f
+docker-compose.yml -f docker-compose.e2e.yml down -v` between runs for a clean database — the
+seeded admin can only be created once.
 
 ### Production
 
