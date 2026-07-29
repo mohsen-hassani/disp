@@ -95,60 +95,86 @@ export function LoginPage(): ReactElement {
   });
 
   return (
-    <main id="main-content">
+    <>
       <RevokedBanner />
-      <h1>Sign in</h1>
-      <form onSubmit={(event) => void onSubmit(event)} noValidate>
-        <div>
-          <label htmlFor="login-email">Email</label>
-          <input
-            id="login-email"
-            type="email"
-            autoComplete="username"
-            aria-invalid={errors.email ? true : undefined}
-            aria-describedby={errors.email ? 'login-email-error' : undefined}
-            {...register('email')}
-          />
-          {errors.email && (
-            <p id="login-email-error" role="alert">
-              {errors.email.message}
+      <main
+        id="main-content"
+        className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-8"
+      >
+        <h1 className="text-text text-xl font-semibold">Sign in</h1>
+        <form
+          onSubmit={(event) => void onSubmit(event)}
+          noValidate
+          className="mt-6 flex flex-col gap-4"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="login-email" className="text-text text-sm font-medium">
+              Email
+            </label>
+            <input
+              id="login-email"
+              type="email"
+              autoComplete="username"
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? 'login-email-error' : undefined}
+              {...register('email')}
+            />
+            {errors.email && (
+              <p id="login-email-error" role="alert" className="text-danger text-xs">
+                {errors.email.message}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="login-password" className="text-text text-sm font-medium">
+              Password
+            </label>
+            <input
+              id="login-password"
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? 'login-password-error' : undefined}
+              {...register('password')}
+            />
+            {errors.password && (
+              <p id="login-password-error" role="alert" className="text-danger text-xs">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          {formError && (
+            <p role="alert" className="text-danger text-sm">
+              {formError}
             </p>
           )}
-        </div>
 
-        <div>
-          <label htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            aria-invalid={errors.password ? true : undefined}
-            aria-describedby={errors.password ? 'login-password-error' : undefined}
-            {...register('password')}
-          />
-          {errors.password && (
-            <p id="login-password-error" role="alert">
-              {errors.password.message}
-            </p>
+          {retryAfter > 0 ? (
+            <button
+              type="submit"
+              disabled
+              className="bg-accent text-accent-text self-start rounded-sm px-4 py-2 text-sm font-medium disabled:opacity-60"
+            >
+              {`Try again in ${retryAfter}s`}
+            </button>
+          ) : (
+            <SubmitButton
+              submitting={isSubmitting}
+              className="bg-accent text-accent-text focus-visible:outline-accent self-start rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+            >
+              Sign in
+            </SubmitButton>
           )}
-        </div>
+        </form>
 
-        {formError && <p role="alert">{formError}</p>}
-
-        {retryAfter > 0 ? (
-          <button type="submit" disabled>
-            {`Try again in ${retryAfter}s`}
-          </button>
-        ) : (
-          <SubmitButton submitting={isSubmitting} className="">
-            Sign in
-          </SubmitButton>
-        )}
-      </form>
-
-      {/* No "remember me" — the 30-day refresh cookie is the only
-          persistence. No password-reset flow exists in this backend. */}
-      <p>Forgot your password? Ask your administrator to reset it.</p>
-    </main>
+        {/* No "remember me" — the 30-day refresh cookie is the only
+            persistence. No password-reset flow exists in this backend. */}
+        <p className="text-text-muted mt-6 text-sm">
+          Forgot your password? Ask your administrator to reset it.
+        </p>
+      </main>
+    </>
   );
 }

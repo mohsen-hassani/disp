@@ -1,5 +1,6 @@
 import { setUnauthorizedHandler } from '../api/client';
 import { authRefresh } from '../api/generated';
+import type { AuthRefreshResponse } from '../api/generated';
 import { parseProblem } from '../api/problem';
 import { navigate } from '../lib/navigate';
 import { getAuthState, setAuthState } from './authState';
@@ -32,8 +33,16 @@ const NO_RETRY_PATHNAMES = new Set([
 
 type RefreshOutcome = 'ok' | 'failed' | 'reused';
 
+export interface RefreshResult {
+  outcome: RefreshOutcome;
+  /** Present only when `outcome === 'ok'`. */
+  data?: AuthRefreshResponse;
+  /** True when the attempt never reached the server (offline/DNS/etc). */
+  networkError?: boolean;
+}
+
 let proactiveTimer: ReturnType<typeof setTimeout> | null = null;
-let inFlightRefresh: Promise<RefreshOutcome> | null = null;
+let inFlightRefresh: Promise<RefreshResult> | null = null;
 
 // Extension point for M04's QueryClient — §8.6's "clear the TanStack Query
 // cache" logout step. A no-op until a QueryClient actually exists to clear.
@@ -60,25 +69,33 @@ export function scheduleProactiveRefresh(expiresInSeconds: number): void {
   }, delaySeconds * 1000);
 }
 
-async function performRefresh(): Promise<RefreshOutcome> {
+async function performRefresh(): Promise<RefreshResult> {
   const result = await authRefresh();
 
   if (!result.response) {
     // A true network failure (fetch itself rejected) — nothing to parse as
     // a problem body; treat the same as any other failed refresh attempt.
-    return 'failed';
+    return { outcome: 'failed', networkError: true };
   }
   if (result.response.ok && result.data) {
     setToken(result.data.access_token, result.data.expires_in);
     scheduleProactiveRefresh(result.data.expires_in);
-    return 'ok';
+    return { outcome: 'ok', data: result.data };
   }
 
   const problem = parseProblem(result.response, result.error);
-  return problem.code === 'auth.refresh_token_reused' ? 'reused' : 'failed';
+  return { outcome: problem.code === 'auth.refresh_token_reused' ? 'reused' : 'failed' };
 }
 
-function getOrStartRefresh(): Promise<RefreshOutcome> {
+// Single-flighted: refresh tokens are one-time-use and rotate on every call,
+// so two concurrent callers issuing their own `authRefresh()` would have the
+// second one replay an already-rotated cookie, tripping the backend's reuse
+// detection and hard-revoking the session. React StrictMode's double-invoked
+// mount effect made AuthProvider's bootstrap() do exactly that until it was
+// routed through this same guard — every other caller (the 401 interceptor,
+// the proactive timer, the visibility-change handler) already went through
+// it.
+export function getOrStartRefresh(): Promise<RefreshResult> {
   inFlightRefresh ??= performRefresh().finally(() => {
     inFlightRefresh = null;
   });
@@ -158,7 +175,7 @@ export async function handleUnauthorizedResponse(
     return response;
   }
 
-  const outcome = await getOrStartRefresh();
+  const { outcome } = await getOrStartRefresh();
 
   if (outcome === 'reused') {
     await hardLogout();

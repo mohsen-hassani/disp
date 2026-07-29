@@ -11,9 +11,11 @@ FastAPI projects. See `README.md` for the architecture overview and `milestones/
 full build history, including every resolved spec ambiguity and bug found along the way.
 
 A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
-sequence at `milestones/client/M00-M12` — unlike the backend's `M00-M16`, those are prospective
-(not-yet-built) briefs, not retrospective build logs. Exception: `milestones/client/M00` (backend
-amendments) is implemented — see below.
+sequence at `milestones/client/M00-M12` — unlike the backend's `M00-M16`, those started as
+prospective (not-yet-built) briefs, not retrospective build logs. Exception: `milestones/client/
+M00-M11` are now implemented (see `README.md`'s "Web client" section for what each covers, and
+"Web client" below for testing/dev notes specific to it); only `M12` (production Docker image +
+Traefik routing) remains prospective.
 
 ## Commands
 
@@ -102,3 +104,62 @@ building it — always verify a Dockerfile change by running the image, not just
 The production image ships no `uv`/`./dev` (keeps it free of build tooling) — use the installed
 console scripts directly for one-shot commands (`docker compose run --rm api alembic --name=core
 upgrade head`, etc. — see `docs/operations.md`).
+
+## Web client (`clients/web/`)
+
+Two test layers, both run from `clients/web/`: `pnpm test` (Vitest — unit/component, real coverage
+gates) and `pnpm test:e2e` (Playwright — full stack against a real backend). See `README.md`'s "Web
+client" section for the exact commands.
+
+- **Any UI change (new screen, new component, or edit to an existing one) follows
+  `docs/design-system/`.** It's the "DISP Design System" project pulled from claude.ai/design —
+  components by category (`components/{core,forms,feedback,navigation,overlay,data}/`), design
+  tokens (`tokens/*.css`: color, type, spacing, radius, motion), and 12 foundation specimens
+  (`guidelines/*.card.html`); `docs/design-system/readme.md` has the full rationale (tone/copy
+  rules, color/spacing/motion specs, open decisions). **Read `readme.md`'s "Caveats" section
+  first**: it was authored from a written product brief only, with no real DISP codebase
+  attached, so it's a reference to reconcile against, not ground truth to copy verbatim — and it
+  uses plain inline-styled `.jsx` + raw CSS custom properties, not this repo's actual
+  Tailwind/Radix stack (`clients/web/tailwind.config.ts`, `@radix-ui/react-*` in
+  `clients/web/package.json`). Translate its tokens and component APIs (variant names, sizes,
+  states) into this codebase's real conventions — Tailwind utility classes and
+  `src/components/ui/`-style Radix wrappers — rather than importing its files or inline-style
+  objects directly. If a design decision here conflicts with what's already shipped in
+  `clients/web/src/components/`, treat the shipped code as current ground truth and flag the
+  conflict rather than silently overriding it.
+- **Coverage gates are enforced**, not aspirational (`vitest.config.ts`'s `coverage.thresholds`):
+  ≥80% lines overall, ≥95% on `src/auth/` and `src/components/schema-form/` (glob-keyed
+  per-directory thresholds, same mechanism as the backend's `≥85%/≥95%` split). A number that looks
+  implausibly low for well-tested code is a config problem to find, not a target to lower.
+- **`docker-compose.e2e.yml` is layered on `docker-compose.yml`**, not standalone like
+  `docker-compose.test.yml` — run as `docker compose -f docker-compose.yml -f
+  docker-compose.e2e.yml up`, never alone (its own header comment has the full rationale). It
+  overrides `MYSTUFF_DATABASE_URL` to point at the compose-network `postgres` (not whatever
+  `localhost` URL is in the developer's own `.env`), runs a one-shot `migrate` service (Alembic +
+  Procrastinate schema + a deterministic seeded admin via `MYSTUFF_SEED_PASSWORD`) before `api`/
+  `worker` start, exposes the API directly on `localhost:8000`, and disables Traefik via a
+  `profiles: ["disabled"]` override (no real domain/ACME email exists in an e2e run). Requires
+  `POSTGRES_PASSWORD` set on the invoking shell — `docker-compose.yml`'s own `:?required` has no
+  default. Run `... down -v` between runs: the seeded admin refuses to be created twice.
+- **Same-origin routing, ahead of `M12`.** The client requires the API to be same-origin (§2.1) —
+  in production that's Traefik path-routing (§24.4), not built yet. Until then, `vite.config.ts`
+  defines the same proxy shape under both `server.proxy` (used by `pnpm dev`) and `preview.proxy`
+  (used by `pnpm preview`, what Playwright's `webServer` runs) — Vite doesn't share config between
+  the two — forwarding `/api`, `/health`, and `/openapi.json` to `localhost:8000`. This is a
+  dev/preview-only stand-in meant to be replaced by real Traefik routing once `M12` ships the
+  `web` container, not extended.
+- **MSW (`tests/mocks/`) needs jsdom's origin pinned.** `vitest.config.ts` sets
+  `environmentOptions.jsdom.url: 'http://localhost/'` — MSW resolves a handler's relative URL
+  pattern against `document.location`, and jsdom's own default origin (`http://localhost:3000`)
+  doesn't match the `http://localhost` baseUrl every test file's `client.setConfig(...)` already
+  standardizes on (see `tests/unit/api/client.test.ts`). Without this, MSW handlers silently never
+  match and every request 404s.
+- **A route's `beforeLoad` must `ensureQueryData`, never bare `getQueryData`, for anything a
+  parent route's `loader` populates.** TanStack Router runs every matched route's `beforeLoad`
+  before any route's `loader` — so on a fresh/direct navigation (not a client-side `<Link>` click
+  from an already-loaded page), a child's `beforeLoad` can run before the parent loader that fills
+  the cache it wants to read. Caught live by the e2e suite: `/settings/$domain`'s domain-validity
+  check 404'd on a direct load despite the domain being real, because it read the manifest cache
+  with `getQueryData` (no fetch) instead of `ensureQueryData` (fetches-or-waits, and de-dupes
+  against the parent's identical query). If a `beforeLoad` reads a query another route's `loader`
+  is responsible for populating, it must `await ensureQueryData` that same query itself.

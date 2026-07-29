@@ -1,13 +1,14 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactElement, type ReactNode, useEffect, useRef, useSyncExternalStore } from 'react';
 
-import { authAcceptInvite, authLogin, authLogout, authMe, authRefresh } from '../api/generated';
+import { authAcceptInvite, authLogin, authLogout, authMe } from '../api/generated';
 import type { MeResponse, UserOut } from '../api/generated';
 import { type ProblemDetail, parseProblem } from '../api/problem';
 import { qk } from '../api/queryKeys';
 import { getAuthState, setAuthState, subscribeAuthState } from './authState';
 import {
   clearProactiveRefresh,
+  getOrStartRefresh,
   scheduleProactiveRefresh,
   softLogout as reactiveSoftLogout,
 } from './refresh';
@@ -55,12 +56,15 @@ export async function bootstrap(
 ): Promise<void> {
   setAuthState({ status: 'loading' });
 
-  const result = await authRefresh();
+  // Routed through refresh.ts's single-flight guard, not a direct
+  // authRefresh() call: refresh tokens are one-time-use and rotate on every
+  // call, and React StrictMode double-invokes this effect on mount in dev,
+  // so two un-deduped concurrent calls here had the second one replay an
+  // already-rotated cookie — tripping the backend's reuse detection and
+  // hard-revoking the session on every single page load.
+  const result = await getOrStartRefresh();
 
-  if (result.response?.ok && result.data) {
-    setToken(result.data.access_token, result.data.expires_in);
-    scheduleProactiveRefresh(result.data.expires_in);
-
+  if (result.outcome === 'ok' && result.data) {
     const me = await authMe();
     if (me.response?.ok && me.data) {
       setAuthState({ status: 'authenticated', user: me.data });
@@ -82,7 +86,7 @@ export async function bootstrap(
     return;
   }
 
-  if (!result.response) {
+  if (result.networkError) {
     // True network failure. Full offline-cache plumbing is M09's job;
     // M03's job is to make the degraded state reachable at all —
     // getCachedUser is the extension point M09 wires a real QueryClient
@@ -96,8 +100,7 @@ export async function bootstrap(
     return;
   }
 
-  const problem = parseProblem(result.response, result.error);
-  if (problem.code === 'auth.refresh_token_reused') {
+  if (result.outcome === 'reused') {
     setAuthState({ status: 'revoked', reason: 'reuse_detected' });
     return;
   }

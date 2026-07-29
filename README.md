@@ -55,6 +55,12 @@ focus-trap checks — against a real backend brought up by `docker-compose.e2e.y
 `M12` — the production PWA deploy (a `web` Docker image, Traefik path-routing) — has not started.
 There is no production Docker image or Compose service for the web client yet either.
 
+UI work follows [`docs/design-system/`](docs/design-system/), a components/tokens/guidelines
+reference pulled from the "DISP Design System" Claude Design project — read its own `readme.md`
+(especially the "Caveats" section) before using it: it's a starting point authored from a written
+brief, not a source of truth to copy verbatim, and its inline-styled `.jsx` components need
+translating into this repo's actual Tailwind/Radix conventions.
+
 ### Local development
 
 Requires Node.js `>=22.11 <23` and `pnpm >=9.12`.
@@ -65,12 +71,12 @@ pnpm install
 pnpm dev            # Vite dev server on http://localhost:5173
 ```
 
-The dev server has **no proxy to the backend configured** — §2.1 of the web spec requires the
-client and API to be same-origin in production (Traefik path-routes `/api` to the backend
-container, §24.4), and no local dev-time equivalent exists yet. Until `M12` (or an earlier
-milestone adds a Vite proxy), pages that call the API won't reach it when run standalone with
-`pnpm dev`. Run the real backend alongside it regardless (`uv run uvicorn disp.main:app --reload`
-per the quickstart above) so this is a non-issue once routing/proxying is wired up.
+§2.1 of the web spec requires the client and API to be same-origin in production (Traefik
+path-routes `/api` to the backend container, §24.4); `M12` hasn't shipped that yet, so
+`vite.config.ts`'s `server.proxy` stands in for local dev, forwarding `/api`, `/health`, and
+`/openapi.json` to `http://localhost:8000`. Run the real backend alongside `pnpm dev`
+(`uv run uvicorn disp.main:app --reload` per the quickstart above) so those requests have
+somewhere to land.
 
 Regenerate the typed API client after any backend route change:
 
@@ -119,8 +125,8 @@ implementing it rather than improvising a deployment shape ahead of it.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  disp CLI  ──HTTP (PAT)──►  FastAPI app                         │
+┌──────────────────────────────────────────────────────────────────┐
+│  disp CLI  ──HTTP (PAT)──►  FastAPI app                          │
 │                             ├─ /health, /api/auth, /api/dashboard│
 │                             │  /api/settings  (core routers)     │
 │                             ├─ /api/<domain>  (per-module router)│
@@ -133,7 +139,7 @@ implementing it rather than improvising a deployment shape ahead of it.
 │                                    notifier, settings store,     │
 │                                    read-only registry access)    │
 └──────────────┬───────────────────────────────┬───────────────────┘
-               │                                │
+               │                               │
         Postgres 16                     Procrastinate (worker process)
    (schema per module + core)           background tasks, no Redis
 ```

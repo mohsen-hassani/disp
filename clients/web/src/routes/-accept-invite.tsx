@@ -102,35 +102,53 @@ export function AcceptInvitePage(): ReactElement {
 
   if (screen === 'not_found') {
     return (
-      <main id="main-content">
-        <h1>Invitation not found</h1>
-        <p>{INVITE_NOT_FOUND_COPY}</p>
+      <main
+        id="main-content"
+        className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-8"
+      >
+        <h1 className="text-text text-xl font-semibold">Invitation not found</h1>
+        <p className="text-text-muted mt-2 text-sm">{INVITE_NOT_FOUND_COPY}</p>
       </main>
     );
   }
   if (screen === 'used') {
     return (
-      <main id="main-content">
-        <h1>Invitation already used</h1>
-        <p>{INVITE_USED_COPY}</p>
+      <main
+        id="main-content"
+        className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-8"
+      >
+        <h1 className="text-text text-xl font-semibold">Invitation already used</h1>
+        <p className="text-text-muted mt-2 text-sm">{INVITE_USED_COPY}</p>
       </main>
     );
   }
   if (screen === 'expired') {
     return (
-      <main id="main-content">
-        <h1>Invitation expired</h1>
-        <p>{INVITE_EXPIRED_COPY}</p>
+      <main
+        id="main-content"
+        className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-4 py-8"
+      >
+        <h1 className="text-text text-xl font-semibold">Invitation expired</h1>
+        <p className="text-text-muted mt-2 text-sm">{INVITE_EXPIRED_COPY}</p>
       </main>
     );
   }
 
   return (
-    <main id="main-content">
-      <h1>Accept invitation</h1>
-      <form onSubmit={(event) => void onSubmit(event)} noValidate>
-        <div>
-          <label htmlFor="invite-display-name">Display name</label>
+    <main
+      id="main-content"
+      className="mx-auto flex min-h-screen w-full max-w-sm flex-col justify-center px-4 py-8"
+    >
+      <h1 className="text-text text-xl font-semibold">Accept invitation</h1>
+      <form
+        onSubmit={(event) => void onSubmit(event)}
+        noValidate
+        className="mt-6 flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-1">
+          <label htmlFor="invite-display-name" className="text-text text-sm font-medium">
+            Display name
+          </label>
           <input
             id="invite-display-name"
             type="text"
@@ -140,14 +158,16 @@ export function AcceptInvitePage(): ReactElement {
             {...register('displayName')}
           />
           {errors.displayName && (
-            <p id="invite-display-name-error" role="alert">
+            <p id="invite-display-name-error" role="alert" className="text-danger text-xs">
               {errors.displayName.message}
             </p>
           )}
         </div>
 
-        <div>
-          <label htmlFor="invite-password">Password</label>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="invite-password" className="text-text text-sm font-medium">
+            Password
+          </label>
           <input
             id="invite-password"
             type="password"
@@ -157,17 +177,21 @@ export function AcceptInvitePage(): ReactElement {
             {...register('password')}
           />
           {errors.password && (
-            <p id="invite-password-error" role="alert">
+            <p id="invite-password-error" role="alert" className="text-danger text-xs">
               {errors.password.message}
             </p>
           )}
           {password.length > 0 && (
-            <p aria-live="polite">Password strength: {passwordStrength(password)}</p>
+            <p aria-live="polite" className="text-text-muted text-xs">
+              Password strength: {passwordStrength(password)}
+            </p>
           )}
         </div>
 
-        <div>
-          <label htmlFor="invite-confirm-password">Confirm password</label>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="invite-confirm-password" className="text-text text-sm font-medium">
+            Confirm password
+          </label>
           <input
             id="invite-confirm-password"
             type="password"
@@ -177,15 +201,22 @@ export function AcceptInvitePage(): ReactElement {
             {...register('confirmPassword')}
           />
           {errors.confirmPassword && (
-            <p id="invite-confirm-password-error" role="alert">
+            <p id="invite-confirm-password-error" role="alert" className="text-danger text-xs">
               {errors.confirmPassword.message}
             </p>
           )}
         </div>
 
-        {formError && <p role="alert">{formError}</p>}
+        {formError && (
+          <p role="alert" className="text-danger text-sm">
+            {formError}
+          </p>
+        )}
 
-        <SubmitButton submitting={isSubmitting} className="">
+        <SubmitButton
+          submitting={isSubmitting}
+          className="bg-accent text-accent-text focus-visible:outline-accent self-start rounded-sm px-4 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+        >
           Accept invitation
         </SubmitButton>
       </form>
