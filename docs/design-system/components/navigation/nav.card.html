@@ -1,0 +1,24 @@
+<!-- @dsCard group="Components" viewport="700x320" name="Navigation" subtitle="Top bar, side nav (md+), bottom nav (mobile), tabs" -->
+<script src="../../_ds_bundle.js"></script>
+<link rel="stylesheet" href="../../styles.css">
+<style>body{margin:0;padding:0;background:var(--color-surface);font-family:var(--font-sans);color:var(--color-text)}</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<div id="root"></div>
+<script type="text/babel">
+const { TopBar, SideNav, BottomNav, Tabs, Avatar, IconButton, Icon } = window.DISPDesignSystem_bf3b97;
+function Demo(){
+  const [tab,setTab]=React.useState(0);
+  const links=[{label:"Dashboard",icon:"layout-grid",active:true},{label:"Notes",icon:"file-text"},{label:"Account",icon:"user"}];
+  return (<div>
+    <TopBar userMenu={<IconButton label="User menu"><Avatar name="Jordan Lee" size={28}/></IconButton>}/>
+    <div style={{display:"flex"}}>
+      <SideNav links={links}/>
+      <div style={{flex:1,padding:16}}><Tabs tabs={["Details","API tokens"]} active={tab} onChange={setTab}/></div>
+    </div>
+    <BottomNav links={links}/>
+  </div>);
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Demo/>);
+</script>

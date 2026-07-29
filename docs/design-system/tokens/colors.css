@@ -1,0 +1,70 @@
+/* Internal gray + accent ramp — NOT component-facing. Components must only
+   reference the semantic --color-* tokens below. Ramp kept here so shading
+   stays centralized without exposing gray-50/gray-900 style steps. */
+:root{
+  --gray-0:#ffffff;
+  --gray-50:#f7f8fa;
+  --gray-100:#eceef2;
+  --gray-200:#dfe2e8;
+  --gray-300:#c7ccd6;
+  --gray-400:#9aa1ad;
+  --gray-500:#5b6270;
+  --gray-600:#3f4550;
+  --gray-800:#22252b;
+  --gray-900:#171a1f;
+  --gray-950:#0d0f12;
+
+  --accent-500:#2f5fd0;
+  --accent-600:#2650b3;
+
+  --color-surface:var(--gray-50);
+  --color-surface-raised:var(--gray-0);
+  --color-surface-sunken:var(--gray-100);
+  --color-text:var(--gray-900);
+  --color-text-muted:var(--gray-500);
+  --color-border:var(--gray-200);
+  --color-border-strong:var(--gray-300);
+  --color-accent:var(--accent-500);
+  --color-accent-text:var(--gray-0);
+  --color-danger:#b3261e;
+  --color-success:#1a7d4f;
+  --color-warning:#8a5a0a;
+
+  --shadow-overlay:0 8px 24px rgba(23,26,31,0.16);
+}
+
+/* data-theme="system" is the default (no explicit light/dark choice); it follows
+   prefers-color-scheme. App sets data-theme="system" unless the user picked light/dark. */
+@media (prefers-color-scheme: dark){
+  [data-theme="system"]{
+    --color-surface:var(--gray-950);
+    --color-surface-raised:#191c22;
+    --color-surface-sunken:#0a0b0d;
+    --color-text:var(--gray-100);
+    --color-text-muted:var(--gray-400);
+    --color-border:#2a2e36;
+    --color-border-strong:#3d424c;
+    --color-accent:#7ba0f0;
+    --color-accent-text:#0d1526;
+    --color-danger:#e5877e;
+    --color-success:#6fcf9a;
+    --color-warning:#e0a94d;
+    --shadow-overlay:0 8px 24px rgba(0,0,0,0.48);
+  }
+}
+
+[data-theme="dark"]{
+  --color-surface:var(--gray-950);
+  --color-surface-raised:#191c22;
+  --color-surface-sunken:#0a0b0d;
+  --color-text:var(--gray-100);
+  --color-text-muted:var(--gray-400);
+  --color-border:#2a2e36;
+  --color-border-strong:#3d424c;
+  --color-accent:#7ba0f0;
+  --color-accent-text:#0d1526;
+  --color-danger:#e5877e;
+  --color-success:#6fcf9a;
+  --color-warning:#e0a94d;
+  --shadow-overlay:0 8px 24px rgba(0,0,0,0.48);
+}

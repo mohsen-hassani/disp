@@ -1,0 +1,6 @@
+<!-- @dsCard group="Spacing" viewport="700x160" name="Motion" subtitle="120ms state / 200ms overlay, cubic-bezier(0.2,0,0,1) — no shimmer, no parallax" -->
+<link rel="stylesheet" href="../styles.css">
+<style>body{margin:0;padding:16px;background:var(--color-surface);font-family:var(--font-sans);color:var(--color-text);display:flex;flex-direction:column;gap:14px;font-size:13px}button{cursor:pointer;font:inherit;border-radius:6px;padding:8px 14px;border:1px solid var(--color-border);background:var(--color-surface-raised);color:var(--color-text);transition:background var(--duration-fast) var(--ease-standard),transform var(--duration-fast) var(--ease-standard)}button:hover{background:var(--color-surface-sunken)}button:active{transform:scale(0.97)}</style>
+<div>Hover/press this button — 120ms state transition, cubic-bezier(0.2, 0, 0, 1):</div>
+<button>Hover / press me</button>
+<div style="color:var(--color-text-muted);font-size:12px">Overlays (dialogs, menus) use 200ms. Everything collapses to 0ms under prefers-reduced-motion.</div>

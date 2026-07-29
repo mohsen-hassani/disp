@@ -1,0 +1,14 @@
+:root{
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-12:48px;
+
+  /* Breakpoints (reference only — CSS vars can't drive @media; hardcode these
+     px values in media queries). base:0 sm:640 md:768 lg:1024 xl:1280 */
+  --content-max-width:1200px;
+  --touch-target-min:44px;
+}

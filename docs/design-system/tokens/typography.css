@@ -1,0 +1,31 @@
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+
+  --text-xs:0.75rem;
+  --text-sm:0.875rem;
+  --text-base:1rem;
+  --text-md:1.125rem;
+  --text-lg:1.25rem;
+  --text-xl:1.5rem;
+  --text-2xl:2rem;
+
+  --text-body:1rem;
+  --leading-body:1.5;
+  --leading-heading:1.25;
+
+  --font-weight-regular:400;
+  --font-weight-medium:500;
+  --font-weight-semibold:600;
+  --font-weight-bold:700;
+
+  --tracking-tight:-0.01em;
+  --tracking-normal:0;
+  --tracking-wide:0.02em;
+
+  --prose-width:68ch;
+}
+
+@media (min-width:768px){
+  :root{ --text-body:0.9375rem; }
+}
