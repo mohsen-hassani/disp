@@ -1,7 +1,7 @@
 import { test as base, type BrowserContext, type Page } from '@playwright/test';
 
 // §23.4: the one admin `docker-compose.e2e.yml`'s `migrate` service seeds —
-// deterministic via MYSTUFF_SEED_PASSWORD, so no test needs to scrape a
+// deterministic via DISP_SEED_PASSWORD, so no test needs to scrape a
 // generated password out of container logs. Every spec creates and tears
 // down its own note/token/invite fixtures against this account via the API;
 // nothing else is assumed to pre-exist.

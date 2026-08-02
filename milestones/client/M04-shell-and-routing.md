@@ -53,9 +53,8 @@ Tokens and light/dark values were defined in M01's `src/styles/index.css` (Appen
 This milestone owns the *runtime* behavior:
 
 - **Theme switching** (`src/lib/theme.ts`): resolves `light`/`dark`/`system`, applies
-  `data-theme` to `<html>`, persists the choice to `disp.theme` (renamed from the spec's literal
-  `mystuff.theme` — M01 already reserved this key), and updates `<meta name="theme-color">` to match
-  the resolved theme. The user menu's Theme submenu (§12.4, below) is this milestone's UI for it.
+  `data-theme` to `<html>`, persists the choice to `disp.theme`, and updates `<meta name="theme-color">`
+  to match the resolved theme. The user menu's Theme submenu (§12.4, below) is this milestone's UI for it.
 - **Typography**: system font stack only, no web fonts. Scale (rem): `0.75, 0.875, 1, 1.125, 1.25,
   1.5, 2`. Body `1rem` mobile / `0.9375rem` desktop. Line height 1.5 body / 1.25 headings. Max prose
   measure `68ch` (used by M08's note body).
@@ -123,12 +122,6 @@ Radix dropdown in TopBar: display name + email (truncated), then Account, API to
 `index.html`'s viewport meta was set in M01. This milestone's shell components pad with
 `env(safe-area-inset-*)` on all four sides wherever content would otherwise sit under system UI
 (notch, home indicator, gesture bar).
-
-## DISP naming applied here
-
-- Every page title in the routing table above ends in `· DISP`, not `· MyStuff`.
-- `TopBar`'s logo/wordmark reads "DISP".
-- Theme persistence key: `disp.theme`.
 
 ## Dependencies
 

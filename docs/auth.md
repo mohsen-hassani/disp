@@ -9,7 +9,7 @@ what they can and can't do.
 | | Access token (JWT) | Refresh token | Personal access token (PAT) |
 |---|---|---|---|
 | Format | `HS256` JWT, `Authorization: Bearer <jwt>` | `secrets.token_urlsafe(32)`, `disp_refresh` cookie only | `disp_pat_` + `secrets.token_urlsafe(32)`, `Authorization: Bearer <token>` |
-| Lifetime | `MYSTUFF_ACCESS_TOKEN_TTL_SECONDS` (default 900s / 15 min) | `MYSTUFF_REFRESH_TOKEN_TTL_SECONDS` (default 30 days), rotated on every use | Indefinite by default, or `expires_in_days` at creation |
+| Lifetime | `DISP_ACCESS_TOKEN_TTL_SECONDS` (default 900s / 15 min) | `DISP_REFRESH_TOKEN_TTL_SECONDS` (default 30 days), rotated on every use | Indefinite by default, or `expires_in_days` at creation |
 | Storage | Not stored — self-contained, verified by signature | `sha256(token)` in `core.sessions.refresh_token_hash` | `sha256(token)` in `core.api_tokens.token_hash` |
 | Revocable before expiry? | **No** (see below) | Yes — the whole family | Yes — sets `revoked_at` |
 | Can create a PAT? | Yes | N/A (never sent to `/api/auth/tokens`) | **No** — `403 auth.pat_cannot_mint` |
@@ -21,7 +21,7 @@ Access tokens are JWTs verified purely by signature and expiry (`leeway=0`) — 
 database lookup on the hot path, and consequently **no way to revoke one before it expires**.
 This is an accepted tradeoff, not an oversight: revocation acts on the refresh-token family (see
 below), and the maximum exposure from a stolen access token is bounded by
-`MYSTUFF_ACCESS_TOKEN_TTL_SECONDS` — 15 minutes by default. If this window is too wide for a given
+`DISP_ACCESS_TOKEN_TTL_SECONDS` — 15 minutes by default. If this window is too wide for a given
 deployment, lower the TTL (as low as 60 seconds is accepted by `Settings`' validator) rather than
 trying to add a revocation check to the hot path.
 

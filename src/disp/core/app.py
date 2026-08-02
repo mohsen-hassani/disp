@@ -101,7 +101,7 @@ def create_app() -> FastAPI:
             await engine.dispose()
 
     app = FastAPI(
-        title="MyStuff",
+        title="DISP",
         version=__version__,
         openapi_url="/openapi.json",
         docs_url="/docs" if settings.env != "production" else None,

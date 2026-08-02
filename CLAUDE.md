@@ -84,7 +84,7 @@ tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_proof.
   real gap. If coverage numbers look implausibly low for a well-tested async route, check this
   setting hasn't been reverted before writing more tests to "fix" it.
 - **`./dev test` and a bare `pytest` invocation must behave identically.** `./dev` sources this
-  repo's own `.env` (dev defaults, including `MYSTUFF_RATE_LIMIT_ENABLED=true`) into the shell
+  repo's own `.env` (dev defaults, including `DISP_RATE_LIMIT_ENABLED=true`) into the shell
   before running pytest; a bare `pytest` never sees `.env` at all. `tests/conftest.py`'s required
   env vars are therefore **unconditional** overrides (`os.environ["KEY"] = ...`), not
   `setdefault` — a `setdefault` there previously caused real rate-limiting to leak into the whole
@@ -134,9 +134,9 @@ client" section for the exact commands.
 - **`docker-compose.e2e.yml` is layered on `docker-compose.yml`**, not standalone like
   `docker-compose.test.yml` — run as `docker compose -f docker-compose.yml -f
   docker-compose.e2e.yml up`, never alone (its own header comment has the full rationale). It
-  overrides `MYSTUFF_DATABASE_URL` to point at the compose-network `postgres` (not whatever
+  overrides `DISP_DATABASE_URL` to point at the compose-network `postgres` (not whatever
   `localhost` URL is in the developer's own `.env`), runs a one-shot `migrate` service (Alembic +
-  Procrastinate schema + a deterministic seeded admin via `MYSTUFF_SEED_PASSWORD`) before `api`/
+  Procrastinate schema + a deterministic seeded admin via `DISP_SEED_PASSWORD`) before `api`/
   `worker` start, exposes the API directly on `localhost:8000`, and disables Traefik via a
   `profiles: ["disabled"]` override (no real domain/ACME email exists in an e2e run). Requires
   `POSTGRES_PASSWORD` set on the invoking shell — `docker-compose.yml`'s own `:?required` has no

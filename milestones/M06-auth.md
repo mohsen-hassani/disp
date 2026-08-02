@@ -87,7 +87,7 @@ Responses:
 Set-Cookie: disp_refresh=<token>; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000
 ```
 
-`Secure` is omitted only when `MYSTUFF_COOKIE_SECURE` is false. `Domain` is set only when configured.
+`Secure` is omitted only when `DISP_COOKIE_SECURE` is false. `Domain` is set only when configured.
 
 The error message text for `auth.invalid_credentials` MUST be identical for unknown-email and wrong-password cases.
 
@@ -119,9 +119,9 @@ Response `200`: same shape as login. Errors clear the cookie with `Max-Age=0`.
 
 ## §10.6 Access tokens
 
-- Algorithm `HS256`, secret `MYSTUFF_JWT_SECRET`.
+- Algorithm `HS256`, secret `DISP_JWT_SECRET`.
 - Claims: `sub` (user id, string UUID), `iat`, `exp`, `jti` (uuid4), `typ` = `"access"`, `email`, `adm` (bool).
-- TTL from `MYSTUFF_ACCESS_TOKEN_TTL_SECONDS`.
+- TTL from `DISP_ACCESS_TOKEN_TTL_SECONDS`.
 - Verification MUST enforce `typ == "access"`, signature, and expiry with `leeway=0`.
 - Access tokens are **not** revocable before expiry. This is accepted: revocation acts on the refresh family, and 15 minutes is the maximum exposure. This MUST be stated in `docs/auth.md` (M16).
 
@@ -132,7 +132,7 @@ Response `200`: same shape as login. Errors clear the cookie with `Max-Age=0`.
 - `token_prefix` = the brand prefix + 8 more characters of the random suffix, stored for display.
 - The plaintext is returned **once**, in the creation response only. It is never retrievable again and never logged.
 
-> **Note on the spec's literal numbers:** §10.7 originally said "Total length 53" and "first 18 characters (`disp_pat_` + 8)". Both numbers were computed against the spec's older `stuff_pat_` prefix (10 chars: 10+43=53, 10+8=18). With the resolved `disp_pat_` prefix (9 chars), the actual total is 52 and the display prefix is 17 chars (`len(PAT_PREFIX) + 8`, computed dynamically rather than hardcoded) — the *behavioral* rule ("prefix + 8 more characters") is preserved; only the stale arithmetic annotations are not.
+> **Note on the spec's literal numbers:** §10.7 originally said "Total length 53" and "first 18 characters (`disp_pat_` + 8)". Both numbers were computed against the spec's older `disp_pat_` prefix (10 chars: 10+43=53, 10+8=18). With the resolved `disp_pat_` prefix (9 chars), the actual total is 52 and the display prefix is 17 chars (`len(PAT_PREFIX) + 8`, computed dynamically rather than hardcoded) — the *behavioral* rule ("prefix + 8 more characters") is preserved; only the stale arithmetic annotations are not.
 
 Endpoints:
 
@@ -178,7 +178,7 @@ The refresh cookie MUST NOT authenticate any endpoint other than `/api/auth/refr
 - Rejects an email that already belongs to a user (`409 auth.user_exists`).
 - Rejects a second pending invite for the same email (`409 auth.invite_pending`) — enforced by `uq_invites_pending_email`.
 - Token: `secrets.token_urlsafe(32)`, stored hashed.
-- Returns `201` with `{"id", "email", "token", "accept_url", "expires_at"}` where `accept_url = f"{MYSTUFF_BASE_URL}/accept-invite?token={token}"`. The plaintext token appears only here. Delivery to the invitee is the admin's problem; the system sends no email.
+- Returns `201` with `{"id", "email", "token", "accept_url", "expires_at"}` where `accept_url = f"{DISP_BASE_URL}/accept-invite?token={token}"`. The plaintext token appears only here. Delivery to the invitee is the admin's problem; the system sends no email.
 
 **`GET /api/auth/invites`** — admin only. Lists pending invites without tokens.
 

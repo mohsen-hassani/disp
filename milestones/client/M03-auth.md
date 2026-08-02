@@ -45,9 +45,6 @@ test, see Verification).
 | `disp.theme` | `"light" \| "dark" \| "system"` | Theme override (M01 already reserved this) |
 | `disp.installDismissedAt` | epoch ms | Install-prompt suppression (M09 writes this) |
 
-(Renamed from the spec's literal `mystuff.theme`/`mystuff.installDismissedAt` — see DISP naming
-section below.) No user id, no email, no route history, ever.
-
 ## §8.2 Auth states
 
 ```ts
@@ -151,15 +148,6 @@ with Appendix D copy.
   (backend §10.7). The token-*management* UI (list/revoke, M07) never authenticates with one.
 - MUST NOT read the refresh cookie (it's `HttpOnly`; JS can't anyway, but don't try).
 - MUST NOT decode the access token for claims — identity comes from `GET /api/auth/me` only.
-
-## DISP naming applied here
-
-- `disp.theme` / `disp.installDismissedAt` (not `mystuff.*`) — enforced by this milestone's own
-  no-persisted-credential test, which should also assert no `mystuff.*` key exists.
-- `X-Requested-With: disp` on refresh/logout (inherited from M02's corrected client config; this
-  milestone's bootstrap/login/logout calls must actually use that configured client, not bypass it).
-- Page titles: `Sign in · DISP`, `Accept invitation · DISP` (finalized by M04's route table, but the
-  string constants belong to this milestone's route files).
 
 ## Dependencies
 

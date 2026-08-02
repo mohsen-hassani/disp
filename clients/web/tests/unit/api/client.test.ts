@@ -45,7 +45,7 @@ describe('api/client request interceptor', () => {
     expect(request.headers.get('X-Requested-With')).toBeNull();
   });
 
-  it('adds X-Requested-With: disp to /api/auth/refresh exactly (not the spec’s literal "mystuff")', async () => {
+  it('adds X-Requested-With: disp to /api/auth/refresh exactly (not the spec’s literal "disp")', async () => {
     await authRefresh();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);

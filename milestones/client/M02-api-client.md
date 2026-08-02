@@ -68,7 +68,7 @@ Configure the generated fetch client with:
 - Request interceptor: add `Authorization: Bearer <token>` when M03's token store holds one;
   **omit the header entirely** otherwise (never send `Authorization: Bearer null` or similar).
 - Request interceptor: add `X-Requested-With: disp` to `POST /auth/refresh` and
-  `POST /auth/logout` only. **Use `disp`, not the spec's literal `mystuff`** — see M00's
+  `POST /auth/logout` only. **Use `disp``** — see M00's
   "spec-vs-reality correction" section; the backend's `_require_csrf_header()`
   (`src/disp/core/auth/routes.py:79`) rejects anything else.
 - Response interceptor implementing the 401 refresh flow — the actual single-flight state machine
@@ -155,10 +155,6 @@ in every later milestone imports from here. The QueryClient defaults (staleTime/
 policy, §10.1) and the per-query/invalidation tables (§10.2–10.3) are **M04's and each feature
 milestone's** concern to apply at the call site; this file only defines the keys.
 
-## DISP naming applied here
-
-- The `X-Requested-With` header value: `disp` (correction from M00, not `mystuff` as the literal
-  spec text reads).
 
 ## Dependencies
 

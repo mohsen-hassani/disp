@@ -107,12 +107,6 @@ confirm it's invokable non-interactively for CI). Tests MUST NOT depend on data 
 each spec creates and cleans up its own fixtures via the API, not the UI, to keep specs independent
 and fast.
 
-## DISP naming applied here
-
-None new — this milestone's job includes verifying (via the source-scan-style check in M10 and this
-milestone's own fixture data) that no "MyStuff" string leaked into any screen, but introduces no new
-user-facing strings itself.
-
 ## Dependencies
 
 Runs after **M03–M10** — by design, this is the milestone that exercises everything built so far

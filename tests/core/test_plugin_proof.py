@@ -1,7 +1,7 @@
 """§22.4: prove the plug-in mechanism needs zero core/ edits.
 
 This spins up a SEPARATE FastAPI app (not the shared session-scoped `app`
-fixture) restricted to just the `hello` fixture module via MYSTUFF_MODULES,
+fixture) restricted to just the `hello` fixture module via DISP_MODULES,
 so it can assert the module surfaces through the real HTTP API without
 touching the shared app's already-registered scheduler tasks.
 """
@@ -23,7 +23,7 @@ FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures_modules"
 @pytest.fixture
 def _hello_module_path(monkeypatch: pytest.MonkeyPatch) -> None:
     disp.modules.__path__.append(str(FIXTURES_DIR))
-    monkeypatch.setenv("MYSTUFF_MODULES", "hello")
+    monkeypatch.setenv("DISP_MODULES", "hello")
     get_settings.cache_clear()
     yield
     disp.modules.__path__.remove(str(FIXTURES_DIR))

@@ -44,7 +44,7 @@ async def _seed_admin(*, email: str, display_name: str) -> None:
                 )
                 raise typer.Exit(code=1)
 
-            seed_password = os.environ.get("MYSTUFF_SEED_PASSWORD")
+            seed_password = os.environ.get("DISP_SEED_PASSWORD")
             generated = seed_password is None
             if seed_password is None:
                 seed_password = secrets.token_urlsafe(16)

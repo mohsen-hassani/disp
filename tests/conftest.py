@@ -15,26 +15,26 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Env vars the test suite requires. These are UNCONDITIONAL overrides, not
 # `setdefault`: `./dev test` sources the repo's own .env first (dev
-# defaults — MYSTUFF_ENV=development, MYSTUFF_RATE_LIMIT_ENABLED=true, a
+# defaults — DISP_ENV=development, DISP_RATE_LIMIT_ENABLED=true, a
 # dev-only database pointed at the persistent local Postgres, etc.), and
 # `setdefault` would silently no-op against anything already present there.
 # That previously caused real-rate-limiting to leak into the whole suite
 # (running via `./dev test`) even though every individual test file passed
 # in isolation via a bare `pytest` invocation that never sourced .env.
 # Tests must be hermetic regardless of the invoking shell's environment.
-# NOTE: MYSTUFF_DATABASE_URL(_SYNC) are set further below, once the
+# NOTE: DISP_DATABASE_URL(_SYNC) are set further below, once the
 # testcontainers-managed Postgres 16 container's dynamic port is known.
-os.environ["MYSTUFF_JWT_SECRET"] = "test-jwt-secret-please-change-1234567890"  # noqa: S105
-os.environ["MYSTUFF_SETTINGS_KEY"] = "ICwTIfRAUP1GgmhgjQhaz44p2hlAM8u9sjW4ELgkTz4="
-os.environ["MYSTUFF_BASE_URL"] = "http://localhost:8000"
-os.environ["MYSTUFF_ENV"] = "test"
-os.environ["MYSTUFF_COOKIE_SECURE"] = "false"
-os.environ["MYSTUFF_RATE_LIMIT_ENABLED"] = "false"
+os.environ["DISP_JWT_SECRET"] = "test-jwt-secret-please-change-1234567890"  # noqa: S105
+os.environ["DISP_SETTINGS_KEY"] = "ICwTIfRAUP1GgmhgjQhaz44p2hlAM8u9sjW4ELgkTz4="
+os.environ["DISP_BASE_URL"] = "http://localhost:8000"
+os.environ["DISP_ENV"] = "test"
+os.environ["DISP_COOKIE_SECURE"] = "false"
+os.environ["DISP_RATE_LIMIT_ENABLED"] = "false"
 
 # §22.1 requires a real PostgreSQL 16 via testcontainers, started once per
 # session. This MUST happen at conftest.py *module import time* (not inside a
 # pytest fixture): disp.core.scheduler constructs a procrastinate.App bound to
-# MYSTUFF_DATABASE_URL_SYNC at *import time* (see M7's note), and the first
+# DISP_DATABASE_URL_SYNC at *import time* (see M7's note), and the first
 # test module to `from disp.core.app import create_app` (or anything else
 # that transitively imports disp.core.scheduler) does so during pytest's
 # collection phase — which runs after this file executes top-to-bottom, but
@@ -45,8 +45,8 @@ atexit.register(_container.stop)
 
 _ASYNC_URL = _container.get_connection_url()
 _SYNC_URL = _ASYNC_URL.replace("+asyncpg", "+psycopg", 1)
-os.environ["MYSTUFF_DATABASE_URL"] = _ASYNC_URL
-os.environ["MYSTUFF_DATABASE_URL_SYNC"] = _SYNC_URL
+os.environ["DISP_DATABASE_URL"] = _ASYNC_URL
+os.environ["DISP_DATABASE_URL_SYNC"] = _SYNC_URL
 
 
 def _run(*args: str) -> None:
@@ -63,7 +63,7 @@ from disp.core.db import get_session  # noqa: E402
 
 @pytest.fixture(scope="session")
 async def engine() -> AsyncIterator[AsyncEngine]:
-    eng = _create_engine(os.environ["MYSTUFF_DATABASE_URL"])
+    eng = _create_engine(os.environ["DISP_DATABASE_URL"])
     yield eng
     await eng.dispose()
 

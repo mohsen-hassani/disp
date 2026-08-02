@@ -25,7 +25,7 @@ Covers TECHNICAL-SPEC.md §21 (Security requirements — verification checklist)
 | S11 | Settings secrets are Fernet-encrypted at rest with a key held only in the environment. |
 | S12 | The catch-all exception handler never leaks exception text, SQL, or stack traces to the client. |
 | S13 | Rate limits per §17.6. |
-| S14 | `docs_url` and `redoc_url` are disabled when `MYSTUFF_ENV=production`. |
+| S14 | `docs_url` and `redoc_url` are disabled when `DISP_ENV=production`. |
 | S15 | The container runs as a non-root user (`uid 10001`). |
 | S16 | Dependencies are pinned via a committed lock file. |
 
@@ -123,7 +123,7 @@ docker compose run --rm api disp-admin seed-admin --email you@example.com --disp
 - Retention: 7 daily, 4 weekly.
 - Off-host copy (S3 or rsync), with the destination configurable.
 - **A restore procedure that has been executed at least once**, documented step by step.
-- An explicit warning that `MYSTUFF_SETTINGS_KEY` must be backed up separately and that losing it makes every stored notification credential unrecoverable, while losing `MYSTUFF_JWT_SECRET` only invalidates outstanding access tokens.
+- An explicit warning that `DISP_SETTINGS_KEY` must be backed up separately and that losing it makes every stored notification credential unrecoverable, while losing `DISP_JWT_SECRET` only invalidates outstanding access tokens.
 
 > `scripts/backup.sh` isn't itemized in §4's repository tree, but is explicitly mandated here — added under a new `scripts/` directory as a reasonable gap-fill (same category as `docker-compose.test.yml`, resolved with the user at planning time as: minimal Postgres-only override, not used by pytest which uses testcontainers).
 
@@ -243,7 +243,7 @@ plain `docker-compose.yml` is the *production* stack (includes Traefik, requires
 
 ### Documentation notes
 
-- `docs/operations.md`'s key-rotation table for `MYSTUFF_SETTINGS_KEY` was drafted first assuming
+- `docs/operations.md`'s key-rotation table for `DISP_SETTINGS_KEY` was drafted first assuming
   an HTTP endpoint could reveal secret values in plaintext for pre-rotation recovery — checked
   against `settings_store.py`'s actual router and found no such endpoint exists (`GET
   /api/settings/{domain}` always masks secrets, by design, §14.3). Corrected to describe the real

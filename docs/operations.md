@@ -27,7 +27,7 @@ verified against a real Postgres 16 as part of writing this document.
 
 ## Log locations
 
-The API and worker both log structured JSON (or console-formatted text when `MYSTUFF_LOG_FORMAT=console`) to stdout/stderr — there is no log file on disk. Under `docker compose`, retrieve logs with:
+The API and worker both log structured JSON (or console-formatted text when `DISP_LOG_FORMAT=console`) to stdout/stderr — there is no log file on disk. Under `docker compose`, retrieve logs with:
 
 ```
 docker compose logs -f api
@@ -107,7 +107,7 @@ This procedure was executed against a real dump of the dev database as part of w
    Compare the row count against the source database (`psql -d disp -tAc "SELECT count(*) FROM core.users;"`) — it matched exactly in this verification run.
 
 5. **Cut over.** Once verified, either:
-   - Point `MYSTUFF_DATABASE_URL` at the restored database and restart the API/worker, or
+   - Point `DISP_DATABASE_URL` at the restored database and restart the API/worker, or
    - Rename the live (broken) database aside and rename the restored one into its place, inside a maintenance window with the API stopped:
      ```
      docker compose stop api worker
@@ -125,12 +125,12 @@ This procedure was executed against a real dump of the dev database as part of w
 
 | Key | Rotation impact | Procedure |
 |---|---|---|
-| `MYSTUFF_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call. |
-| `MYSTUFF_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
-| Postgres credentials (`POSTGRES_PASSWORD`) | None to application data; only affects new connections. | Update the password in Postgres and in `.env`'s `MYSTUFF_DATABASE_URL`(`_SYNC`)/`POSTGRES_PASSWORD`, then restart `api` and `worker`. |
+| `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call. |
+| `DISP_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
+| Postgres credentials (`POSTGRES_PASSWORD`) | None to application data; only affects new connections. | Update the password in Postgres and in `.env`'s `DISP_DATABASE_URL`(`_SYNC`)/`POSTGRES_PASSWORD`, then restart `api` and `worker`. |
 
-Neither key rotation requires a database migration — both are purely environment-variable changes plus, for `MYSTUFF_SETTINGS_KEY`, the manual re-encryption pass described above.
+Neither key rotation requires a database migration — both are purely environment-variable changes plus, for `DISP_SETTINGS_KEY`, the manual re-encryption pass described above.
 
 ## Rate limits (§17.6)
 
-Enabled by default (`MYSTUFF_RATE_LIMIT_ENABLED=true` in production). A `429` response always carries a `Retry-After` header and `code=rate_limited`. If legitimate traffic is being throttled, check `MYSTUFF_RATE_LIMIT_ENABLED` and the specific limiter hit (login: 5/minute per email; PAT creation: 20/hour per user; password change: 5/hour per user; default: 300/minute per remote address) before disabling rate limiting entirely.
+Enabled by default (`DISP_RATE_LIMIT_ENABLED=true` in production). A `429` response always carries a `Retry-After` header and `code=rate_limited`. If legitimate traffic is being throttled, check `DISP_RATE_LIMIT_ENABLED` and the specific limiter hit (login: 5/minute per email; PAT creation: 20/hour per user; password change: 5/hour per user; default: 300/minute per remote address) before disabling rate limiting entirely.

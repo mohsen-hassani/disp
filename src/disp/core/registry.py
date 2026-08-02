@@ -64,7 +64,7 @@ class Registry:
         if allow_list:
             unknown = sorted(set(allow_list) - set(candidate_names))
             if unknown:
-                _fatal(f"MYSTUFF_MODULES names unknown module(s): {unknown}")
+                _fatal(f"DISP_MODULES names unknown module(s): {unknown}")
             allowed = set(allow_list)
             candidate_names = [name for name in candidate_names if name in allowed]
 

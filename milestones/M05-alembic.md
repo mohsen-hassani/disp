@@ -37,7 +37,7 @@ version_table_schema = notes
 
 A single shared `env.py` (referenced by every module's `script_location` through a symlink or a thin re-export module) MUST:
 
-1. Read `MYSTUFF_DATABASE_URL_SYNC` from the environment; never hard-code a URL.
+1. Read `DISP_DATABASE_URL_SYNC` from the environment; never hard-code a URL.
 2. Determine the active branch from the Alembic config section name.
 3. Set `version_table`, `version_table_schema`, and `include_schemas=True`.
 4. Install an `include_object` hook that **excludes any table whose schema is not the branch's own schema**, so `alembic revision --autogenerate` for `notes` never emits DDL for `core`.

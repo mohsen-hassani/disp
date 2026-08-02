@@ -64,7 +64,7 @@ it('caches the dashboard manifest with StaleWhileRevalidate and a single-entry e
   expect(manifestEntry?.options?.expiration).toEqual({ maxEntries: 1, maxAgeSeconds: 86_400 });
 });
 
-it('renders the DISP-branded manifest, not the spec draft\'s "MyStuff"', () => {
+it('renders the DISP-branded manifest, not the spec draft\'s "DISP"', () => {
   expect(PWA_MANIFEST.name).toBe('DISP');
   expect(PWA_MANIFEST.short_name).toBe('DISP');
   expect(PWA_MANIFEST.shortcuts).toEqual([

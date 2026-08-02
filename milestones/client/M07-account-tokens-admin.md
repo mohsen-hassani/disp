@@ -42,9 +42,9 @@ only lists/creates/revokes.
   - MUST be cleared from component state on unmount (a `useEffect` cleanup or equivalent, not
     reliance on garbage collection alone — assert this in a test, not by inspection).
 - **Revoke** requires confirmation naming the specific token (not a generic "Are you sure?").
-- Helper text: these are for the `disp` CLI (not "the `stuff` CLI" — see naming note below), linking
-  to the CLI docs (`docs/` in the repo root, or wherever `disp login`/`disp notes` are documented —
-  cross-reference `README.md`'s quickstart rather than inventing a new doc path).
+- Helper text: these are for the `disp` CLI, linking to the CLI docs (`docs/` in the repo root, or
+  wherever `disp login`/`disp notes` are documented — cross-reference `README.md`'s quickstart rather
+  than inventing a new doc path).
 
 ## §15.3 `/admin/invites`
 
@@ -60,18 +60,6 @@ reachable by an admin).
   field-level not toast-level since the email field is the obvious home for either).
 - The invite token/`accept_url` MUST NOT be logged or persisted beyond the one-time reveal dialog —
   same discipline as the PAT reveal above.
-
-## DISP naming applied here
-
-- §15.2's helper text: the spec's literal draft language elsewhere refers to "the `stuff` CLI" in
-  some places and "MyStuff" in others (an artifact of the spec's own inconsistent placeholder
-  branding). The actual CLI console script is `disp` (confirmed: `pyproject.toml`'s
-  `[project.scripts]` per `milestones/M00-bootstrap.md`'s resolved naming decision, and PATs are
-  prefixed `disp_pat_`). This screen's copy MUST say "the `disp` CLI", matching the real console
-  script name — not "stuff" and not "MyStuff".
-- §15.3's invite-email copy ("MyStuff doesn't send email") → "DISP doesn't send email" (Appendix D
-  string, renamed — see [[M11-test-suite]] and the acceptance sweep for where all Appendix D
-  strings get their final DISP-branded pass).
 
 ## Dependencies
 

@@ -16,7 +16,7 @@ Path: `platformdirs.user_config_dir("disp")/config.toml`, created with mode `060
 default_profile = "default"
 
 [profiles.default]
-server = "https://stuff.example.com"
+server = "https://disp.example.com"
 token = "disp_pat_…"
 email = "me@example.com"
 ```
@@ -95,7 +95,7 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 - Surface the problem-detail `detail` field as the user-facing message when present; fall back to a generic message.
 - Never print a traceback unless `--verbose`.
 
-> Per the resolved naming decision (see M0): User-Agent is `disp-cli/<version>` and the config's `token` field holds a `disp_pat_...` value, not the spec's original `stuff-cli/<version>` / `stuff_pat_...` text.
+> Per the resolved naming decision (see M0): User-Agent is `disp-cli/<version>` and the config's `token` field holds a `disp_pat_...` value, not the spec's original `disp-cli/<version>` / `disp_pat_...` text.
 
 ## Implementation notes
 

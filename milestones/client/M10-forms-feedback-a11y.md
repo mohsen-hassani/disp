@@ -136,15 +136,6 @@ review-time catches. `@axe-core/playwright` scans (dashboard, notes list, note d
 login) are M11's automated layer; this milestone's job is to make those scans actually pass by
 fixing what they find, not just to schedule them.
 
-## DISP naming applied here
-
-None directly — this milestone is about behavior/accessibility, not branding strings. It does,
-however, touch **Appendix D's copy strings** as the natural place to do a final consistency pass:
-confirm every string that mentions the product name reads "DISP" (the invite-created note and the
-account/tokens helper text were already corrected in M07; this milestone's job is to grep the whole
-`src/lib/copy.ts` file for any remaining "MyStuff"/"stuff" once it's fully populated and catch
-anything earlier milestones missed).
-
 ## Dependencies
 
 Runs after **M03–M09** are functionally complete — this is a deliberate ordering choice (see
@@ -159,7 +150,6 @@ imports.
   interactive element reachable in logical order, visible focus ring throughout.
 - Manual `prefers-reduced-motion: reduce` + 200% zoom + 320px width spot-check on the same five
   screens.
-- `grep -ri mystuff src/` returns nothing.
 - Full automated `@axe-core/playwright` scans are M11's to write and run in CI, but run one manually
   against each of the five key screens here before declaring this milestone done, so failures are
   caught before M11's suite is even assembled.

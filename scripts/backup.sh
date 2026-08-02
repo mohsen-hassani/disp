@@ -3,7 +3,7 @@
 #
 # Usage: ./scripts/backup.sh
 #
-# Reads MYSTUFF_DATABASE_URL_SYNC (or derives it from MYSTUFF_DATABASE_URL)
+# Reads DISP_DATABASE_URL_SYNC (or derives it from DISP_DATABASE_URL)
 # from the environment or .env. Writes a timestamped custom-format dump to
 # BACKUP_DIR, prunes old dumps per the retention policy below, then copies
 # the fresh dump off-host if BACKUP_REMOTE is set.
@@ -26,9 +26,9 @@ BACKUP_REMOTE="${BACKUP_REMOTE:-}"
 RETENTION_DAILY=7
 RETENTION_WEEKLY=4
 
-database_url_sync="${MYSTUFF_DATABASE_URL_SYNC:-}"
+database_url_sync="${DISP_DATABASE_URL_SYNC:-}"
 if [[ -z "$database_url_sync" ]]; then
-    database_url_sync="${MYSTUFF_DATABASE_URL:?MYSTUFF_DATABASE_URL or MYSTUFF_DATABASE_URL_SYNC required}"
+    database_url_sync="${DISP_DATABASE_URL:?DISP_DATABASE_URL or DISP_DATABASE_URL_SYNC required}"
     database_url_sync="${database_url_sync/+asyncpg/}"
 fi
 # pg_dump wants a bare postgresql:// URL, no SQLAlchemy driver marker.

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-// WEB-SPEC §8.1/§11.3. `disp.theme` (not the spec's literal `mystuff.theme`
+// WEB-SPEC §8.1/§11.3. `disp.theme` (not the spec's literal `disp.theme`
 // — see milestones/client/M01-bootstrap.md's DISP naming section) is one of
 // exactly two permitted localStorage keys (§8.1); this file is the only one
 // allowed to read or write it.

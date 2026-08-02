@@ -24,7 +24,7 @@ def _inject_fixture_modules_path() -> Iterator[None]:
 
 
 def _discover(monkeypatch: MonkeyPatch, modules: str) -> Registry:
-    monkeypatch.setenv("MYSTUFF_MODULES", modules)
+    monkeypatch.setenv("DISP_MODULES", modules)
     get_settings.cache_clear()
     registry = Registry()
     registry.discover()

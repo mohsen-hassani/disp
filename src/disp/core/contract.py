@@ -131,7 +131,7 @@ class TileContext:
     user: "CurrentUser"
     session: AsyncSession
     platform: "Platform"
-    now: datetime  # timezone-aware, in MYSTUFF_TIMEZONE
+    now: datetime  # timezone-aware, in DISP_TIMEZONE
 
 
 TileProvider = Callable[[TileContext], Awaitable[TileData]]

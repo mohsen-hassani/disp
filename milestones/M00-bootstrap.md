@@ -172,7 +172,7 @@ disp = "disp.cli.main:app"
 disp-admin = "disp.core.cli_admin:app"
 ```
 
-> **Resolved naming decision:** the spec's own snippet here originally read `stuff = "disp.cli.main:app"`, contradicting §10.7's explicit `disp_pat_` PAT prefix and every `disp login`/`disp notes ...` example elsewhere. Resolved with the user: **everything user-facing is `disp`** (console script, PAT prefix, User-Agent). `MYSTUFF_` env-var prefix and FastAPI `title="MyStuff"` are left as-is (self-consistent legacy branding).
+> **Resolved naming decision:** the spec's own snippet here originally read `disp = "disp.cli.main:app"`, contradicting §10.7's explicit `disp_pat_` PAT prefix and every `disp login`/`disp notes ...` example elsewhere. Resolved with the user: **everything user-facing is `disp`** (console script, PAT prefix, User-Agent). `DISP_` env-var prefix and FastAPI `title="DISP"` are left as-is (self-consistent legacy branding).
 
 ## Notes from implementation
 

@@ -51,7 +51,7 @@ def cli_transport(app: FastAPI) -> Iterator[object]:
 async def _cli_setup_engine():
     from disp.core.db import create_engine as disp_create_engine
 
-    eng = disp_create_engine(os.environ["MYSTUFF_DATABASE_URL"])
+    eng = disp_create_engine(os.environ["DISP_DATABASE_URL"])
     yield eng
     await eng.dispose()
 
@@ -103,7 +103,7 @@ def cli_env(
     from disp.core.db import create_engine as disp_create_engine
     from disp.core.db import create_session_maker, get_session
 
-    cli_engine = disp_create_engine(os.environ["MYSTUFF_DATABASE_URL"])
+    cli_engine = disp_create_engine(os.environ["DISP_DATABASE_URL"])
     cli_session_maker = create_session_maker(cli_engine)
 
     async def _override_get_session() -> AsyncIterator[AsyncSession]:

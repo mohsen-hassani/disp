@@ -105,7 +105,7 @@ client.interceptors.request.use((request) => {
 
   // §7.1 + M00's spec-vs-reality correction: the backend's CSRF check
   // (src/disp/core/auth/routes.py's _require_csrf_header) requires this
-  // exact value on refresh/logout. The spec's literal text says "mystuff",
+  // exact value on refresh/logout. The spec's literal text says "disp",
   // which the real backend rejects outright.
   const { pathname } = new URL(request.url);
   if (pathname === '/api/auth/refresh' || pathname === '/api/auth/logout') {

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="MYSTUFF_", env_file=".env", extra="forbid")
+    model_config = SettingsConfigDict(env_prefix="DISP_", env_file=".env", extra="forbid")
 
     database_url: str
     database_url_sync: str = ""
@@ -33,21 +33,21 @@ class Settings(BaseSettings):
     @classmethod
     def _validate_database_url(cls, v: str) -> str:
         if not v.startswith("postgresql+asyncpg://"):
-            raise ValueError("MYSTUFF_DATABASE_URL must start with postgresql+asyncpg://")
+            raise ValueError("DISP_DATABASE_URL must start with postgresql+asyncpg://")
         return v
 
     @field_validator("base_url")
     @classmethod
     def _validate_base_url(cls, v: str) -> str:
         if v.endswith("/"):
-            raise ValueError("MYSTUFF_BASE_URL must not have a trailing slash")
+            raise ValueError("DISP_BASE_URL must not have a trailing slash")
         return v
 
     @field_validator("jwt_secret")
     @classmethod
     def _validate_jwt_secret(cls, v: SecretStr) -> SecretStr:
         if len(v.get_secret_value()) < 32:
-            raise ValueError("MYSTUFF_JWT_SECRET must be at least 32 characters")
+            raise ValueError("DISP_JWT_SECRET must be at least 32 characters")
         return v
 
     @field_validator("settings_key")
@@ -58,10 +58,10 @@ class Settings(BaseSettings):
             decoded = urlsafe_b64decode(raw.encode("ascii"))
         except Exception as exc:
             raise ValueError(
-                "MYSTUFF_SETTINGS_KEY must be a valid urlsafe-base64 Fernet key"
+                "DISP_SETTINGS_KEY must be a valid urlsafe-base64 Fernet key"
             ) from exc
         if len(decoded) != 32:
-            raise ValueError("MYSTUFF_SETTINGS_KEY must decode to exactly 32 bytes")
+            raise ValueError("DISP_SETTINGS_KEY must decode to exactly 32 bytes")
         return v
 
     @model_validator(mode="before")
@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _validate_production_cookie_secure(self) -> "Settings":
         if self.env == "production" and not self.cookie_secure:
-            raise ValueError("MYSTUFF_COOKIE_SECURE must be true when MYSTUFF_ENV=production")
+            raise ValueError("DISP_COOKIE_SECURE must be true when DISP_ENV=production")
         return self
 
     @property

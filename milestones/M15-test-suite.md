@@ -52,7 +52,7 @@ Overall line coverage ≥ 85%. `src/disp/core/auth/` ≥ 95%. The build fails be
 31. Duplicate tile keys across two fixture modules are fatal.
 32. A missing dependency is fatal.
 33. A dependency cycle is fatal and the message names both modules.
-34. `MYSTUFF_MODULES` restricts loading; naming a non-existent module is fatal.
+34. `DISP_MODULES` restricts loading; naming a non-existent module is fatal.
 
 **Events**
 35. A subscribed handler receives a published event.
@@ -108,7 +108,7 @@ Already implemented and verified at M6 (`tests/core/test_boundaries.py`) — re-
 
 ## Notes
 
-- `tests/conftest.py` needs to set required `MYSTUFF_*` env vars (via `monkeypatch.setenv` or a `.env.test`) **before** any test module imports `disp.core.scheduler` (or anything importing it transitively, e.g. `disp.core.app`) — see M7's note on that module's import-time singleton construction.
+- `tests/conftest.py` needs to set required `DISP_*` env vars (via `monkeypatch.setenv` or a `.env.test`) **before** any test module imports `disp.core.scheduler` (or anything importing it transitively, e.g. `disp.core.app`) — see M7's note on that module's import-time singleton construction.
 - Time-dependent tests (refresh expiry, invite expiry, `last_used_at`'s 60-second rule) use `freezegun` or explicit injected `now`, never `sleep`, per §22.1.
 
 ## Implementation notes
@@ -120,7 +120,7 @@ Already implemented and verified at M6 (`tests/core/test_boundaries.py`) — re-
 
 - A single `testcontainers.postgres.PostgresContainer("postgres:16", driver="asyncpg")` starts at
   **module import time** (not inside a pytest fixture) — a fixture would run too late, since
-  `disp.core.scheduler` builds a `procrastinate.App` bound to `MYSTUFF_DATABASE_URL_SYNC` at
+  `disp.core.scheduler` builds a `procrastinate.App` bound to `DISP_DATABASE_URL_SYNC` at
   *import time* (M7), and the first test module to import anything that pulls in
   `disp.core.scheduler` does so during pytest's collection phase, which runs immediately after
   conftest.py finishes executing top-to-bottom.
@@ -167,8 +167,8 @@ Already implemented and verified at M6 (`tests/core/test_boundaries.py`) — re-
    any FastAPI+SQLAlchemy-async project measuring coverage, not specific to this codebase.
 
 4. **`./dev test` and a bare `pytest` invocation silently ran with different settings**, because
-   `./dev` sources the repo's own `.env` (dev defaults: `MYSTUFF_ENV=development`,
-   `MYSTUFF_RATE_LIMIT_ENABLED=true`, a database URL pointed at the persistent dev Postgres) into
+   `./dev` sources the repo's own `.env` (dev defaults: `DISP_ENV=development`,
+   `DISP_RATE_LIMIT_ENABLED=true`, a database URL pointed at the persistent dev Postgres) into
    the shell *before* invoking `uv run pytest`, while a bare `pytest` invocation never sees `.env`
    at all. `tests/conftest.py` used `os.environ.setdefault(...)` for its required overrides, which
    only takes effect when the variable is *not already set* — so under `./dev test`, real rate
@@ -224,8 +224,8 @@ Already implemented and verified at M6 (`tests/core/test_boundaries.py`) — re-
    rather than the async `db_session` fixture.
 
 9. **Rate-limit tests must never touch `get_settings.cache_clear()` mid-suite.** The first attempt
-   toggled `MYSTUFF_RATE_LIMIT_ENABLED` via `monkeypatch.setenv` + `get_settings.cache_clear()`
-   (the same pattern `test_registry.py` uses for `MYSTUFF_MODULES`), which is safe there because
+   toggled `DISP_RATE_LIMIT_ENABLED` via `monkeypatch.setenv` + `get_settings.cache_clear()`
+   (the same pattern `test_registry.py` uses for `DISP_MODULES`), which is safe there because
    nothing else depends on settings staying constructed mid-test. For rate limiting it reintroduced
    exactly the ordering hazard from #4 across the *whole rest of the suite*. Fixed by mutating the
    attribute directly on the already-cached `Settings` singleton

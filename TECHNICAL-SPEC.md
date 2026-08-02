@@ -37,7 +37,7 @@ If the implementer believes a requirement is impossible, contradictory, or unsaf
 16. [Dashboard API](#16-dashboard-api)
 17. [HTTP API conventions](#17-http-api-conventions)
 18. [Notes module](#18-notes-module)
-19. [Typer CLI (`disp`)](#19-typer-cli-stuff)
+19. [Typer CLI (`disp`)](#19-typer-cli-disp)
 20. [Logging and observability](#20-logging-and-observability)
 21. [Security requirements](#21-security-requirements)
 22. [Testing requirements](#22-testing-requirements)
@@ -276,7 +276,7 @@ The distribution is `disp`; the CLI console script is `disp`.
 
 ```toml
 [project.scripts]
-stuff = "disp.cli.main:app"
+disp = "disp.cli.main:app"
 disp-admin = "disp.core.cli_admin:app"
 ```
 
@@ -284,7 +284,7 @@ disp-admin = "disp.core.cli_admin:app"
 
 ## 5. Configuration
 
-All configuration is read from environment variables via `pydantic-settings`. Prefix: `MYSTUFF_`. `.env` is loaded in development only.
+All configuration is read from environment variables via `pydantic-settings`. Prefix: `DISP`. `.env` is loaded in development only.
 
 ### 5.1 Settings model
 
@@ -292,32 +292,32 @@ All configuration is read from environment variables via `pydantic-settings`. Pr
 
 ```python
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="MYSTUFF_", env_file=".env", extra="forbid")
+    model_config = SettingsConfigDict(env_prefix="DISP", env_file=".env", extra="forbid")
 ```
 
 ### 5.2 Variable registry
 
 | Variable | Type | Required | Default | Validation |
 |---|---|---|---|---|
-| `MYSTUFF_DATABASE_URL` | str | yes | — | MUST start with `postgresql+asyncpg://` |
-| `MYSTUFF_DATABASE_URL_SYNC` | str | no | derived | Derived from above by replacing `+asyncpg` with `+psycopg`; used by Alembic and Procrastinate |
-| `MYSTUFF_JWT_SECRET` | SecretStr | yes | — | MUST be ≥ 32 characters; startup fails otherwise |
-| `MYSTUFF_SETTINGS_KEY` | SecretStr | yes | — | MUST be a valid urlsafe-base64 32-byte Fernet key |
-| `MYSTUFF_ACCESS_TOKEN_TTL_SECONDS` | int | no | `900` | 60–3600 |
-| `MYSTUFF_REFRESH_TOKEN_TTL_SECONDS` | int | no | `2592000` (30 d) | 3600–7776000 |
-| `MYSTUFF_INVITE_TTL_SECONDS` | int | no | `604800` (7 d) | 3600–2592000 |
-| `MYSTUFF_PAT_DEFAULT_TTL_DAYS` | int \| None | no | `None` (no expiry) | ≥ 1 if set |
-| `MYSTUFF_MODULES` | str | no | `""` | Comma-separated allow-list of module domains. Empty = load all discovered. |
-| `MYSTUFF_BASE_URL` | str | yes | — | Public URL, e.g. `https://stuff.example.com`. Used to build invite links. No trailing slash. |
-| `MYSTUFF_CORS_ORIGINS` | str | no | `""` | Comma-separated origins |
-| `MYSTUFF_COOKIE_SECURE` | bool | no | `true` | MUST be `true` in production |
-| `MYSTUFF_COOKIE_DOMAIN` | str \| None | no | `None` | |
-| `MYSTUFF_LOG_LEVEL` | str | no | `INFO` | One of DEBUG/INFO/WARNING/ERROR |
-| `MYSTUFF_LOG_FORMAT` | str | no | `json` | `json` or `console` |
-| `MYSTUFF_DAILY_PLANNER_CRON` | str | no | `0 6 * * *` | 5-field cron |
-| `MYSTUFF_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
-| `MYSTUFF_RATE_LIMIT_ENABLED` | bool | no | `true` | |
-| `MYSTUFF_ENV` | str | no | `production` | `production` \| `development` \| `test` |
+| `DISP_DATABASE_URL` | str | yes | — | MUST start with `postgresql+asyncpg://` |
+| `DISP_DATABASE_URL_SYNC` | str | no | derived | Derived from above by replacing `+asyncpg` with `+psycopg`; used by Alembic and Procrastinate |
+| `DISP_JWT_SECRET` | SecretStr | yes | — | MUST be ≥ 32 characters; startup fails otherwise |
+| `DISP_SETTINGS_KEY` | SecretStr | yes | — | MUST be a valid urlsafe-base64 32-byte Fernet key |
+| `DISP_ACCESS_TOKEN_TTL_SECONDS` | int | no | `900` | 60–3600 |
+| `DISP_REFRESH_TOKEN_TTL_SECONDS` | int | no | `2592000` (30 d) | 3600–7776000 |
+| `DISP_INVITE_TTL_SECONDS` | int | no | `604800` (7 d) | 3600–2592000 |
+| `DISP_PAT_DEFAULT_TTL_DAYS` | int \| None | no | `None` (no expiry) | ≥ 1 if set |
+| `DISP_MODULES` | str | no | `""` | Comma-separated allow-list of module domains. Empty = load all discovered. |
+| `DISP_BASE_URL` | str | yes | — | Public URL, e.g. `https://disp.example.com`. Used to build invite links. No trailing slash. |
+| `DISP_CORS_ORIGINS` | str | no | `""` | Comma-separated origins |
+| `DISP_COOKIE_SECURE` | bool | no | `true` | MUST be `true` in production |
+| `DISP_COOKIE_DOMAIN` | str \| None | no | `None` | |
+| `DISP_LOG_LEVEL` | str | no | `INFO` | One of DEBUG/INFO/WARNING/ERROR |
+| `DISP_LOG_FORMAT` | str | no | `json` | `json` or `console` |
+| `DISP_DAILY_PLANNER_CRON` | str | no | `0 6 * * *` | 5-field cron |
+| `DISP_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
+| `DISP_RATE_LIMIT_ENABLED` | bool | no | `true` | |
+| `DISP_ENV` | str | no | `production` | `production` \| `development` \| `test` |
 
 `get_settings()` MUST be `@lru_cache`-decorated and MUST be the only way settings are obtained.
 
@@ -327,7 +327,7 @@ On boot the application MUST fail fast (log a fatal error, exit code 1) if:
 - any required variable is missing;
 - `JWT_SECRET` is shorter than 32 characters;
 - `SETTINGS_KEY` is not a valid Fernet key;
-- `MYSTUFF_ENV == "production"` and `COOKIE_SECURE` is false;
+- `DISP_ENV == "production"` and `COOKIE_SECURE` is false;
 - the database is unreachable after 5 retries with 2-second backoff.
 
 ### 5.4 `.env.example`
@@ -553,7 +553,7 @@ version_table_schema = notes
 
 A single shared `env.py` (referenced by every module's `script_location` through a symlink or a thin re-export module) MUST:
 
-1. Read `MYSTUFF_DATABASE_URL_SYNC` from the environment; never hard-code a URL.
+1. Read `DISP_DATABASE_URL_SYNC` from the environment; never hard-code a URL.
 2. Determine the active branch from the Alembic config section name.
 3. Set `version_table`, `version_table_schema`, and `include_schemas=True`.
 4. Install an `include_object` hook that **excludes any table whose schema is not the branch's own schema**, so `alembic revision --autogenerate` for `notes` never emits DDL for `core`.
@@ -704,7 +704,7 @@ class TileContext:
     user: CurrentUser
     session: AsyncSession
     platform: "Platform"
-    now: datetime  # timezone-aware, in MYSTUFF_TIMEZONE
+    now: datetime  # timezone-aware, in DISP_TIMEZONE
 ```
 
 Every module package MUST expose a module-level function:
@@ -741,7 +741,7 @@ Modules MUST NOT import `create_app`, the SQLAlchemy engine, or anything from `d
 `Registry.discover()` MUST execute exactly these steps:
 
 1. Enumerate candidate packages with `pkgutil.iter_modules(disp.modules.__path__)`. Order is not guaranteed; sort names alphabetically for determinism.
-2. If `MYSTUFF_MODULES` is non-empty, filter to that allow-list. A named module that does not exist is a **fatal** error.
+2. If `DISP_MODULES` is non-empty, filter to that allow-list. A named module that does not exist is a **fatal** error.
 3. For each candidate: `importlib.import_module(f"disp.modules.{name}")`.
    - `ImportError` → fatal, with the original traceback.
 4. Retrieve `get_module`. Missing attribute or non-callable → fatal.
@@ -774,7 +774,7 @@ For each module, in dependency order, `Registry.wire(app, platform)` MUST:
 1. Load settings; configure logging (§20).
 2. Create the async engine and session maker.
 3. Construct `EventBus`, `SettingsStore`, `SchedulerFacade`, `NotifierFacade`, then the `Platform`.
-4. Build the `FastAPI` instance with `title="MyStuff"`, `version=__version__`, `openapi_url="/openapi.json"`, `docs_url="/docs"` (only when `MYSTUFF_ENV != "production"`; otherwise `None`).
+4. Build the `FastAPI` instance with `title="DISP"`, `version=__version__`, `openapi_url="/openapi.json"`, `docs_url="/docs"` (only when `DISP_ENV != "production"`; otherwise `None`).
 5. Install middleware in this order (outermost first): `RequestIdMiddleware`, `CORSMiddleware`, `SlowAPIMiddleware`.
 6. Register exception handlers (§17.4).
 7. Mount core routers: `/health`, `/api/auth`, `/api/dashboard`, `/api/settings`.
@@ -870,7 +870,7 @@ Responses:
 Set-Cookie: disp_refresh=<token>; Path=/api/auth; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000
 ```
 
-`Secure` is omitted only when `MYSTUFF_COOKIE_SECURE` is false. `Domain` is set only when configured.
+`Secure` is omitted only when `DISP_COOKIE_SECURE` is false. `Domain` is set only when configured.
 
 The error message text for `auth.invalid_credentials` MUST be identical for unknown-email and wrong-password cases.
 
@@ -902,9 +902,9 @@ Response `200`: same shape as login. Errors clear the cookie with `Max-Age=0`.
 
 ### 10.6 Access tokens
 
-- Algorithm `HS256`, secret `MYSTUFF_JWT_SECRET`.
+- Algorithm `HS256`, secret `DISP_JWT_SECRET`.
 - Claims: `sub` (user id, string UUID), `iat`, `exp`, `jti` (uuid4), `typ` = `"access"`, `email`, `adm` (bool).
-- TTL from `MYSTUFF_ACCESS_TOKEN_TTL_SECONDS`.
+- TTL from `DISP_ACCESS_TOKEN_TTL_SECONDS`.
 - Verification MUST enforce `typ == "access"`, signature, and expiry with `leeway=0`.
 - Access tokens are **not** revocable before expiry. This is accepted: revocation acts on the refresh family, and 15 minutes is the maximum exposure. This MUST be stated in `docs/auth.md`.
 
@@ -957,7 +957,7 @@ The refresh cookie MUST NOT authenticate any endpoint other than `/api/auth/refr
 - Rejects an email that already belongs to a user (`409 auth.user_exists`).
 - Rejects a second pending invite for the same email (`409 auth.invite_pending`) — enforced by `uq_invites_pending_email`.
 - Token: `secrets.token_urlsafe(32)`, stored hashed.
-- Returns `201` with `{"id", "email", "token", "accept_url", "expires_at"}` where `accept_url = f"{MYSTUFF_BASE_URL}/accept-invite?token={token}"`. The plaintext token appears only here. Delivery to the invitee is the admin's problem; the system sends no email.
+- Returns `201` with `{"id", "email", "token", "accept_url", "expires_at"}` where `accept_url = f"{DISP_BASE_URL}/accept-invite?token={token}"`. The plaintext token appears only here. Delivery to the invitee is the admin's problem; the system sends no email.
 
 **`GET /api/auth/invites`** — admin only. Lists pending invites without tokens.
 
@@ -1003,7 +1003,7 @@ It MUST NOT be called from anywhere. A test asserts it raises `NotImplementedErr
 
 ### 10.11 Admin bootstrap
 
-`disp-admin seed-admin --email <e> --display-name <n>` MUST create the first admin. The password is read from the `MYSTUFF_SEED_PASSWORD` environment variable, or generated with `secrets.token_urlsafe(16)` and printed once. The command MUST refuse to run if any user already exists, exiting `1` with a clear message. There is no HTTP route that creates the first user.
+`disp-admin seed-admin --email <e> --display-name <n>` MUST create the first admin. The password is read from the `DISP_SEED_PASSWORD` environment variable, or generated with `secrets.token_urlsafe(16)` and printed once. The command MUST refuse to run if any user already exists, exiting `1` with a clear message. There is no HTTP route that creates the first user.
 
 ---
 
@@ -1110,7 +1110,7 @@ class RefreshTokenReused:
 
 ### 13.1 Procrastinate setup
 
-- One `procrastinate.App` in `disp/core/scheduler.py`, using `PsycopgConnector` with `MYSTUFF_DATABASE_URL_SYNC`.
+- One `procrastinate.App` in `disp/core/scheduler.py`, using `PsycopgConnector` with `DISP_DATABASE_URL_SYNC`.
 - Procrastinate's own tables live in the `public` schema (its default). No customisation.
 - `procrastinate schema --apply` runs as part of `./dev migrate` and as a one-shot compose command, before the worker starts.
 
@@ -1131,10 +1131,10 @@ class SchedulerFacade:
 
 ### 13.3 The daily planner
 
-A periodic task named `core.daily_planner`, cron from `MYSTUFF_DAILY_PLANNER_CRON`, MUST:
+A periodic task named `core.daily_planner`, cron from `DISP_DAILY_PLANNER_CRON`, MUST:
 
 1. Receive Procrastinate's single `timestamp: int` argument.
-2. Log start with the resolved local date in `MYSTUFF_TIMEZONE`.
+2. Log start with the resolved local date in `DISP_TIMEZONE`.
 3. Iterate `registry.scheduled_jobs`, and for each, log its name. (Actual per-module fan-out is each module's responsibility via its own periodic jobs; the planner exists to prove the mechanism and to provide a single hook for future cross-module planning.)
 4. Log completion with a count.
 
@@ -1198,7 +1198,7 @@ class SettingsStore:
                      domain: str, key: str) -> None
 ```
 
-- Non-secret values are stored in `value_json`; secrets are `json.dumps`-ed, encoded UTF-8, encrypted with Fernet using `MYSTUFF_SETTINGS_KEY`, and stored in `value_encrypted`.
+- Non-secret values are stored in `value_json`; secrets are `json.dumps`-ed, encoded UTF-8, encrypted with Fernet using `DISP_SETTINGS_KEY`, and stored in `value_encrypted`.
 - `get_all` with `reveal_secrets=False` returns `"***"` for secrets. Only the notifier task uses `reveal_secrets=True`.
 - Changing a key from non-secret to secret (or back) is allowed; `set` rewrites both columns consistently to satisfy `ck_settings_one_value`.
 - Decryption failure (wrong key) MUST raise `SettingsDecryptionError`, be logged at `ERROR`, and surface as `500 settings.decryption_failed` — never as a silent `None`.
@@ -1331,9 +1331,9 @@ Response envelope for every list endpoint:
 
 ### 17.6 CORS, headers, rate limiting
 
-- CORS is enabled only when `MYSTUFF_CORS_ORIGINS` is non-empty; `allow_credentials=True`, methods `GET, POST, PATCH, DELETE, OPTIONS`, headers `Authorization, Content-Type, X-Requested-With`.
+- CORS is enabled only when `DISP_CORS_ORIGINS` is non-empty; `allow_credentials=True`, methods `GET, POST, PATCH, DELETE, OPTIONS`, headers `Authorization, Content-Type, X-Requested-With`.
 - Every response carries `X-Request-ID`.
-- Rate limits (`slowapi`, keyed by client IP unless noted), applied when `MYSTUFF_RATE_LIMIT_ENABLED`:
+- Rate limits (`slowapi`, keyed by client IP unless noted), applied when `DISP_RATE_LIMIT_ENABLED`:
 
 | Endpoint | Limit |
 |---|---|
@@ -1511,8 +1511,8 @@ Path: `platformdirs.user_config_dir("disp")/config.toml`, created with mode `060
 default_profile = "default"
 
 [profiles.default]
-server = "https://stuff.example.com"
-token = "stuff_pat_…"
+server = "https://disp.example.com"
+token = "disp_pat_…"
 email = "me@example.com"
 ```
 
@@ -1585,7 +1585,7 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 `cli/client.py` MUST:
 
 - Use one `httpx.Client` with `timeout=httpx.Timeout(10.0, connect=5.0)` and `follow_redirects=False`.
-- Send `Authorization: Bearer <pat>` and `User-Agent: stuff-cli/<version>`.
+- Send `Authorization: Bearer <pat>` and `User-Agent: disp-cli/<version>`.
 - Map responses to exceptions: `401` → `AuthError` (exit 3, message "Not logged in or token revoked — run `disp login`"), `403` → `PermissionError` (exit 1), `404` → `NotFoundError` (exit 6), `429` → retry once after `Retry-After` then fail (exit 1), `5xx` → `ServerError` (exit 5), transport errors → `NetworkError` (exit 4).
 - Surface the problem-detail `detail` field as the user-facing message when present; fall back to a generic message.
 - Never print a traceback unless `--verbose`.
@@ -1594,13 +1594,13 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 
 ## 20. Logging and observability
 
-- `structlog` with a JSON renderer when `MYSTUFF_LOG_FORMAT=json`, Rich console renderer otherwise.
+- `structlog` with a JSON renderer when `DISP_LOG_FORMAT=json`, Rich console renderer otherwise.
 - Standard-library logging is routed through structlog; uvicorn access logs are disabled in favour of the middleware below.
 - Every log record carries: `timestamp` (ISO 8601 UTC), `level`, `event`, `logger`, and, when available, `request_id`, `user_id`, `module`.
 - `RequestIdMiddleware` reads `X-Request-ID` or generates a UUID4, binds it to the structlog context, and echoes it in the response header.
 - One `INFO` line per request: `event="http_request"`, `method`, `path`, `status`, `duration_ms`, `user_id`.
 - One `INFO` line per task execution: `event="task_completed"`, `task`, `job_id`, `duration_ms`, `attempt`.
-- **Never logged:** passwords, password hashes, refresh tokens, PAT plaintexts, Apprise URLs, `Authorization` header values, cookie values, `MYSTUFF_JWT_SECRET`, `MYSTUFF_SETTINGS_KEY`. A test asserts these strings do not appear in captured log output for the login and notifier paths.
+- **Never logged:** passwords, password hashes, refresh tokens, PAT plaintexts, Apprise URLs, `Authorization` header values, cookie values, `DISP_JWT_SECRET`, `DISP_SETTINGS_KEY`. A test asserts these strings do not appear in captured log output for the login and notifier paths.
 
 **`GET /health`** (unauthenticated) returns:
 
@@ -1632,7 +1632,7 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 | S11 | Settings secrets are Fernet-encrypted at rest with a key held only in the environment. |
 | S12 | The catch-all exception handler never leaks exception text, SQL, or stack traces to the client. |
 | S13 | Rate limits per §17.6. |
-| S14 | `docs_url` and `redoc_url` are disabled when `MYSTUFF_ENV=production`. |
+| S14 | `docs_url` and `redoc_url` are disabled when `DISP_ENV=production`. |
 | S15 | The container runs as a non-root user (`uid 10001`). |
 | S16 | Dependencies are pinned via a committed lock file. |
 
@@ -1693,7 +1693,7 @@ Overall line coverage ≥ 85 %. `src/disp/core/auth/` ≥ 95 %. The build fails 
 31. Duplicate tile keys across two fixture modules are fatal.
 32. A missing dependency is fatal.
 33. A dependency cycle is fatal and the message names both modules.
-34. `MYSTUFF_MODULES` restricts loading; naming a non-existent module is fatal.
+34. `DISP_MODULES` restricts loading; naming a non-existent module is fatal.
 
 **Events**
 35. A subscribed handler receives a published event.
@@ -1845,7 +1845,7 @@ docker compose run --rm api disp-admin seed-admin --email you@example.com --disp
 - Retention: 7 daily, 4 weekly.
 - Off-host copy (S3 or rsync), with the destination configurable.
 - **A restore procedure that has been executed at least once**, documented step by step.
-- An explicit warning that `MYSTUFF_SETTINGS_KEY` must be backed up separately and that losing it makes every stored notification credential unrecoverable, while losing `MYSTUFF_JWT_SECRET` only invalidates outstanding access tokens.
+- An explicit warning that `DISP_SETTINGS_KEY` must be backed up separately and that losing it makes every stored notification credential unrecoverable, while losing `DISPJWT_SECRET` only invalidates outstanding access tokens.
 
 ---
 
@@ -2005,7 +2005,7 @@ X-Request-ID: 01JF3KXYZ
 
 ```http
 POST /api/notes HTTP/1.1
-Authorization: Bearer stuff_pat_7Qk2…
+Authorization: Bearer disp_pat_7Qk2…
 Content-Type: application/json
 
 {"title":"Groceries","body":"milk, bread","pinned":true}

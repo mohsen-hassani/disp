@@ -10,7 +10,7 @@ Covers TECHNICAL-SPEC.md §5 (Configuration), §17.3–§17.4 (error envelope, e
 
 ## §5. Configuration
 
-All configuration is read from environment variables via `pydantic-settings`. Prefix: `MYSTUFF_`. `.env` is loaded in development only.
+All configuration is read from environment variables via `pydantic-settings`. Prefix: `DISP_`. `.env` is loaded in development only.
 
 ### 5.1 Settings model
 
@@ -18,32 +18,32 @@ All configuration is read from environment variables via `pydantic-settings`. Pr
 
 ```python
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="MYSTUFF_", env_file=".env", extra="forbid")
+    model_config = SettingsConfigDict(env_prefix="DISP_", env_file=".env", extra="forbid")
 ```
 
 ### 5.2 Variable registry
 
 | Variable | Type | Required | Default | Validation |
 |---|---|---|---|---|
-| `MYSTUFF_DATABASE_URL` | str | yes | — | MUST start with `postgresql+asyncpg://` |
-| `MYSTUFF_DATABASE_URL_SYNC` | str | no | derived | Derived from above by replacing `+asyncpg` with `+psycopg`; used by Alembic and Procrastinate |
-| `MYSTUFF_JWT_SECRET` | SecretStr | yes | — | MUST be ≥ 32 characters; startup fails otherwise |
-| `MYSTUFF_SETTINGS_KEY` | SecretStr | yes | — | MUST be a valid urlsafe-base64 32-byte Fernet key |
-| `MYSTUFF_ACCESS_TOKEN_TTL_SECONDS` | int | no | `900` | 60–3600 |
-| `MYSTUFF_REFRESH_TOKEN_TTL_SECONDS` | int | no | `2592000` (30 d) | 3600–7776000 |
-| `MYSTUFF_INVITE_TTL_SECONDS` | int | no | `604800` (7 d) | 3600–2592000 |
-| `MYSTUFF_PAT_DEFAULT_TTL_DAYS` | int \| None | no | `None` (no expiry) | ≥ 1 if set |
-| `MYSTUFF_MODULES` | str | no | `""` | Comma-separated allow-list of module domains. Empty = load all discovered. |
-| `MYSTUFF_BASE_URL` | str | yes | — | Public URL, e.g. `https://stuff.example.com`. Used to build invite links. No trailing slash. |
-| `MYSTUFF_CORS_ORIGINS` | str | no | `""` | Comma-separated origins |
-| `MYSTUFF_COOKIE_SECURE` | bool | no | `true` | MUST be `true` in production |
-| `MYSTUFF_COOKIE_DOMAIN` | str \| None | no | `None` | |
-| `MYSTUFF_LOG_LEVEL` | str | no | `INFO` | One of DEBUG/INFO/WARNING/ERROR |
-| `MYSTUFF_LOG_FORMAT` | str | no | `json` | `json` or `console` |
-| `MYSTUFF_DAILY_PLANNER_CRON` | str | no | `0 6 * * *` | 5-field cron |
-| `MYSTUFF_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
-| `MYSTUFF_RATE_LIMIT_ENABLED` | bool | no | `true` | |
-| `MYSTUFF_ENV` | str | no | `production` | `production` \| `development` \| `test` |
+| `DISP_DATABASE_URL` | str | yes | — | MUST start with `postgresql+asyncpg://` |
+| `DISP_DATABASE_URL_SYNC` | str | no | derived | Derived from above by replacing `+asyncpg` with `+psycopg`; used by Alembic and Procrastinate |
+| `DISP_JWT_SECRET` | SecretStr | yes | — | MUST be ≥ 32 characters; startup fails otherwise |
+| `DISP_SETTINGS_KEY` | SecretStr | yes | — | MUST be a valid urlsafe-base64 32-byte Fernet key |
+| `DISP_ACCESS_TOKEN_TTL_SECONDS` | int | no | `900` | 60–3600 |
+| `DISP_REFRESH_TOKEN_TTL_SECONDS` | int | no | `2592000` (30 d) | 3600–7776000 |
+| `DISP_INVITE_TTL_SECONDS` | int | no | `604800` (7 d) | 3600–2592000 |
+| `DISP_PAT_DEFAULT_TTL_DAYS` | int \| None | no | `None` (no expiry) | ≥ 1 if set |
+| `DISP_MODULES` | str | no | `""` | Comma-separated allow-list of module domains. Empty = load all discovered. |
+| `DISP_BASE_URL` | str | yes | — | Public URL, e.g. `https://disp.example.com`. Used to build invite links. No trailing slash. |
+| `DISP_CORS_ORIGINS` | str | no | `""` | Comma-separated origins |
+| `DISP_COOKIE_SECURE` | bool | no | `true` | MUST be `true` in production |
+| `DISP_COOKIE_DOMAIN` | str \| None | no | `None` | |
+| `DISP_LOG_LEVEL` | str | no | `INFO` | One of DEBUG/INFO/WARNING/ERROR |
+| `DISP_LOG_FORMAT` | str | no | `json` | `json` or `console` |
+| `DISP_DAILY_PLANNER_CRON` | str | no | `0 6 * * *` | 5-field cron |
+| `DISP_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
+| `DISP_RATE_LIMIT_ENABLED` | bool | no | `true` | |
+| `DISP_ENV` | str | no | `production` | `production` \| `development` \| `test` |
 
 `get_settings()` MUST be `@lru_cache`-decorated and MUST be the only way settings are obtained.
 
@@ -53,7 +53,7 @@ On boot the application MUST fail fast (log a fatal error, exit code 1) if:
 - any required variable is missing;
 - `JWT_SECRET` is shorter than 32 characters;
 - `SETTINGS_KEY` is not a valid Fernet key;
-- `MYSTUFF_ENV == "production"` and `COOKIE_SECURE` is false;
+- `DISP_ENV == "production"` and `COOKIE_SECURE` is false;
 - the database is unreachable after 5 retries with 2-second backoff (the DB-reachability check happens in `app.py`/`db.py`, wired at M10).
 
 ### 5.4 `.env.example`
@@ -107,10 +107,10 @@ Response envelope for every list endpoint:
 
 ## §20. Logging and observability (primitives covered here; health endpoint is M10)
 
-- `structlog` with a JSON renderer when `MYSTUFF_LOG_FORMAT=json`, Rich console renderer otherwise.
+- `structlog` with a JSON renderer when `DISP_LOG_FORMAT=json`, Rich console renderer otherwise.
 - Standard-library logging is routed through structlog; uvicorn access logs are disabled in favour of the middleware below.
 - Every log record carries: `timestamp` (ISO 8601 UTC), `level`, `event`, `logger`, and, when available, `request_id`, `user_id`, `module`.
 - `RequestIdMiddleware` reads `X-Request-ID` or generates a UUID4, binds it to the structlog context, and echoes it in the response header.
 - One `INFO` line per request: `event="http_request"`, `method`, `path`, `status`, `duration_ms`, `user_id`.
 - One `INFO` line per task execution: `event="task_completed"`, `task`, `job_id`, `duration_ms`, `attempt`.
-- **Never logged:** passwords, password hashes, refresh tokens, PAT plaintexts, Apprise URLs, `Authorization` header values, cookie values, `MYSTUFF_JWT_SECRET`, `MYSTUFF_SETTINGS_KEY`. A test asserts these strings do not appear in captured log output for the login and notifier paths.
+- **Never logged:** passwords, password hashes, refresh tokens, PAT plaintexts, Apprise URLs, `Authorization` header values, cookie values, `DISP_JWT_SECRET`, `DISP_SETTINGS_KEY`. A test asserts these strings do not appear in captured log output for the login and notifier paths.

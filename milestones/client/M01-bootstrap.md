@@ -100,10 +100,7 @@ than inline in `index.html`, so M12 doesn't have to retrofit it under CSP later.
   with M12's Docker/Compose service naming, which uses `disp-web` for the container/router names).
 - `index.html`'s `<title>` base string and `apple-mobile-web-app-title` (finalized in M09, but the
   static fallback `<title>` in `index.html` itself, before the router sets a per-route title, should
-  read "DISP" not "MyStuff").
-- The permitted `localStorage` keys (§8.1's table, relevant here only for the theme key since
-  `disp.installDismissedAt` belongs to M09): **`disp.theme`**, not the spec's literal
-  `mystuff.theme`. `src/lib/theme.ts` is the only file allowed to read/write this key.
+  read "DISP").
 
 ## Dependencies
 

@@ -22,7 +22,7 @@ class SettingsStore:
                      domain: str, key: str) -> None
 ```
 
-- Non-secret values are stored in `value_json`; secrets are `json.dumps`-ed, encoded UTF-8, encrypted with Fernet using `MYSTUFF_SETTINGS_KEY`, and stored in `value_encrypted`.
+- Non-secret values are stored in `value_json`; secrets are `json.dumps`-ed, encoded UTF-8, encrypted with Fernet using `DISP_SETTINGS_KEY`, and stored in `value_encrypted`.
 - `get_all` with `reveal_secrets=False` returns `"***"` for secrets. Only the notifier task uses `reveal_secrets=True`.
 - Changing a key from non-secret to secret (or back) is allowed; `set` rewrites both columns consistently to satisfy `ck_settings_one_value`.
 - Decryption failure (wrong key) MUST raise `SettingsDecryptionError`, be logged at `ERROR`, and surface as `500 settings.decryption_failed` — never as a silent `None`.

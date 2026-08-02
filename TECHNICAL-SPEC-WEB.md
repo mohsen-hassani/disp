@@ -1,10 +1,10 @@
-# MyStuff Web Client — Technical Specification
+# DISP Web Client — Technical Specification
 
 **Document type:** Implementation specification
 **Version:** 1.0
 **Status:** Approved for implementation
-**Scope:** The responsive, installable Progressive Web App that consumes the MyStuff HTTP API
-**Companion document:** *MyStuff Platform — Technical Specification v1.0* (referred to below as **PLATFORM-SPEC**)
+**Scope:** The responsive, installable Progressive Web App that consumes the DISP HTTP API
+**Companion document:** *DISP Platform — Technical Specification v1.0* (referred to below as **PLATFORM-SPEC**)
 
 ---
 
@@ -89,7 +89,7 @@ These four decisions constrain everything else and **MUST NOT** be revisited by 
 The PWA is served from `https://<host>/` and the API from `https://<host>/api`. Traefik routes by path prefix (§24.4).
 
 Consequences, all of them deliberate:
-- **No CORS.** `MYSTUFF_CORS_ORIGINS` remains empty. The client MUST use relative URLs (`/api/...`) and MUST NOT accept an API base URL from configuration.
+- **No CORS.** `DISP_CORS_ORIGINS` remains empty. The client MUST use relative URLs (`/api/...`) and MUST NOT accept an API base URL from configuration.
 - The refresh cookie (`Path=/api/auth`, `SameSite=Lax`) is transmitted correctly without `SameSite=None`, and is never sent on non-auth API calls.
 - There is no runtime configuration to manage, no `config.json` fetch, no `VITE_API_URL`.
 
@@ -328,7 +328,7 @@ export default defineConfig({
 - `baseUrl: '/api'`
 - `credentials: 'same-origin'`
 - A request interceptor adding `Authorization: Bearer <access token>` when one is held in memory, and **omitting the header entirely** when none is.
-- A request interceptor adding `X-Requested-With: mystuff` to `POST /auth/refresh` and `POST /auth/logout` only (PLATFORM-SPEC §10.5).
+- A request interceptor adding `X-Requested-With: disp` to `POST /auth/refresh` and `POST /auth/logout` only (PLATFORM-SPEC §10.5).
 - A response interceptor implementing the 401 refresh flow (§8.4).
 - A default timeout of 15 seconds via `AbortSignal.timeout(15_000)`.
 
@@ -400,8 +400,8 @@ The implementer MUST NOT write the access token, the refresh token, or the user'
 
 | Key | Value | Purpose |
 |---|---|---|
-| `mystuff.theme` | `"light" \| "dark" \| "system"` | Theme override |
-| `mystuff.installDismissedAt` | epoch ms | Install-prompt suppression |
+| `disp.theme` | `"light" \| "dark" \| "system"` | Theme override |
+| `disp.installDismissedAt` | epoch ms | Install-prompt suppression |
 
 Nothing else. No user id, no email, no route history.
 
@@ -422,7 +422,7 @@ type AuthState =
 On application mount, `AuthProvider` MUST:
 
 1. Set state `loading`. Render a full-page skeleton — **not** a redirect, and **not** the login screen.
-2. Call `POST /api/auth/refresh` with `X-Requested-With: mystuff` and `credentials: 'same-origin'`.
+2. Call `POST /api/auth/refresh` with `X-Requested-With: disp` and `credentials: 'same-origin'`.
 3. On `200`: store the access token in memory, schedule proactive refresh (§8.5), call `GET /api/auth/me`, set state `authenticated`.
 4. On `401 auth.refresh_token_reused`: set state `revoked`.
 5. On any other `401`/`403`: set state `anonymous`.
@@ -489,17 +489,17 @@ TanStack Router with file-based routes and typed params. All authenticated route
 
 | Path | Component | Guard | Document title |
 |---|---|---|---|
-| `/login` | Login | anonymous-only (redirect to `/` if authenticated) | `Sign in · MyStuff` |
-| `/accept-invite` | AcceptInvite | none | `Accept invitation · MyStuff` |
-| `/` | Dashboard | auth | `Dashboard · MyStuff` |
-| `/notes` | NotesList | auth | `Notes · MyStuff` |
-| `/notes/:noteId` | NoteDetail | auth | `<note title> · MyStuff` |
-| `/settings` | SettingsIndex | auth | `Settings · MyStuff` |
-| `/settings/account` | Account | auth | `Account · MyStuff` |
-| `/settings/tokens` | Tokens | auth | `API tokens · MyStuff` |
-| `/settings/:domain` | ModuleSettings | auth | `<panel title> · MyStuff` |
-| `/admin/invites` | Invites | auth + `is_admin` | `Invitations · MyStuff` |
-| `*` | NotFound | none | `Not found · MyStuff` |
+| `/login` | Login | anonymous-only (redirect to `/` if authenticated) | `Sign in · DISP` |
+| `/accept-invite` | AcceptInvite | none | `Accept invitation · DISP` |
+| `/` | Dashboard | auth | `Dashboard · DISP` |
+| `/notes` | NotesList | auth | `Notes · DISP` |
+| `/notes/:noteId` | NoteDetail | auth | `<note title> · DISP` |
+| `/settings` | SettingsIndex | auth | `Settings · DISP` |
+| `/settings/account` | Account | auth | `Account · DISP` |
+| `/settings/tokens` | Tokens | auth | `API tokens · DISP` |
+| `/settings/:domain` | ModuleSettings | auth | `<panel title> · DISP` |
+| `/admin/invites` | Invites | auth + `is_admin` | `Invitations · DISP` |
+| `*` | NotFound | none | `Not found · DISP` |
 
 Rules:
 
@@ -832,7 +832,7 @@ Manages PATs used by the CLI. The browser never authenticates with these.
 - Table: name, prefix, created, last used (relative, "Never" when null), expires ("Never" when null), and a Revoke action.
 - **Create** dialog: name (required, ≤64 chars), optional expiry in days. On success, the plaintext token is displayed **once** in a dialog with a copy button, a warning that it will not be shown again, and an explicit "I've saved it" dismissal. The value MUST NOT be written to any store, MUST NOT appear in the query cache after the dialog closes, and MUST be cleared from component state on unmount.
 - **Revoke** requires confirmation naming the token.
-- Helper text explains that these are for the `stuff` CLI and links to the CLI docs.
+- Helper text explains that these are for the `disp` CLI and links to the CLI docs.
 
 ### 15.3 `/admin/invites`
 
@@ -910,8 +910,8 @@ Generated by `vite-plugin-pwa`:
 
 ```json
 {
-  "name": "MyStuff",
-  "short_name": "MyStuff",
+  "name": "DISP",
+  "short_name": "DISP",
   "description": "Your personal control centre",
   "start_url": "/",
   "scope": "/",
@@ -935,12 +935,12 @@ Maskable icons MUST respect the 40% safe zone. `theme_color` MUST match the ligh
 
 ### 17.2 iOS specifics
 
-`index.html` MUST include `<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">` and `<meta name="apple-mobile-web-app-title" content="MyStuff">`. Safe-area padding (§12.5) is mandatory — without it the bottom navigation sits under the home indicator.
+`index.html` MUST include `<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">` and `<meta name="apple-mobile-web-app-title" content="DISP">`. Safe-area padding (§12.5) is mandatory — without it the bottom navigation sits under the home indicator.
 
 ### 17.3 Install prompt
 
 - Capture `beforeinstallprompt`, prevent default, store the event.
-- Show a dismissible install card on the dashboard, but only when: the event was captured, the app is not already in standalone mode, and `mystuff.installDismissedAt` is absent or older than 30 days.
+- Show a dismissible install card on the dashboard, but only when: the event was captured, the app is not already in standalone mode, and `disp.installDismissedAt` is absent or older than 30 days.
 - Dismissal writes the timestamp. The card MUST NOT be a modal or block content.
 - iOS fires no such event; on iOS Safari (not standalone) show a one-line hint describing Share → Add to Home Screen, under the same 30-day dismissal rule.
 
@@ -1245,17 +1245,17 @@ Add to the root `docker-compose.yml`:
     restart: unless-stopped
     labels:
       - traefik.enable=true
-      - traefik.http.routers.mystuff-web.rule=Host(`${PUBLIC_HOST}`)
-      - traefik.http.routers.mystuff-web.priority=1
-      - traefik.http.routers.mystuff-web.tls.certresolver=le
-      - traefik.http.services.mystuff-web.loadbalancer.server.port=80
+      - traefik.http.routers.disp-web.rule=Host(`${PUBLIC_HOST}`)
+      - traefik.http.routers.disp-web.priority=1
+      - traefik.http.routers.disp-web.tls.certresolver=le
+      - traefik.http.services.disp-web.loadbalancer.server.port=80
 ```
 
 and amend the existing `api` service's router so it wins for API paths:
 
 ```yaml
-      - traefik.http.routers.mystuff.rule=Host(`${PUBLIC_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/health`) || PathPrefix(`/openapi.json`))
-      - traefik.http.routers.mystuff.priority=10
+      - traefik.http.routers.disp.rule=Host(`${PUBLIC_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/health`) || PathPrefix(`/openapi.json`))
+      - traefik.http.routers.disp.priority=10
 ```
 
 Priority is what makes same-origin work. The implementer MUST verify that `/api/auth/login` reaches the API and `/notes` reaches the web container.
@@ -1439,4 +1439,4 @@ Copy is centralised in `src/lib/copy.ts` so tone stays consistent and future tra
 | Tile read-only checkbox | "Read-only in this version" |
 | Share dialog note | "Sharing is additive — this list shows who you're adding, not who already has access." |
 | PAT created warning | "Copy this token now. You won't be able to see it again." |
-| Invite created note | "Send this link to the person yourself — MyStuff doesn't send email." |
+| Invite created note | "Send this link to the person yourself — DISP doesn't send email." |

@@ -106,12 +106,6 @@ dirty-state reset to the server's response. `422` maps to field errors per M10's
 have changed") — this is a real operational signal the user needs to escalate, not a generic retry-
 able error, so don't route it through the generic 5xx toast.
 
-## DISP naming applied here
-
-None of this milestone's own strings are MyStuff-branded in the spec — Appendix D's
-`settings.decryption_failed` copy and the disabled-field fallback text are generic. Nothing to
-rename beyond what M04's page titles already handle.
-
 ## Dependencies
 
 - **M00** — hard dependency, see above.

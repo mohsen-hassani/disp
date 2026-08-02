@@ -10,7 +10,7 @@ Covers TECHNICAL-SPEC.md §13 (Scheduler and task queue).
 
 ## §13.1 Procrastinate setup
 
-- One `procrastinate.App` in `disp/core/scheduler.py`, using `PsycopgConnector` with `MYSTUFF_DATABASE_URL_SYNC`.
+- One `procrastinate.App` in `disp/core/scheduler.py`, using `PsycopgConnector` with `DISP_DATABASE_URL_SYNC`.
 - Procrastinate's own tables live in the `public` schema (its default). No customisation.
 - `procrastinate schema --apply` runs as part of `./dev migrate` and as a one-shot compose command, before the worker starts.
 
@@ -33,10 +33,10 @@ class SchedulerFacade:
 
 ## §13.3 The daily planner
 
-A periodic task named `core.daily_planner`, cron from `MYSTUFF_DAILY_PLANNER_CRON`, MUST:
+A periodic task named `core.daily_planner`, cron from `DISP_DAILY_PLANNER_CRON`, MUST:
 
 1. Receive Procrastinate's single `timestamp: int` argument.
-2. Log start with the resolved local date in `MYSTUFF_TIMEZONE`.
+2. Log start with the resolved local date in `DISP_TIMEZONE`.
 3. Iterate `registry.scheduled_jobs`, and for each, log its name. (Actual per-module fan-out is each module's responsibility via its own periodic jobs; the planner exists to prove the mechanism and to provide a single hook for future cross-module planning.)
 4. Log completion with a count.
 
@@ -49,7 +49,7 @@ The worker container runs `python -m disp.worker`, which MUST call `app.run_work
 ## Implementation notes
 
 - Installed `procrastinate==3.9.0` (spec pins `>=2.9`); its API differs somewhat from 2.x but all needed pieces (`PsycopgConnector`, `App.task`, `App.periodic`, `defer_async`, `run_worker_async(concurrency=..., install_signal_handlers=..., listen_notify=...)`) exist and were verified interactively against the installed package via `inspect.signature`/`inspect.getsource` before writing code.
-- `PsycopgConnector(conninfo=...)` needs a bare `postgresql://` DSN, not the SQLAlchemy-dialect-prefixed `postgresql+psycopg://` that `MYSTUFF_DATABASE_URL_SYNC` provides — `to_psycopg_dsn()` strips the `+driver` marker via regex.
-- `app = procrastinate.App(...)` and the `daily_planner`/`core.deliver_notification` (M9) task registrations are module-level, evaluated at **import time** of `disp.core.scheduler` — this matches the CLI's expectation that `disp.core.scheduler.app` is a ready-made dotted-path-loadable object (`procrastinate --app=disp.core.scheduler.app schema --apply`). Consequence: importing this module requires valid `MYSTUFF_*` env vars to already be set in the process (same as any settings-dependent module-level singleton).
+- `PsycopgConnector(conninfo=...)` needs a bare `postgresql://` DSN, not the SQLAlchemy-dialect-prefixed `postgresql+psycopg://` that `DISP_DATABASE_URL_SYNC` provides — `to_psycopg_dsn()` strips the `+driver` marker via regex.
+- `app = procrastinate.App(...)` and the `daily_planner`/`core.deliver_notification` (M9) task registrations are module-level, evaluated at **import time** of `disp.core.scheduler` — this matches the CLI's expectation that `disp.core.scheduler.app` is a ready-made dotted-path-loadable object (`procrastinate --app=disp.core.scheduler.app schema --apply`). Consequence: importing this module requires valid `DISP_*` env vars to already be set in the process (same as any settings-dependent module-level singleton).
 - `daily_planner`'s access to `registry.scheduled_jobs` (not available until M10's wiring) uses the same module-level-singleton-with-setter pattern as `events.py`: `set_registry(registry)`, called once during platform construction.
 - `SchedulerFacade.task()` proactively checks `name in self._app.tasks` before returning the decorator (duplicate-name-fatal), raising `SchedulerRegistrationError`. Verified interactively: duplicate registration raises, bad task-name pattern raises `ValueError`, DSN conversion round-trips correctly.

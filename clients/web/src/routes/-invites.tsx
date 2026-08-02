@@ -27,7 +27,7 @@ const createInviteSchema = z.object({
 type CreateInviteFormValues = z.infer<typeof createInviteSchema>;
 
 // Appendix D, DISP-renamed per this milestone's own naming note (the spec's
-// literal draft copy says "MyStuff doesn't send email").
+// literal draft copy says "DISP doesn't send email").
 const INVITE_CREATED_NOTE = "Send this link to the person yourself — DISP doesn't send email.";
 const USER_EXISTS_COPY = 'A user with this email address already exists.';
 const INVITE_PENDING_COPY = 'A pending invite already exists for this email address.';

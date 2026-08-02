@@ -13,7 +13,7 @@ Covers TECHNICAL-SPEC.md §9 (Module registry and startup), §16 (Dashboard API)
 `Registry.discover()` MUST execute exactly these steps:
 
 1. Enumerate candidate packages with `pkgutil.iter_modules(disp.modules.__path__)`. Order is not guaranteed; sort names alphabetically for determinism.
-2. If `MYSTUFF_MODULES` is non-empty, filter to that allow-list. A named module that does not exist is a **fatal** error.
+2. If `DISP_MODULES` is non-empty, filter to that allow-list. A named module that does not exist is a **fatal** error.
 3. For each candidate: `importlib.import_module(f"disp.modules.{name}")`.
    - `ImportError` → fatal, with the original traceback.
 4. Retrieve `get_module`. Missing attribute or non-callable → fatal.
@@ -48,7 +48,7 @@ For each module, in dependency order, `Registry.wire(app, platform)` MUST:
 1. Load settings; configure logging (§20).
 2. Create the async engine and session maker.
 3. Construct `EventBus`, `SettingsStore`, `SchedulerFacade`, `NotifierFacade`, then the `Platform`.
-4. Build the `FastAPI` instance with `title="MyStuff"`, `version=__version__`, `openapi_url="/openapi.json"`, `docs_url="/docs"` (only when `MYSTUFF_ENV != "production"`; otherwise `None`).
+4. Build the `FastAPI` instance with `title="DISP"`, `version=__version__`, `openapi_url="/openapi.json"`, `docs_url="/docs"` (only when `DISP_ENV != "production"`; otherwise `None`).
 5. Install middleware in this order (outermost first): `RequestIdMiddleware`, `CORSMiddleware`, `SlowAPIMiddleware`.
 6. Register exception handlers (§17.4 — already implemented in M1's `errors.py`).
 7. Mount core routers: `/health`, `/api/auth`, `/api/dashboard`, `/api/settings`.
@@ -141,9 +141,9 @@ A resource that exists but that the caller may not read MUST return `404`, not `
 
 ## §17.6 CORS, headers, rate limiting
 
-- CORS is enabled only when `MYSTUFF_CORS_ORIGINS` is non-empty; `allow_credentials=True`, methods `GET, POST, PATCH, DELETE, OPTIONS`, headers `Authorization, Content-Type, X-Requested-With`.
+- CORS is enabled only when `DISP_CORS_ORIGINS` is non-empty; `allow_credentials=True`, methods `GET, POST, PATCH, DELETE, OPTIONS`, headers `Authorization, Content-Type, X-Requested-With`.
 - Every response carries `X-Request-ID`.
-- Rate limits (`slowapi`, keyed by client IP unless noted), applied when `MYSTUFF_RATE_LIMIT_ENABLED`:
+- Rate limits (`slowapi`, keyed by client IP unless noted), applied when `DISP_RATE_LIMIT_ENABLED`:
 
 | Endpoint | Limit |
 |---|---|
@@ -241,6 +241,6 @@ def get_module() -> PlatformModule:
 - **Middleware ordering verified empirically.** Starlette's `add_middleware()` makes the *last*-added middleware the outermost, so `create_app()` calls it in reverse (`SlowAPIMiddleware`, then `CORSMiddleware`, then `RequestIdMiddleware`) to produce the required outermost-first order. Confirmed via `app.user_middleware` inspection: `['RequestIdMiddleware', 'CORSMiddleware', 'SlowAPIMiddleware']`.
 - **Real bug found and fixed:** `_wait_for_database`'s retry loop (§5.3's "unreachable after 5 retries with 2-second backoff") only caught `SQLAlchemyError`, but asyncpg raises a bare `OSError` on connection refusal (confirmed interactively — SQLAlchemy does not wrap it at the `engine.connect()` pool-checkout stage). The loop was failing on the very first attempt without ever retrying. Fixed by catching `(SQLAlchemyError, OSError)`; verified the retry loop now takes the full ~9 seconds (5 attempts, 2s backoff) before raising, with `CRITICAL`-level logging on final failure. Applied the same fix to `health.py`'s DB check functions, which had the identical gap.
 - **Settings-panel schema limitation.** `SettingsPanelSpec.schema_model` (a `type[BaseModel]`) can't be serialized directly into the `GET /api/dashboard/manifest` response, so a dedicated `SettingsPanelOut` (key/title/description/scope only) is used for that one field instead of echoing the manifest's tuple verbatim.
-- **Verification performed:** `create_app()` constructs successfully and mounts all 16 routes (19 operations across health/auth/dashboard/settings) with unique `operation_id`s and exactly one tag each, confirmed via the generated OpenAPI schema; `MYSTUFF_ENV=production` correctly disables `docs_url`/`redoc_url` while keeping `openapi_url`; the `hello` fixture module was path-injected and correctly appeared in `registry.modules`/`registry.tiles` with **zero edits to `src/disp/core/`** (the actual §22.4 plug-in-proof property, informally confirmed here — the formal test with `git diff` assertion is written at M15); `tests/core/test_registry.py` (8 tests) covers discovery success, allow-list restriction, unknown-module-in-allow-list fatal, domain/package mismatch fatal, dependency-cycle fatal (naming both modules), missing-dependency fatal, and tile wiring/rendering. Test cases 29 (real `notes` module) and 31 (duplicate tile keys — see note below) are deferred to M15.
+- **Verification performed:** `create_app()` constructs successfully and mounts all 16 routes (19 operations across health/auth/dashboard/settings) with unique `operation_id`s and exactly one tag each, confirmed via the generated OpenAPI schema; `DISP_ENV=production` correctly disables `docs_url`/`redoc_url` while keeping `openapi_url`; the `hello` fixture module was path-injected and correctly appeared in `registry.modules`/`registry.tiles` with **zero edits to `src/disp/core/`** (the actual §22.4 plug-in-proof property, informally confirmed here — the formal test with `git diff` assertion is written at M15); `tests/core/test_registry.py` (8 tests) covers discovery success, allow-list restriction, unknown-module-in-allow-list fatal, domain/package mismatch fatal, dependency-cycle fatal (naming both modules), missing-dependency fatal, and tile wiring/rendering. Test cases 29 (real `notes` module) and 31 (duplicate tile keys — see note below) are deferred to M15.
 - **Test case 31 deferred.** "Duplicate tile keys across two fixture modules are fatal" turns out to be unreachable through normal `ModuleManifest(...)` construction: the cross-field validator (M3) already forces every tile key to start with `f"{domain}."`, and domain is forced to equal the (unique) package name — so two *validly constructed* discovered modules can never produce a colliding tile key. Exercising this fatal path for real requires deliberately bypassing the Pydantic validator (e.g. `ModuleManifest.model_construct(...)`) in a dedicated fixture, which is a small enough addition to fold into M15's full test sweep rather than build here.
 - Full suite: 23/23 tests passing, `ruff check`/`ruff format --check` clean, `mypy src` clean (all forward-reference placeholders from M3/M4/M7/M8/M9 for `disp.core.platform`/`disp.core.registry` are now fully resolved).

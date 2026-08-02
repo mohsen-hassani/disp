@@ -5,7 +5,7 @@
 # `docker-compose.yml` itself. Three jobs, only:
 #
 # 1. Point `api`/`worker`/`migrate` at *this* file's Postgres, not whatever
-#    `MYSTUFF_DATABASE_URL` happens to be in the developer's own `.env`
+#    `DISP_DATABASE_URL` happens to be in the developer's own `.env`
 #    (typically `localhost`, per `.env.example`'s dev-oriented default) —
 #    inside the compose network the database is reachable only as
 #    `postgres`, so the URL is always overridden here regardless of `.env`.
@@ -49,9 +49,9 @@ services:
     build: .
     env_file: .env
     environment:
-      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      MYSTUFF_SEED_PASSWORD: ${MYSTUFF_SEED_PASSWORD:-e2e-admin-password}
+      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_SEED_PASSWORD: ${DISP_SEED_PASSWORD:-e2e-admin-password}
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,9 +83,9 @@ services:
 
   worker:
     environment:
-      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      MYSTUFF_ENV: development
+      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_ENV: development
     depends_on:
       postgres:
         condition: service_healthy

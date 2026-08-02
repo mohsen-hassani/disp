@@ -127,6 +127,6 @@ violating them fails the build, not a style check:
 ## Verifying your module needs zero core/ changes
 
 The pattern `tests/core/test_plugin_proof.py` uses works for any new module too: restrict
-discovery to just your module (`MYSTUFF_MODULES=yourmodule`), build the app, and confirm
+discovery to just your module (`DISP_MODULES=yourmodule`), build the app, and confirm
 `git status --porcelain -- src/disp/core` is empty. If it isn't, something in your module reached
 outside the boundaries above.

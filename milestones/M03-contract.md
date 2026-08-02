@@ -134,7 +134,7 @@ class TileContext:
     user: CurrentUser
     session: AsyncSession
     platform: "Platform"
-    now: datetime  # timezone-aware, in MYSTUFF_TIMEZONE
+    now: datetime  # timezone-aware, in DISP_TIMEZONE
 ```
 
 Every module package MUST expose a module-level function:

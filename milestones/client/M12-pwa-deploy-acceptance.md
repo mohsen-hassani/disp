@@ -87,8 +87,6 @@ Add to the root `docker-compose.yml`:
       - traefik.http.services.disp-web.loadbalancer.server.port=80
 ```
 
-(Router/service names `disp-web`, not the spec's literal `mystuff-web` — see DISP naming section.)
-
 Amend the existing `api` service's router (confirmed today, `docker-compose.yml:31-34` —
 `traefik.http.routers.disp`, service port `8000`, already named `disp` with **no** priority or
 `PathPrefix` condition set, since it's currently the only web-facing service) so it wins for API
@@ -100,9 +98,9 @@ paths once `web` is added:
 ```
 
 This is an **amendment to the existing `disp` router's `rule` label and a new `priority` label**,
-not a rename — the router is already correctly named `disp` (not `mystuff`), confirming the same
-"disp is already the real wire-level name" pattern found everywhere else in this codebase (M00's
-cookie/CSRF-header findings, M00-bootstrap's console-script decision).
+not a rename — the router is already correctly named `disp`, confirming the same "disp is already
+the real wire-level name" pattern found everywhere else in this codebase (M00's cookie/CSRF-header
+findings, M00-bootstrap's console-script decision).
 
 Priority is what makes same-origin work at all (§2.1's whole premise). **Verify** — don't just
 configure — that `/api/auth/login` reaches the API container and `/notes` reaches the web container
@@ -116,10 +114,8 @@ together as Docker Compose would run it in production.
 
 **Build and deploy**: (1) `pnpm install && pnpm build` succeeds from a clean checkout, no backend
 running. (2) `pnpm api:check` passes. (3) `docker compose up -d` serves the app at
-`https://<host>/` with the API at `/api`, zero CORS headers anywhere (confirmed the backend's CORS
-middleware isn't even installed when `MYSTUFF_CORS_ORIGINS` is empty — `src/disp/core/app.py:123-126`
-— so this should hold trivially as long as nothing sets that env var for this deployment). (4)
-`pnpm lint`, `pnpm typecheck`, `pnpm test` all pass, coverage gates met.
+`https://<host>/` with the API at `/api`, zero CORS headers anywhere. (4) `pnpm lint`,
+`pnpm typecheck`, `pnpm test` all pass, coverage gates met.
 
 **Auth**: (5) sign in, close tab, reopen — session restored without re-entering a password. (6) no
 credential in `localStorage`/`sessionStorage`/Cache Storage after login. (7) three simultaneous
@@ -154,12 +150,6 @@ user administration beyond invites; audit-log views; telemetry/analytics/error-r
 kind; internationalization; a global (non-user-scoped) settings UI; drag-and-drop tile reordering.
 Grep the final `src/` tree for any of these before signing off — each would be a specification
 violation per §26's own explicit framing, not a harmless bonus feature.
-
-## DISP naming applied here
-
-- Compose labels/router names: `disp-web`, `disp` (not `mystuff-web`, `mystuff`).
-- Final repo-wide check: `grep -ri mystuff clients/web/` returns nothing (M10 already ran this once
-  mid-build; re-run here as the final gate since M11/M12's own new files could reintroduce it).
 
 ## Dependencies
 

@@ -16,9 +16,9 @@ uv sync
 
 cp .env.example .env
 # Edit .env: generate real secrets —
-#   python -c "import secrets; print(secrets.token_urlsafe(48))"          # MYSTUFF_JWT_SECRET
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # MYSTUFF_SETTINGS_KEY
-# For local dev, MYSTUFF_COOKIE_SECURE=false and MYSTUFF_ENV=development are fine as shipped.
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"          # DISP_JWT_SECRET
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # DISP_SETTINGS_KEY
+# For local dev, DISP_COOKIE_SECURE=false and DISP_ENV=development are fine as shipped.
 
 ./dev up          # starts a local Postgres 16 container
 ./dev migrate     # applies all Alembic branches + the Procrastinate schema

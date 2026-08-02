@@ -114,11 +114,6 @@ Global, active only when no input has focus:
 | Delete note | list keys, the notes tile; **removes** `qk.notes.detail(id)` from the cache entirely |
 | Share note | `qk.notes.detail(id)` |
 
-## DISP naming applied here
-
-None of §16's own copy is MyStuff-branded in the spec text — this screen has no naming corrections
-beyond what M04's page titles (`Notes · DISP`, `<note title> · DISP`) already apply.
-
 ## Dependencies
 
 - **M02** (generated client, query keys, error mapping), **M03** (auth guard via M04), **M04**

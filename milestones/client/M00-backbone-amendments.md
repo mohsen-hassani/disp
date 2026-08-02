@@ -150,13 +150,6 @@ def _require_csrf_header(request: Request) -> None:
         raise ...
 ```
 
-This is not a MyStuff→DISP rebrand choice — it's an existing, already-shipped backend behavior. A
-client sending `mystuff` would get every refresh/logout call rejected. **M02 and M03 MUST send
-`X-Requested-With: disp`,** not the spec's literal `mystuff`. No backend change is needed for this
-one — it's a client-side correction, called out here because it was discovered while auditing the
-backend for this milestone and every downstream client milestone that touches auth headers needs to
-know about it.
-
 ## Dependencies
 
 None — this is the first milestone; it only requires the already-complete backend from
