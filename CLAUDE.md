@@ -17,6 +17,15 @@ M00-M11` are now implemented (see `README.md`'s "Web client" section for what ea
 "Web client" below for testing/dev notes specific to it); only `M12` (production Docker image +
 Traefik routing) remains prospective.
 
+Two modules ship: `notes` (the demo that exercises the contract) and `plants` (plant care
+schedules). `plants` was built after the spec rather than from it, so it documents itself —
+`src/disp/modules/plants/TECHNICAL-SPEC.md` is the complete as-built reference (data model,
+scheduling invariants, API, photo storage, rationale for every decision) and is the source of truth
+before changing anything under `src/disp/modules/plants/` or the `/plants` client screens. Its
+`README.md` is the short orientation. **The load-bearing rule: completing a care action reschedules
+from the completion date, not the due date** (done on the 3rd for a 15-day cycle → next due the
+18th, not the 16th), and due/overdue state is *derived* at read time, never stored.
+
 ## Commands
 
 ```
@@ -66,8 +75,34 @@ internal-only `"secret"` this used to be before a web client needed to see it), 
 found. `dashboard.get_manifest()` therefore also appends a synthetic `domain="core"` module entry
 for whatever's left in `registry.settings_panels` after the per-module loop. This means the
 manifest's `modules` list always includes a `"core"` domain in addition to real modules — a test
-asserting an exact domain set (e.g. `{"notes"}`) needs `{"notes", "core"}` instead; two pre-existing
-tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_proof.py`).
+asserting an exact domain set needs `{"notes", "plants", "core"}`, not just the real module domains;
+two tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_proof.py`).
+
+## Adding a module: branch registration is one line now
+
+A module's Alembic branch used to need edits in `src/disp/core/migrations/env.py` (a hardcoded
+`BRANCH_MODELS` dict) and in `./dev` (a hardcoded module allow-list) — which contradicted the
+platform's own "adding a module requires zero `core/` edits" promise that
+`tests/core/test_plugin_proof.py` asserts. Both are now derived: `env.py`'s `_models_module()`
+resolves `disp.modules.<branch>.models` by convention, and `./dev migrate` upgrades every module
+shipping a `migrations/versions/` directory. **A new module needs only its `alembic.ini` section**,
+plus one line each in `tests/conftest.py` and `docker-compose.e2e.yml` (both still enumerate
+branches explicitly). Don't reintroduce a hardcoded module list in either derived spot.
+
+## `plants` gotchas (full reasoning in that module's `TECHNICAL-SPEC.md`)
+
+- **Plant photos are files on a volume, not rows.** `DISP_PLANTS_MEDIA_ROOT`, mounted as
+  `media:/data/media` in `docker-compose.yml`. `pg_dump` therefore does **not** contain them, and a
+  database-only restore fails *gracefully* (`404 plants.no_image`) which makes the gap easy to miss
+  — `docs/operations.md` has the volume backup cron.
+- **The media root default is a *relative* path** (`var/media/plants`). Anything comparing paths
+  under it must compare resolved-to-resolved: a bug where `write_image` deleted the file it had just
+  written survived the whole unit suite because pytest's `tmp_path` is absolute and already
+  resolved, and only showed up running the real server. `test_image_survives_a_relative_media_root`
+  pins it. More generally: when behaviour depends on a config's *shape*, test the shipped default's
+  shape, not just a convenient one.
+- **`/due` and `/calendar` must stay declared above `/{plant_id}` in `router.py`.** FastAPI matches
+  in declaration order; reordering makes `GET /api/plants/due` try to parse `"due"` as a UUID (422).
 
 ## Testing
 

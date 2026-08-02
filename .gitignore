@@ -13,3 +13,4 @@ dist/
 build/
 openapi.json
 .DS_Store
+var/

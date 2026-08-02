@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { authAcceptInvite, authChangePassword, authCreateInvite, authCreateToken, authDeleteInvite, authListInvites, authListTokens, authLogin, authLogout, authMe, authRefresh, authRevokeToken, dashboardManifest, dashboardTile, dashboardTiles, healthCheck, healthLive, notesCreate, notesDelete, notesGet, notesList, notesShare, notesUpdate, type Options, settingsGet, settingsUpdate } from '../sdk.gen';
-import type { AuthAcceptInviteData, AuthAcceptInviteResponse, AuthChangePasswordData, AuthChangePasswordResponse, AuthCreateInviteData, AuthCreateInviteError, AuthCreateInviteResponse, AuthCreateTokenData, AuthCreateTokenError, AuthCreateTokenResponse, AuthDeleteInviteData, AuthDeleteInviteError, AuthDeleteInviteResponse, AuthListInvitesData, AuthListInvitesError, AuthListInvitesResponse, AuthListTokensData, AuthListTokensError, AuthListTokensResponse, AuthLoginData, AuthLoginResponse, AuthLogoutData, AuthLogoutError, AuthLogoutResponse, AuthMeData, AuthMeError, AuthMeResponse, AuthRefreshData, AuthRefreshError, AuthRefreshResponse, AuthRevokeTokenData, AuthRevokeTokenError, AuthRevokeTokenResponse, DashboardManifestData, DashboardManifestError, DashboardManifestResponse2, DashboardTileData, DashboardTileError, DashboardTileResponse, DashboardTilesData, DashboardTilesError, DashboardTilesResponse, HealthCheckData, HealthCheckResponse, HealthLiveData, HealthLiveResponse, NotesCreateData, NotesCreateError, NotesCreateResponse, NotesDeleteData, NotesDeleteError, NotesDeleteResponse, NotesGetData, NotesGetError, NotesGetResponse, NotesListData, NotesListError, NotesListResponse, NotesShareData, NotesShareError, NotesShareResponse, NotesUpdateData, NotesUpdateError, NotesUpdateResponse, SettingsGetData, SettingsGetError, SettingsGetResponse, SettingsUpdateData, SettingsUpdateResponse } from '../types.gen';
+import { authAcceptInvite, authChangePassword, authCreateInvite, authCreateToken, authDeleteInvite, authListInvites, authListTokens, authLogin, authLogout, authMe, authRefresh, authRevokeToken, dashboardManifest, dashboardTile, dashboardTiles, healthCheck, healthLive, notesCreate, notesDelete, notesGet, notesList, notesShare, notesUpdate, type Options, plantsAddInterval, plantsCalendar, plantsCompleteInterval, plantsCreate, plantsDelete, plantsDeleteImage, plantsDeleteInterval, plantsDue, plantsGet, plantsGetImage, plantsHistory, plantsList, plantsSetImage, plantsUpdate, plantsUpdateInterval, settingsGet, settingsUpdate } from '../sdk.gen';
+import type { AuthAcceptInviteData, AuthAcceptInviteResponse, AuthChangePasswordData, AuthChangePasswordResponse, AuthCreateInviteData, AuthCreateInviteError, AuthCreateInviteResponse, AuthCreateTokenData, AuthCreateTokenError, AuthCreateTokenResponse, AuthDeleteInviteData, AuthDeleteInviteError, AuthDeleteInviteResponse, AuthListInvitesData, AuthListInvitesError, AuthListInvitesResponse, AuthListTokensData, AuthListTokensError, AuthListTokensResponse, AuthLoginData, AuthLoginResponse, AuthLogoutData, AuthLogoutError, AuthLogoutResponse, AuthMeData, AuthMeError, AuthMeResponse, AuthRefreshData, AuthRefreshError, AuthRefreshResponse, AuthRevokeTokenData, AuthRevokeTokenError, AuthRevokeTokenResponse, DashboardManifestData, DashboardManifestError, DashboardManifestResponse2, DashboardTileData, DashboardTileError, DashboardTileResponse, DashboardTilesData, DashboardTilesError, DashboardTilesResponse, HealthCheckData, HealthCheckResponse, HealthLiveData, HealthLiveResponse, NotesCreateData, NotesCreateError, NotesCreateResponse, NotesDeleteData, NotesDeleteError, NotesDeleteResponse, NotesGetData, NotesGetError, NotesGetResponse, NotesListData, NotesListError, NotesListResponse, NotesShareData, NotesShareError, NotesShareResponse, NotesUpdateData, NotesUpdateError, NotesUpdateResponse, PlantsAddIntervalData, PlantsAddIntervalError, PlantsAddIntervalResponse, PlantsCalendarData, PlantsCalendarError, PlantsCalendarResponse, PlantsCompleteIntervalData, PlantsCompleteIntervalError, PlantsCompleteIntervalResponse, PlantsCreateData, PlantsCreateError, PlantsCreateResponse, PlantsDeleteData, PlantsDeleteError, PlantsDeleteImageData, PlantsDeleteImageError, PlantsDeleteImageResponse, PlantsDeleteIntervalData, PlantsDeleteIntervalError, PlantsDeleteIntervalResponse, PlantsDeleteResponse, PlantsDueData, PlantsDueError, PlantsDueResponse, PlantsGetData, PlantsGetError, PlantsGetImageData, PlantsGetImageError, PlantsGetResponse, PlantsHistoryData, PlantsHistoryError, PlantsHistoryResponse, PlantsListData, PlantsListError, PlantsListResponse, PlantsSetImageData, PlantsSetImageError, PlantsSetImageResponse, PlantsUpdateData, PlantsUpdateError, PlantsUpdateIntervalData, PlantsUpdateIntervalError, PlantsUpdateIntervalResponse, PlantsUpdateResponse, SettingsGetData, SettingsGetError, SettingsGetResponse, SettingsUpdateData, SettingsUpdateResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -524,6 +524,297 @@ export const notesShareMutation = (options?: Partial<Options<NotesShareData>>): 
     const mutationOptions: UseMutationOptions<NotesShareResponse, NotesShareError, Options<NotesShareData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await notesShare({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const plantsListQueryKey = (options?: Options<PlantsListData>) => createQueryKey('plantsList', options);
+
+/**
+ * List the caller's plants
+ */
+export const plantsListOptions = (options?: Options<PlantsListData>) => queryOptions<PlantsListResponse, PlantsListError, PlantsListResponse, ReturnType<typeof plantsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsListQueryKey(options)
+});
+
+export const plantsListInfiniteQueryKey = (options?: Options<PlantsListData>): QueryKey<Options<PlantsListData>> => createQueryKey('plantsList', options, true);
+
+/**
+ * List the caller's plants
+ */
+export const plantsListInfiniteOptions = (options?: Options<PlantsListData>) => {
+    const opts = infiniteQueryOptions<PlantsListResponse, PlantsListError, InfiniteData<PlantsListResponse>, QueryKey<Options<PlantsListData>>, string | null | Pick<QueryKey<Options<PlantsListData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<PlantsListData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    cursor: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await plantsList({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: plantsListInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Create a plant
+ */
+export const plantsCreateMutation = (options?: Partial<Options<PlantsCreateData>>): UseMutationOptions<PlantsCreateResponse, PlantsCreateError, Options<PlantsCreateData>> => {
+    const mutationOptions: UseMutationOptions<PlantsCreateResponse, PlantsCreateError, Options<PlantsCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const plantsDueQueryKey = (options?: Options<PlantsDueData>) => createQueryKey('plantsDue', options);
+
+/**
+ * Care actions due today across all plants
+ */
+export const plantsDueOptions = (options?: Options<PlantsDueData>) => queryOptions<PlantsDueResponse, PlantsDueError, PlantsDueResponse, ReturnType<typeof plantsDueQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsDue({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsDueQueryKey(options)
+});
+
+export const plantsCalendarQueryKey = (options: Options<PlantsCalendarData>) => createQueryKey('plantsCalendar', options);
+
+/**
+ * Completed and scheduled care for one month
+ */
+export const plantsCalendarOptions = (options: Options<PlantsCalendarData>) => queryOptions<PlantsCalendarResponse, PlantsCalendarError, PlantsCalendarResponse, ReturnType<typeof plantsCalendarQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsCalendar({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsCalendarQueryKey(options)
+});
+
+/**
+ * Soft-delete a plant
+ */
+export const plantsDeleteMutation = (options?: Partial<Options<PlantsDeleteData>>): UseMutationOptions<PlantsDeleteResponse, PlantsDeleteError, Options<PlantsDeleteData>> => {
+    const mutationOptions: UseMutationOptions<PlantsDeleteResponse, PlantsDeleteError, Options<PlantsDeleteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsDelete({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const plantsGetQueryKey = (options: Options<PlantsGetData>) => createQueryKey('plantsGet', options);
+
+/**
+ * Read a plant with its care intervals
+ */
+export const plantsGetOptions = (options: Options<PlantsGetData>) => queryOptions<PlantsGetResponse, PlantsGetError, PlantsGetResponse, ReturnType<typeof plantsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsGetQueryKey(options)
+});
+
+/**
+ * Partially update a plant
+ */
+export const plantsUpdateMutation = (options?: Partial<Options<PlantsUpdateData>>): UseMutationOptions<PlantsUpdateResponse, PlantsUpdateError, Options<PlantsUpdateData>> => {
+    const mutationOptions: UseMutationOptions<PlantsUpdateResponse, PlantsUpdateError, Options<PlantsUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Remove a plant's photo
+ */
+export const plantsDeleteImageMutation = (options?: Partial<Options<PlantsDeleteImageData>>): UseMutationOptions<PlantsDeleteImageResponse, PlantsDeleteImageError, Options<PlantsDeleteImageData>> => {
+    const mutationOptions: UseMutationOptions<PlantsDeleteImageResponse, PlantsDeleteImageError, Options<PlantsDeleteImageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsDeleteImage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const plantsGetImageQueryKey = (options: Options<PlantsGetImageData>) => createQueryKey('plantsGetImage', options);
+
+/**
+ * Fetch a plant's photo
+ */
+export const plantsGetImageOptions = (options: Options<PlantsGetImageData>) => queryOptions<unknown, PlantsGetImageError, unknown, ReturnType<typeof plantsGetImageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsGetImage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsGetImageQueryKey(options)
+});
+
+/**
+ * Upload or replace a plant's photo
+ */
+export const plantsSetImageMutation = (options?: Partial<Options<PlantsSetImageData>>): UseMutationOptions<PlantsSetImageResponse, PlantsSetImageError, Options<PlantsSetImageData>> => {
+    const mutationOptions: UseMutationOptions<PlantsSetImageResponse, PlantsSetImageError, Options<PlantsSetImageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsSetImage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const plantsHistoryQueryKey = (options: Options<PlantsHistoryData>) => createQueryKey('plantsHistory', options);
+
+/**
+ * Recent completed care for one plant
+ */
+export const plantsHistoryOptions = (options: Options<PlantsHistoryData>) => queryOptions<PlantsHistoryResponse, PlantsHistoryError, PlantsHistoryResponse, ReturnType<typeof plantsHistoryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await plantsHistory({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: plantsHistoryQueryKey(options)
+});
+
+/**
+ * Add a recurring care interval to a plant
+ */
+export const plantsAddIntervalMutation = (options?: Partial<Options<PlantsAddIntervalData>>): UseMutationOptions<PlantsAddIntervalResponse, PlantsAddIntervalError, Options<PlantsAddIntervalData>> => {
+    const mutationOptions: UseMutationOptions<PlantsAddIntervalResponse, PlantsAddIntervalError, Options<PlantsAddIntervalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsAddInterval({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete a care interval
+ */
+export const plantsDeleteIntervalMutation = (options?: Partial<Options<PlantsDeleteIntervalData>>): UseMutationOptions<PlantsDeleteIntervalResponse, PlantsDeleteIntervalError, Options<PlantsDeleteIntervalData>> => {
+    const mutationOptions: UseMutationOptions<PlantsDeleteIntervalResponse, PlantsDeleteIntervalError, Options<PlantsDeleteIntervalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsDeleteInterval({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Update a care interval
+ */
+export const plantsUpdateIntervalMutation = (options?: Partial<Options<PlantsUpdateIntervalData>>): UseMutationOptions<PlantsUpdateIntervalResponse, PlantsUpdateIntervalError, Options<PlantsUpdateIntervalData>> => {
+    const mutationOptions: UseMutationOptions<PlantsUpdateIntervalResponse, PlantsUpdateIntervalError, Options<PlantsUpdateIntervalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsUpdateInterval({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Mark a care action done and reschedule it
+ */
+export const plantsCompleteIntervalMutation = (options?: Partial<Options<PlantsCompleteIntervalData>>): UseMutationOptions<PlantsCompleteIntervalResponse, PlantsCompleteIntervalError, Options<PlantsCompleteIntervalData>> => {
+    const mutationOptions: UseMutationOptions<PlantsCompleteIntervalResponse, PlantsCompleteIntervalError, Options<PlantsCompleteIntervalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await plantsCompleteInterval({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

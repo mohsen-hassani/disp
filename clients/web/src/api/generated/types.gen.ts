@@ -53,6 +53,226 @@ export type ApiTokenOut = {
 };
 
 /**
+ * Body_plants_set_image
+ */
+export type BodyPlantsSetImage = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * CalendarEntry
+ */
+export type CalendarEntry = {
+    /**
+     * Day
+     */
+    day: string;
+    /**
+     * Kind
+     */
+    kind: 'done' | 'overdue' | 'due' | 'projected';
+    /**
+     * Plant Id
+     */
+    plant_id: string;
+    /**
+     * Plant Name
+     */
+    plant_name: string;
+    /**
+     * Interval Id
+     */
+    interval_id: string | null;
+    /**
+     * Action Name
+     */
+    action_name: string;
+    /**
+     * Log Id
+     */
+    log_id?: string | null;
+    /**
+     * Days Late
+     */
+    days_late?: number | null;
+};
+
+/**
+ * CalendarOut
+ */
+export type CalendarOut = {
+    /**
+     * Month
+     */
+    month: string;
+    /**
+     * Start
+     */
+    start: string;
+    /**
+     * End
+     */
+    end: string;
+    /**
+     * Entries
+     */
+    entries: Array<CalendarEntry>;
+};
+
+/**
+ * CareIntervalCreate
+ */
+export type CareIntervalCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Interval Days
+     */
+    interval_days: number;
+    /**
+     * Last Done On
+     */
+    last_done_on?: string | null;
+};
+
+/**
+ * CareIntervalOut
+ */
+export type CareIntervalOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Plant Id
+     */
+    plant_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Interval Days
+     */
+    interval_days: number;
+    /**
+     * Next Due On
+     */
+    next_due_on: string;
+    /**
+     * Last Done On
+     */
+    last_done_on: string | null;
+    /**
+     * Active
+     */
+    active: boolean;
+    /**
+     * Days Overdue
+     */
+    days_overdue: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * CareIntervalUpdate
+ */
+export type CareIntervalUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Interval Days
+     */
+    interval_days?: number | null;
+    /**
+     * Next Due On
+     */
+    next_due_on?: string | null;
+    /**
+     * Active
+     */
+    active?: boolean | null;
+};
+
+/**
+ * CareLogOut
+ */
+export type CareLogOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Plant Id
+     */
+    plant_id: string;
+    /**
+     * Interval Id
+     */
+    interval_id: string | null;
+    /**
+     * Action Name
+     */
+    action_name: string;
+    /**
+     * Due On
+     */
+    due_on: string;
+    /**
+     * Completed On
+     */
+    completed_on: string;
+    /**
+     * Days Late
+     */
+    days_late: number;
+    /**
+     * Note
+     */
+    note: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * CompleteRequest
+ */
+export type CompleteRequest = {
+    /**
+     * Completed On
+     */
+    completed_on?: string | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+};
+
+/**
+ * CompleteResult
+ */
+export type CompleteResult = {
+    log: CareLogOut;
+    interval: CareIntervalOut;
+};
+
+/**
  * CreateApiTokenRequest
  */
 export type CreateApiTokenRequest = {
@@ -152,6 +372,66 @@ export type DashboardManifestResponse = {
      * Modules
      */
     modules: Array<ModuleManifestOut>;
+};
+
+/**
+ * DueItem
+ */
+export type DueItem = {
+    /**
+     * Plant Id
+     */
+    plant_id: string;
+    /**
+     * Plant Name
+     */
+    plant_name: string;
+    /**
+     * Interval Id
+     */
+    interval_id: string;
+    /**
+     * Action Name
+     */
+    action_name: string;
+    /**
+     * Due On
+     */
+    due_on: string;
+    /**
+     * Days Overdue
+     */
+    days_overdue: number;
+};
+
+/**
+ * DueSummary
+ */
+export type DueSummary = {
+    /**
+     * Day
+     */
+    day: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Overdue Count
+     */
+    overdue_count: number;
+    /**
+     * Max Days Overdue
+     */
+    max_days_overdue: number;
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Items
+     */
+    items: Array<DueItem>;
 };
 
 /**
@@ -430,6 +710,24 @@ export type PageNoteOut = {
 };
 
 /**
+ * Page[PlantOut]
+ */
+export type PagePlantOut = {
+    /**
+     * Items
+     */
+    items: Array<PlantOut>;
+    /**
+     * Next Cursor
+     */
+    next_cursor: string | null;
+    /**
+     * Has More
+     */
+    has_more: boolean;
+};
+
+/**
  * PasswordChangeRequest
  */
 export type PasswordChangeRequest = {
@@ -441,6 +739,146 @@ export type PasswordChangeRequest = {
      * New Password
      */
     new_password: string;
+};
+
+/**
+ * PlantCreate
+ */
+export type PlantCreate = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Care Notes
+     */
+    care_notes?: string | null;
+};
+
+/**
+ * PlantDetailOut
+ */
+export type PlantDetailOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Care Notes
+     */
+    care_notes: string | null;
+    /**
+     * Has Image
+     */
+    has_image: boolean;
+    /**
+     * Image Url
+     */
+    image_url: string | null;
+    /**
+     * Due Count
+     */
+    due_count: number;
+    /**
+     * Max Days Overdue
+     */
+    max_days_overdue: number;
+    /**
+     * Next Due On
+     */
+    next_due_on: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Intervals
+     */
+    intervals: Array<CareIntervalOut>;
+};
+
+/**
+ * PlantOut
+ */
+export type PlantOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Care Notes
+     */
+    care_notes: string | null;
+    /**
+     * Has Image
+     */
+    has_image: boolean;
+    /**
+     * Image Url
+     */
+    image_url: string | null;
+    /**
+     * Due Count
+     */
+    due_count: number;
+    /**
+     * Max Days Overdue
+     */
+    max_days_overdue: number;
+    /**
+     * Next Due On
+     */
+    next_due_on: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * PlantUpdate
+ */
+export type PlantUpdate = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Care Notes
+     */
+    care_notes?: string | null;
 };
 
 /**
@@ -1615,3 +2053,659 @@ export type NotesShareResponses = {
 };
 
 export type NotesShareResponse = NotesShareResponses[keyof NotesShareResponses];
+
+export type PlantsListData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+        /**
+         * Q
+         */
+        q?: string | null;
+    };
+    url: '/api/plants';
+};
+
+export type PlantsListErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsListError = PlantsListErrors[keyof PlantsListErrors];
+
+export type PlantsListResponses = {
+    /**
+     * Successful Response
+     */
+    200: PagePlantOut;
+};
+
+export type PlantsListResponse = PlantsListResponses[keyof PlantsListResponses];
+
+export type PlantsCreateData = {
+    body: PlantCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/plants';
+};
+
+export type PlantsCreateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsCreateError = PlantsCreateErrors[keyof PlantsCreateErrors];
+
+export type PlantsCreateResponses = {
+    /**
+     * Successful Response
+     */
+    201: PlantOut;
+};
+
+export type PlantsCreateResponse = PlantsCreateResponses[keyof PlantsCreateResponses];
+
+export type PlantsDueData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Lookahead Days
+         */
+        lookahead_days?: number;
+    };
+    url: '/api/plants/due';
+};
+
+export type PlantsDueErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsDueError = PlantsDueErrors[keyof PlantsDueErrors];
+
+export type PlantsDueResponses = {
+    /**
+     * Successful Response
+     */
+    200: DueSummary;
+};
+
+export type PlantsDueResponse = PlantsDueResponses[keyof PlantsDueResponses];
+
+export type PlantsCalendarData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query: {
+        /**
+         * Month
+         */
+        month: string;
+    };
+    url: '/api/plants/calendar';
+};
+
+export type PlantsCalendarErrors = {
+    /**
+     * month is not formatted as YYYY-MM
+     */
+    400: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsCalendarError = PlantsCalendarErrors[keyof PlantsCalendarErrors];
+
+export type PlantsCalendarResponses = {
+    /**
+     * Successful Response
+     */
+    200: CalendarOut;
+};
+
+export type PlantsCalendarResponse = PlantsCalendarResponses[keyof PlantsCalendarResponses];
+
+export type PlantsDeleteData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}';
+};
+
+export type PlantsDeleteErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsDeleteError = PlantsDeleteErrors[keyof PlantsDeleteErrors];
+
+export type PlantsDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type PlantsDeleteResponse = PlantsDeleteResponses[keyof PlantsDeleteResponses];
+
+export type PlantsGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}';
+};
+
+export type PlantsGetErrors = {
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsGetError = PlantsGetErrors[keyof PlantsGetErrors];
+
+export type PlantsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlantDetailOut;
+};
+
+export type PlantsGetResponse = PlantsGetResponses[keyof PlantsGetResponses];
+
+export type PlantsUpdateData = {
+    body: PlantUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}';
+};
+
+export type PlantsUpdateErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsUpdateError = PlantsUpdateErrors[keyof PlantsUpdateErrors];
+
+export type PlantsUpdateResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlantOut;
+};
+
+export type PlantsUpdateResponse = PlantsUpdateResponses[keyof PlantsUpdateResponses];
+
+export type PlantsDeleteImageData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/image';
+};
+
+export type PlantsDeleteImageErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsDeleteImageError = PlantsDeleteImageErrors[keyof PlantsDeleteImageErrors];
+
+export type PlantsDeleteImageResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type PlantsDeleteImageResponse = PlantsDeleteImageResponses[keyof PlantsDeleteImageResponses];
+
+export type PlantsGetImageData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/image';
+};
+
+export type PlantsGetImageErrors = {
+    /**
+     * Plant not visible to the caller, or it has no photo
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsGetImageError = PlantsGetImageErrors[keyof PlantsGetImageErrors];
+
+export type PlantsGetImageResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type PlantsSetImageData = {
+    body: BodyPlantsSetImage;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/image';
+};
+
+export type PlantsSetImageErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Image exceeds the configured size limit
+     */
+    413: unknown;
+    /**
+     * File is not a JPEG, PNG, WebP or GIF
+     */
+    415: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsSetImageError = PlantsSetImageErrors[keyof PlantsSetImageErrors];
+
+export type PlantsSetImageResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlantOut;
+};
+
+export type PlantsSetImageResponse = PlantsSetImageResponses[keyof PlantsSetImageResponses];
+
+export type PlantsHistoryData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/plants/{plant_id}/history';
+};
+
+export type PlantsHistoryErrors = {
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsHistoryError = PlantsHistoryErrors[keyof PlantsHistoryErrors];
+
+export type PlantsHistoryResponses = {
+    /**
+     * Response Plants History
+     *
+     * Successful Response
+     */
+    200: Array<CareLogOut>;
+};
+
+export type PlantsHistoryResponse = PlantsHistoryResponses[keyof PlantsHistoryResponses];
+
+export type PlantsAddIntervalData = {
+    body: CareIntervalCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/intervals';
+};
+
+export type PlantsAddIntervalErrors = {
+    /**
+     * last_done_on is in the future
+     */
+    400: unknown;
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsAddIntervalError = PlantsAddIntervalErrors[keyof PlantsAddIntervalErrors];
+
+export type PlantsAddIntervalResponses = {
+    /**
+     * Successful Response
+     */
+    201: CareIntervalOut;
+};
+
+export type PlantsAddIntervalResponse = PlantsAddIntervalResponses[keyof PlantsAddIntervalResponses];
+
+export type PlantsDeleteIntervalData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+        /**
+         * Interval Id
+         */
+        interval_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/intervals/{interval_id}';
+};
+
+export type PlantsDeleteIntervalErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsDeleteIntervalError = PlantsDeleteIntervalErrors[keyof PlantsDeleteIntervalErrors];
+
+export type PlantsDeleteIntervalResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type PlantsDeleteIntervalResponse = PlantsDeleteIntervalResponses[keyof PlantsDeleteIntervalResponses];
+
+export type PlantsUpdateIntervalData = {
+    body: CareIntervalUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+        /**
+         * Interval Id
+         */
+        interval_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/intervals/{interval_id}';
+};
+
+export type PlantsUpdateIntervalErrors = {
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsUpdateIntervalError = PlantsUpdateIntervalErrors[keyof PlantsUpdateIntervalErrors];
+
+export type PlantsUpdateIntervalResponses = {
+    /**
+     * Successful Response
+     */
+    200: CareIntervalOut;
+};
+
+export type PlantsUpdateIntervalResponse = PlantsUpdateIntervalResponses[keyof PlantsUpdateIntervalResponses];
+
+export type PlantsCompleteIntervalData = {
+    body: CompleteRequest;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Plant Id
+         */
+        plant_id: string;
+        /**
+         * Interval Id
+         */
+        interval_id: string;
+    };
+    query?: never;
+    url: '/api/plants/{plant_id}/intervals/{interval_id}/complete';
+};
+
+export type PlantsCompleteIntervalErrors = {
+    /**
+     * completed_on is in the future or too far in the past
+     */
+    400: unknown;
+    /**
+     * Caller can see the plant but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Plant not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlantsCompleteIntervalError = PlantsCompleteIntervalErrors[keyof PlantsCompleteIntervalErrors];
+
+export type PlantsCompleteIntervalResponses = {
+    /**
+     * Successful Response
+     */
+    201: CompleteResult;
+};
+
+export type PlantsCompleteIntervalResponse = PlantsCompleteIntervalResponses[keyof PlantsCompleteIntervalResponses];

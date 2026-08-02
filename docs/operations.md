@@ -10,6 +10,7 @@ script — only the installed package and its console-script entry points (`alem
 ```
 docker compose run --rm api alembic --name=core upgrade head
 docker compose run --rm api alembic --name=notes upgrade head
+docker compose run --rm api alembic --name=plants upgrade head
 docker compose run --rm api procrastinate --app=disp.core.scheduler.app schema --apply
 docker compose run --rm api disp-admin seed-admin --email you@example.com --display-name "You"
 ```
@@ -44,19 +45,35 @@ Every HTTP request log line includes `request_id`, which also appears in every `
 - Retention: the 7 most recent daily dumps, plus one dump per week for 4 further weeks. Everything older is pruned.
 - If `BACKUP_REMOTE` is set (an `s3://...` URI or an `rsync`-style `user@host:/path`), the fresh dump is copied off-host immediately after the local dump completes.
 
-Run it nightly via cron, e.g.:
+### Plant photos are not in the database dump
+
+`scripts/backup.sh` covers Postgres only. The `plants` module stores photos as files on the
+`media` volume (`/data/media/plants` in `docker-compose.yml`, `DISP_PLANTS_MEDIA_ROOT`), which
+keeps `pg_dump` small and text-only but puts them outside every backup above. Restoring only the
+database gives you every plant, schedule and care log back with its photo pointer intact and the
+image itself missing (`GET /api/plants/{id}/image` then returns `404 plants.no_image` — it degrades
+rather than erroring, but the photo is gone).
+
+Back the volume up alongside the dump, e.g.:
 
 ```cron
-0 3 * * * cd /opt/disp && MYSTUFF_DATABASE_URL_SYNC=... BACKUP_REMOTE=s3://my-bucket/disp-backups/ ./scripts/backup.sh >> /var/log/disp-backup.log 2>&1
+15 3 * * * docker run --rm -v disp_media:/data:ro -v /var/backups/disp:/out alpine \
+  tar czf /out/media-$(date -u +\%Y\%m\%dT\%H\%M\%SZ).tar.gz -C /data .
+```
+
+Run the database backup nightly via cron, e.g.:
+
+```cron
+0 3 * * * cd /opt/disp && DISP_DATABASE_URL_SYNC=... BACKUP_REMOTE=s3://my-bucket/disp-backups/ ./scripts/backup.sh >> /var/log/disp-backup.log 2>&1
 ```
 
 **Prerequisite:** the host running `backup.sh` needs a `pg_dump`/`pg_restore` client whose major version is **at least** the Postgres server's (16). A mismatched client refuses to run (`pg_dump: error: server version: 16.14; pg_dump version: 14.21 ... aborting because of server version mismatch`) — this was hit and fixed during verification of this exact document, by running `pg_dump` inside the `postgres:16-alpine` container itself rather than relying on the host's client. In production, run the backup from a container built on the same Postgres image (or install a matching `postgresql-client-16` package on the backup host).
 
-### ⚠️ `MYSTUFF_SETTINGS_KEY` needs its own backup
+### ⚠️ `DISP_SETTINGS_KEY` needs its own backup
 
-`pg_dump` backs up the **database**, not the environment. `core.settings.value_encrypted` is Fernet-encrypted with `MYSTUFF_SETTINGS_KEY`, which lives only in the environment (S11) — it is never stored in the database. **If `MYSTUFF_SETTINGS_KEY` is lost, every encrypted setting (currently: notification-channel Apprise URLs) becomes permanently unrecoverable, even with a perfect database restore.** Back this key up separately, in a secrets manager or an offline copy — not alongside the `pg_dump` output.
+`pg_dump` backs up the **database**, not the environment. `core.settings.value_encrypted` is Fernet-encrypted with `DISP_SETTINGS_KEY`, which lives only in the environment (S11) — it is never stored in the database. **If `DISP_SETTINGS_KEY` is lost, every encrypted setting (currently: notification-channel Apprise URLs) becomes permanently unrecoverable, even with a perfect database restore.** Back this key up separately, in a secrets manager or an offline copy — not alongside the `pg_dump` output.
 
-By contrast, losing `MYSTUFF_JWT_SECRET` is low-severity: it only invalidates every outstanding access token (users re-authenticate via their still-valid refresh cookie or PAT) and does not affect any stored data.
+By contrast, losing `DISP_JWT_SECRET` is low-severity: it only invalidates every outstanding access token (users re-authenticate via their still-valid refresh cookie or PAT) and does not affect any stored data.
 
 ### Restore procedure (verified)
 

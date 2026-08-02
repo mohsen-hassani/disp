@@ -139,7 +139,7 @@ async def test_modules_plain_and_json(cli_env: str, cli_db: AsyncSession) -> Non
     # "core" is a synthetic entry surfacing core-registered settings panels
     # (e.g. core.notifier) that belong to no discovered module — see
     # dashboard.py's get_manifest().
-    assert domains == {"notes", "core"}
+    assert domains == {"notes", "plants", "core"}
 
 
 async def test_health_plain_output(cli_env: str, cli_db: AsyncSession) -> None:

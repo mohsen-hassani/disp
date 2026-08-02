@@ -17,18 +17,29 @@ if config.config_file_name is not None:
 # active branch's module is what keeps `Base.metadata` scoped to that branch's
 # own tables for autogenerate; `include_object` below is a defense-in-depth net
 # on top of that.
-BRANCH_MODELS: dict[str, str] = {
-    "core": "disp.core.models",
-    "notes": "disp.modules.notes.models",
-}
+#
+# Resolved by convention rather than a hardcoded per-module map: a module's
+# branch name is its package name, so its models are always at
+# `disp.modules.<branch>.models`. That keeps the promise
+# tests/core/test_plugin_proof.py asserts — adding a module requires no edit
+# to any file under src/disp/core/ — which a literal branch->module dict
+# broke, since every new module had to be added to it here.
+CORE_BRANCH_MODELS: dict[str, str] = {"core": "disp.core.models"}
+
+# The section alembic falls back to when invoked without --name=<branch>.
+_DEFAULT_SECTION = "alembic"
+
+
+def _models_module(branch: str) -> str:
+    return CORE_BRANCH_MODELS.get(branch, f"disp.modules.{branch}.models")
 
 
 def _active_branch() -> str:
     section = config.config_ini_section
-    if section not in BRANCH_MODELS:
+    if section == _DEFAULT_SECTION:
         raise RuntimeError(
-            f"alembic must be invoked with --name=<branch>; got section {section!r}, "
-            f"expected one of {sorted(BRANCH_MODELS)}"
+            "alembic must be invoked with --name=<branch>, e.g. --name=core or "
+            "--name=<module domain>"
         )
     return section
 
@@ -48,22 +59,29 @@ def _branch_version_table(branch: str) -> str:
 
 
 def _target_metadata(branch: str) -> MetaData:
-    importlib.import_module(BRANCH_MODELS[branch])
+    module = _models_module(branch)
+    try:
+        importlib.import_module(module)
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            f"alembic branch {branch!r} has no models module at {module!r}; a module "
+            f"branch must be named after its package under src/disp/modules/"
+        ) from exc
     from disp.core.db import Base
 
     return Base.metadata
 
 
 def _database_url() -> str:
-    url = os.environ.get("MYSTUFF_DATABASE_URL_SYNC")
+    url = os.environ.get("DISP_DATABASE_URL_SYNC")
     if url:
         return url
 
     # Derived the same way Settings derives it (§5.2), for the common case
-    # where only MYSTUFF_DATABASE_URL is set in the environment.
-    database_url = os.environ.get("MYSTUFF_DATABASE_URL")
+    # where only DISP_DATABASE_URL is set in the environment.
+    database_url = os.environ.get("DISP_DATABASE_URL")
     if not database_url:
-        raise RuntimeError("MYSTUFF_DATABASE_URL_SYNC is not set")
+        raise RuntimeError("DISP_DATABASE_URL_SYNC is not set")
     return database_url.replace("+asyncpg", "+psycopg", 1)
 
 

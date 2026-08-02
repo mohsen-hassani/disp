@@ -48,9 +48,15 @@ case "$cmd" in
             uv run alembic --name="$branch" upgrade head
         else
             uv run alembic --name=core upgrade head
+            # Any module that ships a migrations/versions directory owns an
+            # Alembic branch and gets upgraded. Derived from the filesystem
+            # rather than a hardcoded module list, so adding a module is one
+            # less place to remember to edit; a module with migrations but no
+            # matching [section] in alembic.ini fails loudly here, which is
+            # the correct outcome.
             for dir in src/disp/modules/*/; do
                 name="$(basename "$dir")"
-                if [[ "$name" != "notes" ]]; then
+                if [[ ! -d "${dir}migrations/versions" ]]; then
                     continue
                 fi
                 uv run alembic --name="$name" upgrade head

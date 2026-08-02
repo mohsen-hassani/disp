@@ -82,7 +82,18 @@ version_table = alembic_version_yourmodule
 version_table_schema = yourmodule
 ```
 
-then `./dev makemigration yourmodule "initial schema"`. Models inherit from the shared
+then copy `migrations/env.py` (a three-line re-export of the shared core env) and
+`migrations/script.py.mako` from an existing module, and run
+`./dev makemigration yourmodule "initial schema"`.
+
+That `alembic.ini` section is the **only** registration step. The shared env resolves a branch's
+models by convention (`disp.modules.<branch>.models`, see `_models_module` in
+`src/disp/core/migrations/env.py`), and `./dev migrate` upgrades every module that ships a
+`migrations/versions/` directory — so neither needs editing per module. Two places outside this
+repo's runtime still list branches explicitly and do need a line each: `tests/conftest.py`
+(so the test database has your schema) and `docker-compose.e2e.yml`'s `migrate` service.
+
+Models inherit from the shared
 `disp.core.db.Base` (this is the *only* name from `disp.core.db` a module may import besides
 `get_session`/`session_scope` — see §4 below) so `alembic`'s `include_object` filter can find them,
 but must **never** declare a foreign key into another schema (see `notes.models.Note.user_id`,

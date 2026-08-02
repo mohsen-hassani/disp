@@ -55,6 +55,7 @@ def _run(*args: str) -> None:
 
 _run(sys.executable, "-m", "alembic", "--name", "core", "upgrade", "head")
 _run(sys.executable, "-m", "alembic", "--name", "notes", "upgrade", "head")
+_run(sys.executable, "-m", "alembic", "--name", "plants", "upgrade", "head")
 _run(sys.executable, "-m", "procrastinate", "--app=disp.core.scheduler.app", "schema", "--apply")
 
 from disp.core.db import create_engine as _create_engine  # noqa: E402

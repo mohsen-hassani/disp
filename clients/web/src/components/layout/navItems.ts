@@ -1,14 +1,22 @@
-import { LayoutDashboard, StickyNote, Settings, UserPlus, type LucideIcon } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Leaf,
+  StickyNote,
+  Settings,
+  UserPlus,
+  type LucideIcon,
+} from 'lucide-react';
 
 /**
  * WEB-SPEC §12.2: a module registering tiles/settings but with no bespoke
  * screen appears only on the dashboard, never in navigation — bespoke
  * screens require bespoke code, and the client must not pretend a module
- * has a screen it doesn't. v1 has exactly one entry. Adding a future
- * module's screen is a one-line addition here plus the screen itself.
+ * has a screen it doesn't. Adding a module's screen is a one-line addition
+ * here plus the screen itself.
  */
 export const MODULE_ROUTES: Record<string, { path: string; label: string; icon: LucideIcon }> = {
   notes: { path: '/notes', label: 'Notes', icon: StickyNote },
+  plants: { path: '/plants', label: 'Plants', icon: Leaf },
 };
 
 export interface NavItem {

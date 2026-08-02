@@ -1,9 +1,15 @@
-# Minimal local-dev override: just Postgres. `./dev up`/`./dev down` use this
-# file (not docker-compose.yml, the production stack) because local
-# development runs the API and worker directly via `uv run` against this
-# database, rather than containerized. The automated test suite does NOT use
-# this file either — `tests/conftest.py` starts its own ephemeral Postgres 16
-# via testcontainers, per §22.1.
+# Minimal local-dev override. `./dev up`/`./dev down` use this file (not
+# docker-compose.yml, the production stack) because local development runs
+# the API directly via `uv run` against this database, rather than
+# containerized. `worker` is containerized here as a convenience (so
+# background jobs run without a second `uv run` terminal) — it builds the
+# same image as docker-compose.yml's `worker` and points it at this file's
+# `postgres` service regardless of whatever DISP_DATABASE_URL is in the
+# developer's own .env (typically `localhost`, per .env.example's
+# uv-run-oriented default — see docker-compose.e2e.yml's header for the same
+# override pattern). The automated test suite does NOT use this file either
+# — `tests/conftest.py` starts its own ephemeral Postgres 16 via
+# testcontainers, per §22.1.
 services:
   postgres:
     image: postgres:16-alpine
@@ -20,6 +26,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["python", "-m", "disp.worker"]
+    env_file: .env
+    environment:
+      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: unless-stopped
+
+  pgweb:
+    image: sosedoff/pgweb:latest
+    environment:
+      PGWEB_DATABASE_URL: postgres://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp?sslmode=disable
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres: {condition: service_healthy}
     restart: unless-stopped
 
 volumes:

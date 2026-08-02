@@ -71,9 +71,17 @@ export default defineConfig({
   // same-origin shape production gets from Traefik's path-routing (§24.4) —
   // `/api`, `/health`, `/openapi.json` reaching the backend, everything else
   // served as the SPA. The real nginx/Traefik routing config is M12's job
-  // (no `web` container image exists yet); this is a preview-only stand-in
-  // so e2e specs can run against `docker-compose.e2e.yml`'s backend without
-  // pulling that work forward. Never used by `pnpm dev` or `pnpm build`.
+  // (no `web` container image exists yet); this is a dev/preview-only
+  // stand-in so pages calling the API reach it — `pnpm dev` and `pnpm
+  // preview` share the same proxy shape (`server` and `preview` options
+  // don't inherit from one another in Vite). Never used by `pnpm build`.
+  server: {
+    proxy: {
+      '/api': 'http://localhost:8000',
+      '/health': 'http://localhost:8000',
+      '/openapi.json': 'http://localhost:8000',
+    },
+  },
   preview: {
     proxy: {
       '/api': 'http://localhost:8000',

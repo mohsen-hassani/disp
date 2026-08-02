@@ -61,18 +61,19 @@ services:
       - |
         alembic --name=core upgrade head &&
         alembic --name=notes upgrade head &&
+        alembic --name=plants upgrade head &&
         procrastinate --app=disp.core.scheduler.app schema --apply &&
         disp-admin seed-admin --email e2e-admin@example.com --display-name "E2E Admin"
 
   api:
     environment:
-      MYSTUFF_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      MYSTUFF_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
       # Plain HTTP, localhost-only — no TLS terminator sits in front of this
       # stack in e2e, so a Secure-flagged cookie would never round-trip back.
-      MYSTUFF_COOKIE_SECURE: "false"
-      MYSTUFF_ENV: development
-      MYSTUFF_RATE_LIMIT_ENABLED: "false"
+      DISP_COOKIE_SECURE: "false"
+      DISP_ENV: development
+      DISP_RATE_LIMIT_ENABLED: "false"
     ports:
       - "8000:8000"
     depends_on:

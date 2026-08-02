@@ -2,9 +2,10 @@
 
 A self-hosted personal platform: a FastAPI backbone with a plug-in module contract, built-in auth
 (JWT access tokens + refresh-token rotation with reuse detection + personal access tokens), and a
-Typer CLI (`disp`). Ships with one demo module, `notes`, that exercises the full plug-in surface
+Typer CLI (`disp`). Ships with two modules: `notes`, a demo that exercises the full plug-in surface
 (HTTP CRUD, a dashboard tile, a scheduled cleanup task, an event subscription) so you can see what
-a real module looks like before writing your own.
+a real module looks like before writing your own, and `plants`, a plant care tracker (recurring
+watering/feeding schedules, a month calendar, photo uploads, a daily reminder digest).
 
 ## Quickstart
 
@@ -149,8 +150,9 @@ implementing it rather than improvising a deployment shape ahead of it.
 - **Modules** (`src/disp/modules/`) are self-contained plug-ins, each with its own Postgres schema
   and Alembic migration branch. Adding one requires zero edits to `core/` — see
   [`docs/adding-a-module.md`](docs/adding-a-module.md). Each module has its own README covering
-  what it does and how to develop it — see [`src/disp/modules/notes/README.md`](src/disp/modules/notes/README.md)
-  for the one shipped module.
+  what it does and how to develop it — see
+  [`src/disp/modules/notes/README.md`](src/disp/modules/notes/README.md) and
+  [`src/disp/modules/plants/README.md`](src/disp/modules/plants/README.md).
 - **The worker** (`src/disp/worker.py`) is a separate process running the same module wiring
   (event subscriptions, scheduled tasks) without an HTTP server, via Procrastinate.
 - **The CLI** (`src/disp/cli/`) talks to the HTTP API exactly like any other client — it holds no

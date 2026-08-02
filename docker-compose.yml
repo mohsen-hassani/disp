@@ -17,6 +17,13 @@ services:
   api:
     build: .
     env_file: .env
+    environment:
+      # Plant photos live on a volume, not in Postgres, so `pg_dump` stays
+      # small and text-only. Back this volume up alongside the database —
+      # see docs/operations.md.
+      DISP_PLANTS_MEDIA_ROOT: /data/media/plants
+    volumes:
+      - media:/data/media
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:
@@ -41,6 +48,19 @@ services:
       postgres: {condition: service_healthy}
     restart: unless-stopped
 
+  pgweb:
+    image: sosedoff/pgweb:latest
+    environment:
+      PGWEB_DATABASE_URL: postgres://disp:${POSTGRES_PASSWORD:?required}@postgres:5432/disp?sslmode=disable
+    # Bound to localhost only, no Traefik labels — pgweb has no built-in
+    # multi-user auth, so it must never get a public route. Reach it in
+    # production via `ssh -L 8081:localhost:8081 <host>`.
+    ports:
+      - "127.0.0.1:8081:8081"
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: unless-stopped
+
   traefik:
     image: traefik:v3.2
     command:
@@ -61,3 +81,4 @@ services:
 volumes:
   pgdata:
   letsencrypt:
+  media:

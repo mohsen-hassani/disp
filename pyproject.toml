@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "fastapi>=0.115",
+    # Required for multipart/form-data parsing (plant photo uploads); FastAPI
+    # raises at import time on a File()/UploadFile route without it.
+    "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.32",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",

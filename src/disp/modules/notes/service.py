@@ -1,3 +1,5 @@
+import logging
+
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -16,6 +18,8 @@ from disp.core.pagination import Page, decode_cursor, encode_cursor
 from disp.modules.notes.events import NoteCreated, NoteDeleted, NoteUpdated
 from disp.modules.notes.models import Note
 from disp.modules.notes.schemas import NoteCreate, NoteOut, NoteUpdate
+
+logger = logging.getLogger(__name__)
 
 RESOURCE_TYPE = "notes.note"
 PURGE_AFTER_DAYS = 30
@@ -226,8 +230,12 @@ async def share_note(
 
 
 async def purge_deleted(session: AsyncSession) -> int:
+    logger.info("Start purging notes.")
     cutoff = datetime.now(UTC) - timedelta(days=PURGE_AFTER_DAYS)
+    logger.info("Cutoff time is set to %s." % str(cutoff))
     result = await session.execute(
         sa_delete(Note).where(Note.deleted_at.is_not(None), Note.deleted_at < cutoff)
     )
-    return cast("CursorResult[Any]", result).rowcount
+    row_count = cast("CursorResult[Any]", result).rowcount
+    logger.info("%d row(s) has been purged." % row_count)
+    return row_count

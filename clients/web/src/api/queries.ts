@@ -8,6 +8,12 @@ import {
   dashboardTiles,
   notesGet,
   notesList,
+  plantsCalendar,
+  plantsDue,
+  plantsGet,
+  plantsGetImage,
+  plantsHistory,
+  plantsList,
   settingsGet,
 } from './generated';
 import type { DashboardManifestResponse } from './generated';
@@ -235,6 +241,133 @@ export function noteDetailQueryOptions(noteId: string) {
       return data;
     },
     // WEB-SPEC §10.2: ['notes','detail',id] — 60s staleTime, refetch on focus.
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+// --------------------------------------------------------------------------
+// Plants
+// --------------------------------------------------------------------------
+
+export interface PlantsListFilters {
+  q?: string;
+}
+
+/** §16.1's list pattern, reused: cursor pagination behind a "Load more" button. */
+export function plantsListInfiniteQueryOptions(filters: PlantsListFilters) {
+  return infiniteQueryOptions({
+    queryKey: qk.plants.list(filters),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, response } = await plantsList({
+        query: { limit: 20, cursor: pageParam, q: filters.q || undefined },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load plants.');
+      }
+      return data;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** A plant with its care intervals. 404 becomes `notFound()` in the route loader. */
+export function plantDetailQueryOptions(plantId: string) {
+  return queryOptions({
+    queryKey: qk.plants.detail(plantId),
+    queryFn: async () => {
+      const { data, error, response } = await plantsGet({ path: { plant_id: plantId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the plant.');
+      }
+      return data;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function plantHistoryQueryOptions(plantId: string) {
+  return queryOptions({
+    queryKey: qk.plants.history(plantId),
+    queryFn: async () => {
+      const { data, error, response } = await plantsHistory({
+        path: { plant_id: plantId },
+        query: { limit: 20 },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the care history.');
+      }
+      return data;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/**
+ * `GET /{id}/image` sits behind the same bearer auth as every other route
+ * (§12) — there is no cookie fallback — so a plain `<img src>` pointed at it
+ * can never authenticate; the browser has no way to attach the held access
+ * token to an image load. This routes the fetch through the authenticated
+ * client instead and hands back the raw bytes; the caller turns them into an
+ * object URL. Invalidated for free by `invalidatePlants`'s whole-`'plants'`-
+ * prefix sweep after an upload/delete, since this key starts with `'plants'`
+ * too — no separate cache-busting query param needed.
+ */
+export function plantImageQueryOptions(plantId: string) {
+  return queryOptions({
+    queryKey: qk.plants.image(plantId),
+    queryFn: async () => {
+      const { data, error, response } = await plantsGetImage({
+        path: { plant_id: plantId },
+        parseAs: 'blob',
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the photo.');
+      }
+      return data as Blob;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/**
+ * What is due right now. Derived server-side from each interval's
+ * `next_due_on`, so it is never stale after an action is marked done — but
+ * it does roll over at local midnight, hence the short staleTime and the
+ * refetch on focus.
+ */
+export function plantsDueQueryOptions() {
+  return queryOptions({
+    queryKey: qk.plants.due(),
+    queryFn: async () => {
+      const { data, error, response } = await plantsDue();
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load what is due.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** One month of the care calendar: completed days plus scheduled/projected ones. */
+export function plantsCalendarQueryOptions(month: string) {
+  return queryOptions({
+    queryKey: qk.plants.calendar(month),
+    queryFn: async () => {
+      const { data, error, response } = await plantsCalendar({ query: { month } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the calendar.');
+      }
+      return data;
+    },
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
