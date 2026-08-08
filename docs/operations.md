@@ -19,12 +19,12 @@ docker compose run --rm api disp-admin seed-admin --email you@example.com --disp
 branch, as modules are added — see `docs/adding-a-module.md`.) All three console scripts were
 verified against a real Postgres 16 as part of writing this document.
 
-## Webhook deploy
+## SSH deploy
 
 Every push to `prod` (`.github/workflows/deploy.yml`) builds the image, pushes it to GHCR under
-two tags (`ghcr.io/<owner>/disp:<12-char-sha>` and `:latest`), then sends one HMAC-signed HTTP
-call carrying the SHA tag to the production host. This never runs migrations — those stay the
-explicit, manual step above, on purpose, so a deploy can never silently apply one.
+two tags (`ghcr.io/<owner>/disp:<12-char-sha>` and `:latest`), then SSHes into the production host
+and runs a single command: `./scripts/deploy.sh <sha-tag>`. This never runs migrations — those
+stay the explicit, manual step above, on purpose, so a deploy can never silently apply one.
 
 Traefik itself is **not** part of this repo — it's shared infrastructure for every app on the
 droplet, defined in a separate `infra` project (`../infra` alongside this repo; see that project's
@@ -36,29 +36,28 @@ with `network edge declared as external, but could not be found`.
 `docker-compose.prod.yml`, and a real `.env` (with `GHCR_OWNER`/`IMAGE_TAG` set per
 `.env.example`), and the `infra` project (see above) is already up:
 
-1. Install the [`webhook`](https://github.com/adnanh/webhook) binary (e.g. the release tarball for
-   the droplet's architecture) to `/usr/local/bin/webhook`.
-2. Copy `deploy/hooks.json.example` to `/opt/disp/deploy/hooks.json` and replace
-   `REPLACE_WITH_REAL_SECRET` with a real random value (`python -c "import secrets;
-   print(secrets.token_urlsafe(48))"`). This file is host-side config, never committed — same
-   convention as `.env`.
-3. Copy `deploy/webhook.service` to `/etc/systemd/system/webhook.service`, then
-   `systemctl enable --now webhook`.
-4. In the `infra` project, confirm `traefik-dynamic.yml`'s `Host()` rule matches the real
+1. Create a dedicated deploy user on the host (or reuse an existing one) that can run `docker
+   compose` in `/opt/disp` without a password prompt, and generate a dedicated SSH keypair for it
+   (`ssh-keygen -t ed25519 -f deploy_key -N ""` — don't reuse a personal key).
+2. Append the public half (`deploy_key.pub`) to that user's `~/.ssh/authorized_keys` on the host.
+3. Run `ssh-keyscan -t ed25519 <host>` from any machine to capture the host's public key.
+4. In the GitHub repo's Settings → Secrets, set `SSH_HOST` (the droplet's address), `SSH_USER`
+   (the deploy user from step 1), `SSH_PRIVATE_KEY` (the private half from step 1, full
+   `-----BEGIN OPENSSH PRIVATE KEY-----` block), and `SSH_KNOWN_HOSTS` (the output of step 3) —
+   the last one pins the host key so the workflow's SSH step can't be MITM'd by silently trusting
+   whatever key it's offered.
+5. In the `infra` project, confirm `traefik-dynamic.yml`'s `Host()` rule matches the real
    `PUBLIC_HOST` from this repo's `.env` (Traefik's file provider does not expand `${PUBLIC_HOST}`
    the way Compose does — this has to be edited by hand and kept in sync manually), then restart
    Traefik there to pick it up: `docker compose up -d traefik` (run from `infra`, not from here).
-5. In the GitHub repo's Settings → Secrets, set `WEBHOOK_URL` (e.g.
-   `https://disp.example.com/hooks/deploy`) and `WEBHOOK_SECRET` (the same value written into
-   `hooks.json` in step 2).
 
-**On every push to `prod`**: `scripts/webhook-deploy.sh` runs on the host (invoked by `webhook`),
-writes the new tag into `.env`, `docker compose pull && up -d` for `api`/`worker`/`web` (M12) only —
-never `postgres`/`pgweb` — and polls `GET /health` (readiness, not the liveness-only `/health/live`)
-up to 6 times over 30 seconds. On
-failure it restores the previous `IMAGE_TAG`, recreates the containers again, and exits non-zero —
-which `webhook`'s `include-command-output-in-response-on-error` config turns into a `500` response,
-which is what makes the triggering Actions run go red rather than reporting a false success.
+**On every push to `prod`**: `scripts/deploy.sh` runs on the host (invoked over SSH by the
+workflow), writes the new tag into `.env`, `docker compose pull && up -d` for `api`/`worker`/`web`
+(M12) only — never `postgres`/`pgweb` — and polls `GET /health` (readiness, not the liveness-only
+`/health/live`) up to 6 times over 30 seconds. On failure it restores the previous `IMAGE_TAG`,
+recreates the containers again, and exits non-zero — which makes the SSH command itself exit
+non-zero, which is what makes the triggering Actions run go red rather than reporting a false
+success.
 
 ## Health endpoints
 

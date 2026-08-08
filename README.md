@@ -129,8 +129,8 @@ Traefik exactly as `milestones/client/M12-pwa-deploy-acceptance.md` specifies: p
 with `api` so `/api`, `/health`, and `/openapi.json` reach the backend container and everything else
 reaches `web`. Traefik itself lives outside this repo now (see "Deployment" below) — `web` joins its
 shared `edge` network and carries the routing labels, the same pattern `api` already uses. `web` is
-also wired into the same GHCR + webhook auto-deploy pipeline the backend uses (`docs/operations.md`'s
-"Webhook deploy" section). See that milestone doc's `**Status:**` line for exactly what has and
+also wired into the same GHCR + SSH auto-deploy pipeline the backend uses (`docs/operations.md`'s
+"SSH deploy" section). See that milestone doc's `**Status:**` line for exactly what has and
 hasn't been independently verified yet (a live TLS deploy and mobile home-screen installs need real
 infrastructure a CI/local check can't provide).
 
@@ -197,5 +197,5 @@ separate `infra` project shared across every app on the host (not disp-specific)
 `docker-compose.test.yml` is unrelated: a Postgres-only override `./dev up`/`./dev down` use for
 local development (the automated test suite uses its own ephemeral testcontainers Postgres
 instead, per `TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes an image via
-GitHub Actions, then triggers a pull-and-redeploy on the production host through a signed webhook
-call — see `docs/operations.md`'s "Webhook deploy" section.
+GitHub Actions, then triggers a pull-and-redeploy on the production host by running a single
+command over SSH — see `docs/operations.md`'s "SSH deploy" section.

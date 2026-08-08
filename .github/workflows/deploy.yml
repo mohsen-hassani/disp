@@ -49,15 +49,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger webhook deploy
+      - name: Configure SSH
         env:
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p -m 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy over SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
         run: |
-          PAYLOAD=$(printf '{"image_tag":"%s"}' "$IMAGE_TAG")
-          SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" | sed 's/^.* //')
-          curl -sf -X POST "$WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -H "X-Signature-256: $SIG" \
-            -d "$PAYLOAD"
+          ssh -i ~/.ssh/deploy_key -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USER@$SSH_HOST" "deploy $IMAGE_TAG"

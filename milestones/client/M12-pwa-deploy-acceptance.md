@@ -22,7 +22,7 @@ verified by an actual smaller dashboard chunk in the build output, with `schema-
 coverage gate confirmed to still hold. The client's own `plants` module (routes, nav entry, photo
 upload — a real, confirmed violation of `TECHNICAL-SPEC-WEB.md`'s non-goals and §25 criterion 10)
 was removed entirely as part of this pass; the backend `plants` module is untouched. `web` is wired
-into the same GHCR + webhook auto-deploy pipeline the backend already uses.
+into the same GHCR + SSH auto-deploy pipeline the backend already uses.
 
 **Not yet independently verified — requires a human and/or live infrastructure**: §25 criterion 3's
 full `docker compose up -d` at a real `https://<host>/` through the separate `infra` Traefik project

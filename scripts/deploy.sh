@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Pulls and redeploys a new disp/disp-web image tag (api, worker, web —
-# built and tagged together in .github/workflows/deploy.yml), triggered by
-# adnanh/webhook per deploy/hooks.json.example. Rolls back to the
-# previously-deployed tag if the post-deploy health check fails.
+# built and tagged together in .github/workflows/deploy.yml), invoked over
+# SSH from that workflow's deploy job. Rolls back to the previously-deployed
+# tag if the post-deploy health check fails.
 #
-# Usage: ./scripts/webhook-deploy.sh <image-tag>
+# Usage: ./scripts/deploy.sh <image-tag>
 #
 # Run from the app directory (docker-compose.yml, docker-compose.prod.yml and
-# .env must already exist there — see docs/operations.md's "Webhook deploy"
+# .env must already exist there — see docs/operations.md's "SSH deploy"
 # section for one-time host setup). Never runs migrations: those stay a
 # manual step per "First deploy" in docs/operations.md.
 set -euo pipefail
