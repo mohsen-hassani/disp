@@ -17,9 +17,6 @@ import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppAdminInvitesRouteImport } from './routes/_app.admin.invites'
 import { Route as AppNotesIndexRouteImport } from './routes/_app.notes.index'
 import { Route as AppNotesNoteIdRouteImport } from './routes/_app.notes.$noteId'
-import { Route as AppPlantsIndexRouteImport } from './routes/_app.plants.index'
-import { Route as AppPlantsPlantIdRouteImport } from './routes/_app.plants.$plantId'
-import { Route as AppPlantsCalendarRouteImport } from './routes/_app.plants.calendar'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.index'
 import { Route as AppSettingsDomainRouteImport } from './routes/_app.settings.$domain'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app.settings.account'
@@ -64,21 +61,6 @@ const AppNotesNoteIdRoute = AppNotesNoteIdRouteImport.update({
   path: '/notes/$noteId',
   getParentRoute: () => AppRoute,
 } as any)
-const AppPlantsIndexRoute = AppPlantsIndexRouteImport.update({
-  id: '/plants/',
-  path: '/plants/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPlantsPlantIdRoute = AppPlantsPlantIdRouteImport.update({
-  id: '/plants/$plantId',
-  path: '/plants/$plantId',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPlantsCalendarRoute = AppPlantsCalendarRouteImport.update({
-  id: '/plants/calendar',
-  path: '/plants/calendar',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
@@ -107,13 +89,10 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/admin/invites': typeof AppAdminInvitesRoute
   '/notes/$noteId': typeof AppNotesNoteIdRoute
-  '/plants/$plantId': typeof AppPlantsPlantIdRoute
-  '/plants/calendar': typeof AppPlantsCalendarRoute
   '/settings/$domain': typeof AppSettingsDomainRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
   '/notes/': typeof AppNotesIndexRoute
-  '/plants/': typeof AppPlantsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -123,13 +102,10 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/admin/invites': typeof AppAdminInvitesRoute
   '/notes/$noteId': typeof AppNotesNoteIdRoute
-  '/plants/$plantId': typeof AppPlantsPlantIdRoute
-  '/plants/calendar': typeof AppPlantsCalendarRoute
   '/settings/$domain': typeof AppSettingsDomainRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
   '/notes': typeof AppNotesIndexRoute
-  '/plants': typeof AppPlantsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -141,13 +117,10 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/admin/invites': typeof AppAdminInvitesRoute
   '/_app/notes/$noteId': typeof AppNotesNoteIdRoute
-  '/_app/plants/$plantId': typeof AppPlantsPlantIdRoute
-  '/_app/plants/calendar': typeof AppPlantsCalendarRoute
   '/_app/settings/$domain': typeof AppSettingsDomainRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/tokens': typeof AppSettingsTokensRoute
   '/_app/notes/': typeof AppNotesIndexRoute
-  '/_app/plants/': typeof AppPlantsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -159,13 +132,10 @@ export interface FileRouteTypes {
     | '/login'
     | '/admin/invites'
     | '/notes/$noteId'
-    | '/plants/$plantId'
-    | '/plants/calendar'
     | '/settings/$domain'
     | '/settings/account'
     | '/settings/tokens'
     | '/notes/'
-    | '/plants/'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -175,13 +145,10 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invites'
     | '/notes/$noteId'
-    | '/plants/$plantId'
-    | '/plants/calendar'
     | '/settings/$domain'
     | '/settings/account'
     | '/settings/tokens'
     | '/notes'
-    | '/plants'
     | '/settings'
   id:
     | '__root__'
@@ -192,13 +159,10 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/admin/invites'
     | '/_app/notes/$noteId'
-    | '/_app/plants/$plantId'
-    | '/_app/plants/calendar'
     | '/_app/settings/$domain'
     | '/_app/settings/account'
     | '/_app/settings/tokens'
     | '/_app/notes/'
-    | '/_app/plants/'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -267,27 +231,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNotesNoteIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/plants/': {
-      id: '/_app/plants/'
-      path: '/plants'
-      fullPath: '/plants/'
-      preLoaderRoute: typeof AppPlantsIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/plants/$plantId': {
-      id: '/_app/plants/$plantId'
-      path: '/plants/$plantId'
-      fullPath: '/plants/$plantId'
-      preLoaderRoute: typeof AppPlantsPlantIdRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/plants/calendar': {
-      id: '/_app/plants/calendar'
-      path: '/plants/calendar'
-      fullPath: '/plants/calendar'
-      preLoaderRoute: typeof AppPlantsCalendarRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings/': {
       id: '/_app/settings/'
       path: '/settings'
@@ -323,13 +266,10 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppAdminInvitesRoute: typeof AppAdminInvitesRoute
   AppNotesNoteIdRoute: typeof AppNotesNoteIdRoute
-  AppPlantsPlantIdRoute: typeof AppPlantsPlantIdRoute
-  AppPlantsCalendarRoute: typeof AppPlantsCalendarRoute
   AppSettingsDomainRoute: typeof AppSettingsDomainRoute
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
   AppSettingsTokensRoute: typeof AppSettingsTokensRoute
   AppNotesIndexRoute: typeof AppNotesIndexRoute
-  AppPlantsIndexRoute: typeof AppPlantsIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
@@ -337,13 +277,10 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppAdminInvitesRoute: AppAdminInvitesRoute,
   AppNotesNoteIdRoute: AppNotesNoteIdRoute,
-  AppPlantsPlantIdRoute: AppPlantsPlantIdRoute,
-  AppPlantsCalendarRoute: AppPlantsCalendarRoute,
   AppSettingsDomainRoute: AppSettingsDomainRoute,
   AppSettingsAccountRoute: AppSettingsAccountRoute,
   AppSettingsTokensRoute: AppSettingsTokensRoute,
   AppNotesIndexRoute: AppNotesIndexRoute,
-  AppPlantsIndexRoute: AppPlantsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 

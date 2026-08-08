@@ -1,6 +1,11 @@
-import AxeBuilder from '@axe-core/playwright';
-
-import { expect, test, uniqueMarker } from './fixtures';
+import {
+  expect,
+  expectNoSeriousA11yViolations,
+  setTheme,
+  test,
+  THEMES,
+  uniqueMarker,
+} from './fixtures';
 
 test.describe('settings', () => {
   // The core-registered notifier panel (§14.1's synthetic "core" domain
@@ -49,17 +54,14 @@ test.describe('settings', () => {
   });
 
   // Case 47: axe scan of the account settings screen, one of the five key screens.
-  test('account settings screen has no serious/critical accessibility violations', async ({
-    authedPage,
-  }) => {
-    await authedPage.goto('/settings/account');
-    await expect(authedPage.getByRole('heading', { name: /change password/i })).toBeVisible();
-    const results = await new AxeBuilder({ page: authedPage })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
-    const serious = results.violations.filter(
-      (v) => v.impact === 'serious' || v.impact === 'critical',
-    );
-    expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-  });
+  for (const theme of THEMES) {
+    test(`account settings screen has no serious/critical accessibility violations (${theme})`, async ({
+      authedPage,
+    }) => {
+      await setTheme(authedPage, theme);
+      await authedPage.goto('/settings/account');
+      await expect(authedPage.getByRole('heading', { name: /change password/i })).toBeVisible();
+      await expectNoSeriousA11yViolations(authedPage);
+    });
+  }
 });

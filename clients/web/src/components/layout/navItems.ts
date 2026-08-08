@@ -1,11 +1,4 @@
-import {
-  LayoutDashboard,
-  Leaf,
-  StickyNote,
-  Settings,
-  UserPlus,
-  type LucideIcon,
-} from 'lucide-react';
+import { LayoutDashboard, StickyNote, Settings, UserPlus, type LucideIcon } from 'lucide-react';
 
 /**
  * WEB-SPEC §12.2: a module registering tiles/settings but with no bespoke
@@ -16,7 +9,6 @@ import {
  */
 export const MODULE_ROUTES: Record<string, { path: string; label: string; icon: LucideIcon }> = {
   notes: { path: '/notes', label: 'Notes', icon: StickyNote },
-  plants: { path: '/plants', label: 'Plants', icon: Leaf },
 };
 
 export interface NavItem {

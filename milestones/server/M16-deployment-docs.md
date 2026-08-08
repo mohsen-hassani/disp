@@ -252,6 +252,6 @@ plain `docker-compose.yml` is the *production* stack (includes Traefik, requires
   exposed over HTTP.
 - `docs/adding-a-module.md`'s module-boundary section documents the *actual* resolved
   `disp.core.auth` public surface (ten names) rather than the spec's original literal five-name
-  enumeration, cross-referencing `milestones/M06-auth.md` for the resolution rationale — keeping
+  enumeration, cross-referencing `milestones/server/M06-auth.md` for the resolution rationale — keeping
   the docs consistent with what the boundary test in `tests/core/test_boundaries.py` actually
   enforces, not with the spec's literal (superseded) code block.

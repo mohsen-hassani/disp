@@ -67,14 +67,21 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
+  build: {
+    // §22: scripts/check-bundle-budget.mjs reads dist/.vite/manifest.json to
+    // tell the true entry chunk(s) from route/dynamic chunks when summing
+    // "Initial JS" vs. the largest route chunk against the budget table.
+    manifest: true,
+  },
   // WEB-SPEC §2.1/§23.4: e2e (Playwright, via `pnpm preview`) needs the same
   // same-origin shape production gets from Traefik's path-routing (§24.4) —
   // `/api`, `/health`, `/openapi.json` reaching the backend, everything else
-  // served as the SPA. The real nginx/Traefik routing config is M12's job
-  // (no `web` container image exists yet); this is a dev/preview-only
-  // stand-in so pages calling the API reach it — `pnpm dev` and `pnpm
-  // preview` share the same proxy shape (`server` and `preview` options
-  // don't inherit from one another in Vite). Never used by `pnpm build`.
+  // served as the SPA. The real routing is nginx.conf (M12) inside the
+  // `web` container, fronted by Traefik; this is a dev/preview-only
+  // stand-in so pages calling the API reach it without either of those —
+  // `pnpm dev` and `pnpm preview` share the same proxy shape (`server` and
+  // `preview` options don't inherit from one another in Vite). Never used
+  // by `pnpm build`.
   server: {
     proxy: {
       '/api': 'http://localhost:8000',

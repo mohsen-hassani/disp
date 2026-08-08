@@ -21,10 +21,20 @@ export default tseslint.config(
     },
   },
   {
-    // Node-side tooling config files run outside the browser.
-    files: ['*.config.{ts,js}'],
+    // Node-side tooling config files and build scripts run outside the browser.
+    files: ['*.config.{ts,js}', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
+    },
+  },
+  {
+    // lighthouserc.cjs and scripts/lighthouse-auth.cjs mix Node driver code
+    // with browser code injected via Puppeteer's page.evaluate() in the
+    // same file (a normal pattern for LHCI puppeteerScript hooks) — both
+    // global sets apply.
+    files: ['*.cjs', 'scripts/**/*.cjs'],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
     },
   },
   {

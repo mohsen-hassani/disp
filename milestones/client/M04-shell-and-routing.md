@@ -1,6 +1,6 @@
 # M04 — Routing, design system, and application shell
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/{main.tsx,routeTree.gen.ts}`,
 `clients/web/src/routes/{__root.tsx,_app.tsx,_app.index.tsx,$404.tsx}`,

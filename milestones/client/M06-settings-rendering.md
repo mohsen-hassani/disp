@@ -1,6 +1,6 @@
 # M06 — Generic settings rendering
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/routes/{_app.settings.index.tsx,_app.settings.$domain.tsx}`,
 `clients/web/src/components/schema-form/{SchemaForm.tsx,fieldFor.tsx,schemaToZod.ts,

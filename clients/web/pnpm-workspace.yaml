@@ -1,0 +1,7 @@
+# pnpm blocks a dependency's postinstall scripts by default unless
+# explicitly allowed here — msw's postinstall just prepares its service
+# worker mock file, not arbitrary supply-chain risk. Without this, `pnpm
+# install` fails non-interactively (as it must in Docker/CI) with
+# ERR_PNPM_IGNORED_BUILDS.
+allowBuilds:
+  msw: true

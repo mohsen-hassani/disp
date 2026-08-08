@@ -1,11 +1,19 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { type ReactElement, useId, useState } from 'react';
+import { lazy, type ReactElement, Suspense, useId, useState } from 'react';
 
 import type { TileAction } from '../../api/generated';
 import { useOfflineState } from '../../hooks/useOfflineState';
 import { useToast } from '../feedback/ToastProvider';
-import { TileActionDialog } from './TileActionDialog';
 import { describeActionError, type TileActionError, useTileAction } from './useTileAction';
+
+// Lazy: pulls in SchemaForm + all 8 widget files (~1KB gzipped of import
+// glue here, but the whole schema-form module behind it), and this button
+// sits on the dashboard's most-loaded path (TileGrid -> TileCard). A plain
+// top-level import would ship that weight in the dashboard's own chunk
+// whether or not the user ever opens a dialog with a body_schema.
+const TileActionDialog = lazy(() =>
+  import('./TileActionDialog').then((m) => ({ default: m.TileActionDialog })),
+);
 
 interface TileActionButtonProps {
   action: TileAction;
@@ -39,12 +47,16 @@ export function TileActionButton({ action, tileKey }: TileActionButtonProps): Re
         >
           {action.label}
         </button>
-        <TileActionDialog
-          action={action}
-          tileKey={tileKey}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-        />
+        {dialogOpen && (
+          <Suspense fallback={null}>
+            <TileActionDialog
+              action={action}
+              tileKey={tileKey}
+              open={dialogOpen}
+              onOpenChange={setDialogOpen}
+            />
+          </Suspense>
+        )}
       </>
     );
   }

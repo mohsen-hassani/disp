@@ -1,13 +1,13 @@
 # M11 — Test suite
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/tests/{unit/,mocks/{handlers.ts,server.ts},e2e/{auth,dashboard,notes,
 settings,pwa}.spec.ts}`, `clients/web/vitest.config.ts` and `clients/web/playwright.config.ts`
 coverage/CI wiring (files created in M01, configured for real here).
 
 Covers TECHNICAL-SPEC-WEB.md §23 (Testing requirements) in full — the complete enumerated test list
-(cases 1–49) and coverage gates. Mirrors `milestones/M15-test-suite.md`'s role for the backend: the
+(cases 1–49) and coverage gates. Mirrors `milestones/server/M15-test-suite.md`'s role for the backend: the
 milestone that proves everything built so far actually holds together, rather than introducing new
 product surface.
 

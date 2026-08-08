@@ -1,6 +1,6 @@
 # M10 — Forms, feedback, and accessibility hardening
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/components/feedback/{ToastProvider,ErrorBoundary,EmptyState}.tsx`
 (`OfflineBanner` was M09's), plus a cross-cutting pass over every form and screen built in

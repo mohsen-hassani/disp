@@ -34,11 +34,42 @@ services:
       retries: 3
       start_period: 20s
     restart: unless-stopped
+    networks:
+      - default
+      - edge
     labels:
       - traefik.enable=true
-      - traefik.http.routers.disp.rule=Host(`${PUBLIC_HOST}`)
+      # M12 §24.4: amended from a bare Host() rule to win only API paths,
+      # now that `web` (below) also wants this same Host() for everything
+      # else — priority=10 beats web's priority=1 when both match.
+      - traefik.http.routers.disp.rule=Host(`${PUBLIC_HOST}`) && (PathPrefix(`/api`) || PathPrefix(`/health`) || PathPrefix(`/openapi.json`))
+      - traefik.http.routers.disp.priority=10
       - traefik.http.routers.disp.tls.certresolver=le
       - traefik.http.services.disp.loadbalancer.server.port=8000
+      - traefik.docker.network=edge
+
+  web:
+    build: ./clients/web
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      # No `default` — web never talks to postgres/api directly, only via
+      # the browser's own /api requests, which Traefik routes separately.
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.disp-web.rule=Host(`${PUBLIC_HOST}`)
+      - traefik.http.routers.disp-web.priority=1
+      - traefik.http.routers.disp-web.tls.certresolver=le
+      # Non-root nginx can't bind :80 (see clients/web/Dockerfile) — 8080 is
+      # the container's internal port only, invisible externally.
+      - traefik.http.services.disp-web.loadbalancer.server.port=8080
+      - traefik.docker.network=edge
 
   worker:
     build: .
@@ -61,24 +92,15 @@ services:
       postgres: {condition: service_healthy}
     restart: unless-stopped
 
-  traefik:
-    image: traefik:v3.2
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
-    ports: ["80:80", "443:443"]
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt:/letsencrypt
-    restart: unless-stopped
-
 volumes:
   pgdata:
-  letsencrypt:
   media:
+
+# `edge` is the shared Traefik network, created by the standalone infra
+# project (../infra/docker-compose.yml — see that project's README for the
+# full recipe) — not this repo. Traefik itself, its TLS/ACME config, and its
+# dynamic-routing file all live there now too; this repo only joins the
+# network and carries the routing labels on `api` above.
+networks:
+  edge:
+    external: true

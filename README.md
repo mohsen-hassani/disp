@@ -38,23 +38,28 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 
 A React PWA at `clients/web/` consumes this API — see
 [`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) for the full spec and
-[`milestones/client/`](milestones/client/) for its build sequence. **`M00`–`M11` are implemented**
-(backend amendments, the generated API client, browser auth, routing/shell, the dashboard's generic
-tile rendering, generic settings rendering, the account/API-tokens/admin-invites screens, the
-bespoke notes screens with global keyboard shortcuts, PWA/offline support — installable, an
-update-available toast, and read-only offline via a service worker with per-route runtime caching —
-a forms/feedback/accessibility hardening pass: a shared `422`-to-field error mapper, toast
-variants with correct durations/`aria-live` politeness/stacking limits, three-tier error boundaries
-(root/route/tile), a route-transition progress bar, width-stable button spinners, and a WCAG 2.2 AA
-pass (44px touch targets, reduced-motion support, focus-ring/empty-state/copy audits) —
-`SchemaForm` was pulled forward a milestone early in M05 since tile action dialogs need it too —
-and the full test suite: enforced coverage gates (≥80% overall, ≥95% on `src/auth/` and
+[`milestones/client/`](milestones/client/) for its build sequence. **All of `M00`–`M12` are
+implemented** (backend amendments, the generated API client, browser auth, routing/shell, the
+dashboard's generic tile rendering, generic settings rendering, the account/API-tokens/admin-invites
+screens, the bespoke notes screens with global keyboard shortcuts, PWA/offline support —
+installable, an update-available toast, and read-only offline via a service worker with per-route
+runtime caching — a forms/feedback/accessibility hardening pass: a shared `422`-to-field error
+mapper, toast variants with correct durations/`aria-live` politeness/stacking limits, three-tier
+error boundaries (root/route/tile), a route-transition progress bar, width-stable button spinners,
+and a WCAG 2.2 AA pass (44px touch targets, reduced-motion support, focus-ring/empty-state/copy
+audits) — `SchemaForm` was pulled forward a milestone early in M05 since tile action dialogs need
+it too — the full test suite: enforced coverage gates (≥80% overall, ≥95% on `src/auth/` and
 `src/components/schema-form/`), an MSW mock layer generated against the same OpenAPI types the SDK
 uses, and a Playwright e2e suite (`clients/web/tests/e2e/`) covering auth, dashboard, notes,
-settings, and PWA/offline flows — including axe scans of five key screens and keyboard-traversal/
-focus-trap checks — against a real backend brought up by `docker-compose.e2e.yml`);
-`M12` — the production PWA deploy (a `web` Docker image, Traefik path-routing) — has not started.
-There is no production Docker image or Compose service for the web client yet either.
+settings, admin, and PWA/offline flows — including axe scans of five key screens in both themes and
+keyboard-traversal/focus-trap checks — against a real backend brought up by
+`docker-compose.e2e.yml`; and `M12`'s deploy/performance/acceptance sweep: `clients/web/Dockerfile`
++ `nginx.conf`, a `web` Docker Compose service routed by Traefik, §22's bundle-size budgets enforced
+in a `check:budget` script against the real build manifest, and route-level lazy-loading for the
+tile action dialog. `milestones/client/M12-pwa-deploy-acceptance.md`'s own `**Status:**` line has
+the exact split between what's automated/verified and what still needs a human with real
+infrastructure (a live TLS deploy, iOS/Android home-screen install) — not everything in §25's
+acceptance list is independently confirmable without both.
 
 UI work follows [`docs/design-system/`](docs/design-system/), a components/tokens/guidelines
 reference pulled from the "DISP Design System" Claude Design project — read its own `readme.md`
@@ -73,9 +78,10 @@ pnpm dev            # Vite dev server on http://localhost:5173
 ```
 
 §2.1 of the web spec requires the client and API to be same-origin in production (Traefik
-path-routes `/api` to the backend container, §24.4); `M12` hasn't shipped that yet, so
-`vite.config.ts`'s `server.proxy` stands in for local dev, forwarding `/api`, `/health`, and
-`/openapi.json` to `http://localhost:8000`. Run the real backend alongside `pnpm dev`
+path-routes `/api` to the backend container, §24.4, shipped in `M12`). `pnpm dev` doesn't run
+through that Traefik routing at all, though, on purpose — `vite.config.ts`'s `server.proxy`
+forwards `/api`, `/health`, and `/openapi.json` to `http://localhost:8000` instead, a permanent
+fast-local-loop convenience, not a stand-in `M12` replaces. Run the real backend alongside `pnpm dev`
 (`uv run uvicorn disp.main:app --reload` per the quickstart above) so those requests have
 somewhere to land.
 
@@ -108,20 +114,25 @@ cd clients/web && pnpm build && pnpm test:e2e
 ```
 
 `docker-compose.e2e.yml` (its own header comment has the full explanation) migrates and seeds one
-deterministic admin user, exposes the API on `localhost:8000`, and skips Traefik; `pnpm preview`'s
-own `preview.proxy` (`vite.config.ts`) makes `/api`/`/health`/`/openapi.json` reach it same-origin
-in the meantime, standing in for the real Traefik routing `M12` adds. Run `docker compose -f
-docker-compose.yml -f docker-compose.e2e.yml down -v` between runs for a clean database — the
-seeded admin can only be created once.
+deterministic admin user and exposes the API on `localhost:8000` — no Traefik in this loop, same
+reasoning as `pnpm dev` above: `pnpm preview`'s own `preview.proxy` (`vite.config.ts`) makes
+`/api`/`/health`/`/openapi.json` reach it same-origin without needing a full Traefik+`web`-container
+stack for what wants to be a fast test loop. Run `docker compose -f docker-compose.yml -f
+docker-compose.e2e.yml down -v` between runs for a clean database — the seeded admin can only be
+created once.
 
 ### Production
 
-Not yet implemented — `clients/web/` has no `Dockerfile` and `docker-compose.yml` has no `web`
-service. `milestones/client/M12-pwa-deploy-acceptance.md` specifies the intended shape: a
-two-stage build (`pnpm build` → static `dist/`) served by `nginx:1.27-alpine` behind Traefik,
-sharing the same host as the API with Traefik path-routing `/api`, `/health`, and `/openapi.json`
-to the backend container and everything else to the web container. Follow that milestone doc when
-implementing it rather than improvising a deployment shape ahead of it.
+`clients/web/Dockerfile` builds a two-stage image (`pnpm build` → static `dist/`, served by
+`nginx:1.27-alpine`, non-root) and `docker-compose.yml` has a `web` service for it, routed by
+Traefik exactly as `milestones/client/M12-pwa-deploy-acceptance.md` specifies: path-priority split
+with `api` so `/api`, `/health`, and `/openapi.json` reach the backend container and everything else
+reaches `web`. Traefik itself lives outside this repo now (see "Deployment" below) — `web` joins its
+shared `edge` network and carries the routing labels, the same pattern `api` already uses. `web` is
+also wired into the same GHCR + webhook auto-deploy pipeline the backend uses (`docs/operations.md`'s
+"Webhook deploy" section). See that milestone doc's `**Status:**` line for exactly what has and
+hasn't been independently verified yet (a live TLS deploy and mobile home-screen installs need real
+infrastructure a CI/local check can't provide).
 
 ## Architecture
 
@@ -179,7 +190,12 @@ field marked `"x-secret": true`), including panels registered directly on the co
 ## Deployment
 
 `Dockerfile` builds a non-root, multi-stage production image. `docker-compose.yml` is the
-reference production stack (Postgres, the API, the worker, Traefik for TLS via Let's Encrypt) —
-see `docs/operations.md` for running it. `docker-compose.test.yml` is unrelated: a Postgres-only
-override `./dev up`/`./dev down` use for local development (the automated test suite uses its own
-ephemeral testcontainers Postgres instead, per `TECHNICAL-SPEC.md` §22.1).
+reference production stack (Postgres, the API, the worker) — see `docs/operations.md` for running
+it. TLS termination and routing are handled by Traefik, which lives outside this repo in a
+separate `infra` project shared across every app on the host (not disp-specific) — this repo's
+`docker-compose.yml` only joins its `edge` network and carries the routing labels.
+`docker-compose.test.yml` is unrelated: a Postgres-only override `./dev up`/`./dev down` use for
+local development (the automated test suite uses its own ephemeral testcontainers Postgres
+instead, per `TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes an image via
+GitHub Actions, then triggers a pull-and-redeploy on the production host through a signed webhook
+call — see `docs/operations.md`'s "Webhook deploy" section.

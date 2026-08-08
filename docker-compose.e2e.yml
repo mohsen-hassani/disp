@@ -14,12 +14,14 @@
 #    compose file deliberately leaves this a manual step
 #    (`docs/operations.md`) so a deploy never runs a migration by accident;
 #    e2e needs it to happen unattended instead.
-# 3. Expose the `api` container's port directly on `localhost` and disable
-#    Traefik (no real domain or ACME email exists in an e2e run). Same-origin
-#    routing for the client (§2.1) comes from `vite.config.ts`'s
-#    `preview.proxy` instead of Traefik's path routing (§24.4), since the
-#    `web` container Traefik would normally route to doesn't exist yet
-#    (`clients/web` has no Dockerfile until M12).
+# 3. Expose the `api` container's port directly on `localhost` — no reverse
+#    proxy sits in front of this stack at all (Traefik lives in a separate
+#    infra project now, not this repo's docker-compose.yml, and no real
+#    domain exists in an e2e run regardless). Same-origin routing for the
+#    client (§2.1) comes from `vite.config.ts`'s `preview.proxy` instead of
+#    Traefik's path routing (§24.4), since the `web` container Traefik would
+#    normally route to doesn't exist yet (`clients/web` has no Dockerfile
+#    until M12).
 #
 # Postgres uses its own `pgdata_e2e` volume — separate from
 # `docker-compose.yml`'s `pgdata` (real prod data) and
@@ -93,12 +95,19 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # Needs a real Host()/ACME email (docker-compose.yml requires
-  # PUBLIC_HOST/ACME_EMAIL); neither exists in an e2e run, and nothing here
-  # needs TLS termination. `disabled` is never passed to `--profile`, so
-  # plain `docker compose ... up` never starts it.
-  traefik:
-    profiles: ["disabled"]
-
 volumes:
   pgdata_e2e:
+
+# docker-compose.yml declares `edge` as an *external* network (created by
+# the separate infra project — see its README) so `api`/`web` can get real
+# Traefik routing in production. No such project exists in an e2e run, and
+# `api` is already reachable directly via its `ports:` mapping above — so
+# `edge` becomes an ordinary, e2e-project-scoped network here instead,
+# letting `docker compose up` create it itself rather than failing to find
+# one. `external: false` must be explicit — Compose deep-merges network
+# config across -f files, so an empty `edge: {}` override does NOT clear
+# the base file's `external: true` (confirmed: `docker compose config`
+# still showed `external: true` with the empty-object form).
+networks:
+  edge:
+    external: false

@@ -7,22 +7,26 @@ Guidance for Claude Code when working in this repository.
 DISP: a self-hosted personal platform (FastAPI backbone + plug-in module contract + built-in auth
 + a Typer CLI). Built end-to-end from `TECHNICAL-SPEC.md`, a normative spec — if you're asked to
 extend this project, that spec (and `docs/`) is the source of truth, not assumptions from other
-FastAPI projects. See `README.md` for the architecture overview and `milestones/M00-M16` for the
-full build history, including every resolved spec ambiguity and bug found along the way.
+FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M19` for
+the full build history, including every resolved spec ambiguity and bug found along the way.
 
 A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
-sequence at `milestones/client/M00-M12` — unlike the backend's `M00-M16`, those started as
-prospective (not-yet-built) briefs, not retrospective build logs. Exception: `milestones/client/
-M00-M11` are now implemented (see `README.md`'s "Web client" section for what each covers, and
-"Web client" below for testing/dev notes specific to it); only `M12` (production Docker image +
-Traefik routing) remains prospective.
+sequence at `milestones/client/M00-M12` — unlike the backend's `milestones/server/M00-M19`, those started as
+prospective (not-yet-built) briefs, not retrospective build logs. All of `milestones/client/M00-M12`
+are now implemented (see `README.md`'s "Web client" section for what each covers, and "Web client"
+below for testing/dev notes specific to it). `M12`'s own `**Status:**` line has the exact split of
+what's automated and verified versus what still needs a human with real infrastructure (a live TLS
+deploy, iOS/Android home-screen install) — check it before assuming "implemented" means "every
+acceptance criterion independently confirmed."
 
 Two modules ship: `notes` (the demo that exercises the contract) and `plants` (plant care
 schedules). `plants` was built after the spec rather than from it, so it documents itself —
 `src/disp/modules/plants/TECHNICAL-SPEC.md` is the complete as-built reference (data model,
 scheduling invariants, API, photo storage, rationale for every decision) and is the source of truth
-before changing anything under `src/disp/modules/plants/` or the `/plants` client screens. Its
-`README.md` is the short orientation. **The load-bearing rule: completing a care action reschedules
+before changing anything under `src/disp/modules/plants/`. Its `README.md` is the short
+orientation. (The web client has no `plants` screens — per `TECHNICAL-SPEC-WEB.md`'s explicit
+non-goals, `plants` renders only through the generic manifest-driven dashboard, same as any other
+module without bespoke client code.) **The load-bearing rule: completing a care action reschedules
 from the completion date, not the due date** (done on the 3rd for a 15-day cycle → next due the
 18th, not the 16th), and due/overdue state is *derived* at read time, never stored.
 
@@ -41,8 +45,14 @@ from the completion date, not the due date** (done on the 3rd for a 15-day cycle
 ./dev openapi               # write openapi.json to repo root
 ```
 
-`docker-compose.yml` is the *production* stack (Postgres + api + worker + Traefik). Local dev only
-ever needs `docker-compose.test.yml` (Postgres alone) — the app runs via `uv run` directly.
+`docker-compose.yml` is the *production* stack (Postgres, api, worker, web, pgweb). Traefik is
+**not** part of this repo — it's shared reverse-proxy infrastructure for every app on the droplet,
+defined in a separate standalone `infra` project (a sibling directory, not a subdirectory of
+`disp_repo`); this repo's `api`/`web` services only join its `edge` Docker network and carry
+routing labels (`docker-compose.yml`'s own trailing comment has the full pointer). Bring `infra` up
+before this repo's `docker compose up`, or it fails with `network edge declared as external, but
+could not be found`. Local dev only ever needs `docker-compose.test.yml` (Postgres alone) — the app
+runs via `uv run` directly.
 
 ## Module boundaries (enforced by `tests/core/test_boundaries.py`, not just convention)
 
@@ -52,7 +62,7 @@ A module under `src/disp/modules/<domain>/` may **not**:
 - import `disp.core.db` beyond `get_session`, `session_scope`, `Base`
 - import `disp.core.auth` beyond its `__init__.py`'s public surface: `CurrentUser`, `Permission`,
   `can`, `current_user`, `grant`, `list_grants`, `readable_ids`, `require`, `require_admin`,
-  `revoke` (wider than the spec's original 5-name list — see `milestones/M06-auth.md`)
+  `revoke` (wider than the spec's original 5-name list — see `milestones/server/M06-auth.md`)
 
 Violating any of these fails the build, not a lint warning. See `docs/adding-a-module.md` for the
 four-step recipe to add a new one.
@@ -172,17 +182,24 @@ client" section for the exact commands.
   overrides `DISP_DATABASE_URL` to point at the compose-network `postgres` (not whatever
   `localhost` URL is in the developer's own `.env`), runs a one-shot `migrate` service (Alembic +
   Procrastinate schema + a deterministic seeded admin via `DISP_SEED_PASSWORD`) before `api`/
-  `worker` start, exposes the API directly on `localhost:8000`, and disables Traefik via a
-  `profiles: ["disabled"]` override (no real domain/ACME email exists in an e2e run). Requires
-  `POSTGRES_PASSWORD` set on the invoking shell — `docker-compose.yml`'s own `:?required` has no
-  default. Run `... down -v` between runs: the seeded admin refuses to be created twice.
-- **Same-origin routing, ahead of `M12`.** The client requires the API to be same-origin (§2.1) —
-  in production that's Traefik path-routing (§24.4), not built yet. Until then, `vite.config.ts`
-  defines the same proxy shape under both `server.proxy` (used by `pnpm dev`) and `preview.proxy`
-  (used by `pnpm preview`, what Playwright's `webServer` runs) — Vite doesn't share config between
-  the two — forwarding `/api`, `/health`, and `/openapi.json` to `localhost:8000`. This is a
-  dev/preview-only stand-in meant to be replaced by real Traefik routing once `M12` ships the
-  `web` container, not extended.
+  `worker` start, and exposes the API directly on `localhost:8000` — no Traefik and no real
+  domain/ACME email exist in an e2e run. Since Traefik itself now lives outside this repo (see
+  above), what needs overriding here isn't a `traefik:` service anymore but the `edge` network:
+  `docker-compose.yml` declares it `external: true` (created by the separate `infra` project), and
+  this file redeclares it with `external: false` so Compose creates its own throwaway one instead —
+  note that an *empty* `edge: {}` override does **not** work, Compose deep-merges network config
+  across `-f` files, so `external` has to be explicitly turned off, not just left unmentioned.
+  Requires `POSTGRES_PASSWORD` set on the invoking shell — `docker-compose.yml`'s own `:?required`
+  has no default. Run `... down -v` between runs: the seeded admin refuses to be created twice.
+- **Same-origin routing**: the client requires the API to be same-origin (§2.1) — in production
+  that's the `nginx.conf` inside the `web` container's own routing plus Traefik's `api`
+  router-priority split (§24.4, both shipped in `M12`). `vite.config.ts` *also* defines the same
+  proxy shape under both `server.proxy` (used by `pnpm dev`) and `preview.proxy` (used by `pnpm
+  preview`, what Playwright's `webServer` runs) — Vite doesn't share config between the two —
+  forwarding `/api`, `/health`, and `/openapi.json` to `localhost:8000`. This is **not** superseded
+  by `M12`'s real routing — it stays intentionally, since `pnpm dev`/`pnpm preview` want a fast
+  local loop, not a full Docker rebuild per change; the two routing paths are permanent parallel
+  mechanisms for two different situations, not a temporary stand-in and its eventual replacement.
 - **MSW (`tests/mocks/`) needs jsdom's origin pinned.** `vitest.config.ts` sets
   `environmentOptions.jsdom.url: 'http://localhost/'` — MSW resolves a handler's relative URL
   pattern against `document.location`, and jsdom's own default origin (`http://localhost:3000`)

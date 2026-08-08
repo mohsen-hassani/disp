@@ -128,7 +128,7 @@ violating them fails the build, not a style check:
   `CurrentUser`, `Permission`, `can`, `current_user`, `grant`, `list_grants`, `readable_ids`,
   `require`, `require_admin`, `revoke` — the full ACL API plus authentication, but none of the
   session/token/password/invite internals. (This is wider than the spec's original literal
-  five-name enumeration; see `milestones/M06-auth.md` for why it was expanded — the short version
+  five-name enumeration; see `milestones/server/M06-auth.md` for why it was expanded — the short version
   is that §18.3 requires modules to call `grant()`/`readable_ids()` directly, and ACL isn't part
   of the authentication surface an OIDC migration would ever touch.)
 - **Never `import disp.core.app`.** A module has no business knowing about the FastAPI app object.

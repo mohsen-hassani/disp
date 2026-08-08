@@ -1,13 +1,43 @@
 # M12 — Performance, deployment, and acceptance sweep
 
-**Status:** Not started
+**Status:** Automated portions complete and verified; a set of criteria are explicitly not yet
+independently checked (see below) — following this doc's own "must be independently checked, not
+assumed" standard rather than claiming a closed loop that was never actually run.
+
+**Verified, automated**: `pnpm lint`/`typecheck`/`test` (223 tests, 53 files, coverage gates held —
+84.5% overall, 96%/98.7% on `src/auth`/`schema-form`) and `pnpm build` from a clean state;
+`clients/web/Dockerfile` actually built and run standalone (`docker run`), with every nginx.conf
+claim (SPA fallback, `/api` → 404, `/assets/*` immutable, every unhashed dist-root file no-cache,
+all four security headers + CSP, gzip, non-root, healthcheck) confirmed by `curl` against the live
+container — this caught and fixed two real bugs nothing else would have (nginx's add_header
+inheritance silently dropping security headers on three of four locations; the healthcheck's
+`localhost` resolving to a `::1` nginx wasn't listening on). `docker compose config` validated for
+both the prod and e2e file combinations. The full Playwright e2e suite (28 tests, all 5 axe-scanned
+screens × both themes) run against the real `docker-compose.e2e.yml` stack — 28/28 passing serially
+(a `fullyParallel` run surfaced pre-existing flakiness in two unrelated, unmodified tests plus one
+real bug in the new admin scan's own heading locator, both diagnosed and the latter fixed). Bundle
+budgets enforced by `scripts/check-bundle-budget.mjs` against the real post-build manifest, all
+three under budget. `TileActionDialog` (and the `schema-form` module behind it) now lazy-loads,
+verified by an actual smaller dashboard chunk in the build output, with `schema-form`'s 98.7%
+coverage gate confirmed to still hold. The client's own `plants` module (routes, nav entry, photo
+upload — a real, confirmed violation of `TECHNICAL-SPEC-WEB.md`'s non-goals and §25 criterion 10)
+was removed entirely as part of this pass; the backend `plants` module is untouched. `web` is wired
+into the same GHCR + webhook auto-deploy pipeline the backend already uses.
+
+**Not yet independently verified — requires a human and/or live infrastructure**: §25 criterion 3's
+full `docker compose up -d` at a real `https://<host>/` through the separate `infra` Traefik project
+and a real DNS/cert; §25 criteria 17–18 (iOS Safari and Android Chromium home-screen install); the
+live "new deploy surfaces the update toast" loop; a final visual pass at 320px width / 200% zoom.
+Lighthouse CI (`lighthouserc.cjs`) is configured and documented but not wired into `web-ci.yml` —
+it needs the e2e backend stack up first (for the authenticated `/`/`/notes` scans), which is a
+separable follow-up, same as the Playwright suite not running in CI yet either.
 
 **Scope:** `clients/web/Dockerfile`, `clients/web/nginx.conf` (or equivalent), amendments to the
 root `docker-compose.yml` (new `web` service + `api` service's router-priority amendment), Lighthouse
 CI config.
 
 Covers TECHNICAL-SPEC-WEB.md §22 (Performance budgets), §24.3–24.4 (Container, Compose and routing),
-§25 (Acceptance criteria) — the closing milestone, mirroring `milestones/M16-deployment-docs.md`'s
+§25 (Acceptance criteria) — the closing milestone, mirroring `milestones/server/M16-deployment-docs.md`'s
 role for the backend.
 
 ---

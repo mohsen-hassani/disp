@@ -1,22 +1,28 @@
-import AxeBuilder from '@axe-core/playwright';
-
-import { createNote, deleteNote, expect, test, uniqueMarker } from './fixtures';
+import {
+  createNote,
+  deleteNote,
+  expect,
+  expectNoSeriousA11yViolations,
+  setTheme,
+  test,
+  THEMES,
+  uniqueMarker,
+} from './fixtures';
 
 test.describe('notes', () => {
   // Case 47: axe scan of the notes list, one of the five key screens.
-  test('notes list has no serious/critical accessibility violations', async ({ authedPage }) => {
-    await authedPage.goto('/notes');
-    // Both the page's own <h1> and the top bar's page-title <h1> contain
-    // "Notes" — `exact` picks out the page's own heading specifically.
-    await expect(authedPage.getByRole('heading', { name: 'Notes', exact: true })).toBeVisible();
-    const results = await new AxeBuilder({ page: authedPage })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
-    const serious = results.violations.filter(
-      (v) => v.impact === 'serious' || v.impact === 'critical',
-    );
-    expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-  });
+  for (const theme of THEMES) {
+    test(`notes list has no serious/critical accessibility violations (${theme})`, async ({
+      authedPage,
+    }) => {
+      await setTheme(authedPage, theme);
+      await authedPage.goto('/notes');
+      // Both the page's own <h1> and the top bar's page-title <h1> contain
+      // "Notes" — `exact` picks out the page's own heading specifically.
+      await expect(authedPage.getByRole('heading', { name: 'Notes', exact: true })).toBeVisible();
+      await expectNoSeriousA11yViolations(authedPage);
+    });
+  }
 
   // Case 35: search is debounced and the term is reflected in the URL.
   test('search filters the list and reflects the term in the URL', async ({

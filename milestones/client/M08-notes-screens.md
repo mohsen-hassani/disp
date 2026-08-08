@@ -1,6 +1,6 @@
 # M08 — Notes screens
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/routes/{_app.notes.index.tsx,_app.notes.$noteId.tsx}`,
 `clients/web/src/components/notes/{NoteList,NoteCard,NoteEditor,ShareDialog}.tsx`.
@@ -13,7 +13,7 @@ Covers TECHNICAL-SPEC-WEB.md §16 (Notes screens) in full.
 
 Every other module in this backend expresses itself only through dashboard tiles and settings
 panels (M05/M06's generic renderers). `notes` is the demonstration that a module can ship a full
-bespoke screen when a tile isn't enough — mirroring exactly how `milestones/M13-notes-module.md`
+bespoke screen when a tile isn't enough — mirroring exactly how `milestones/server/M13-notes-module.md`
 frames the backend's `notes` module as "the demo module... its implementation quality is held to
 the same standard as the backbone." Everything here uses only the generated client from M02 — no
 hand-written request shapes, even though these are bespoke screens.
@@ -24,7 +24,7 @@ hand-written request shapes, even though these are bespoke screens.
   button.
 - **List**: `useInfiniteQuery` on `qk.notes.list({q, pinned})`. Server ordering is
   `pinned DESC, created_at DESC` (backend `src/disp/modules/notes/router.py` / confirmed in
-  `milestones/M13-notes-module.md` §18.3) — **the client MUST NOT re-sort**, even though a naive
+  `milestones/server/M13-notes-module.md` §18.3) — **the client MUST NOT re-sort**, even though a naive
   client-side sort-by-title might look like a nice-to-have; the server's order is the contract.
 - **`NoteCard`**: pin indicator, title (or first line of body when title is null), two-line body
   preview, relative created time, overflow menu (Open, Pin/Unpin, Share, Delete).
@@ -47,7 +47,7 @@ forbids adding it unilaterally). Build the list to work correctly with only `ite
 - Header: title (or "Untitled"), pin toggle, overflow menu (Share, Delete), Back.
 - Body: **plain text with preserved whitespace** (`white-space: pre-wrap`). **Markdown is not
   rendered.** The backend's `body` field is plain text (confirmed:
-  `milestones/M13-notes-module.md` §18.2/§18.3 has no markdown processing anywhere in the notes
+  `milestones/server/M13-notes-module.md` §18.2/§18.3 has no markdown processing anywhere in the notes
   module); rendering it as Markdown would misrepresent stored data and add an XSS surface that
   doesn't exist today. Do not add a Markdown renderer under any future "nice to have" framing —
   this is an explicit backend-and-frontend joint invariant, not just a client stylistic choice
@@ -58,7 +58,7 @@ forbids adding it unilaterally). Build the list to work correctly with only `ite
 - Inline edit: clicking the body or the Edit button switches to a textarea with Save/Cancel.
   `Cmd/Ctrl+Enter` saves, `Escape` cancels with an unsaved-changes confirmation.
 - `404 notes.not_found` → the not-found screen, not a toast (test case 40) — the backend's 404-vs-403
-  distinction (`milestones/M13-notes-module.md`'s "Design notes" section: existence hidden on
+  distinction (`milestones/server/M13-notes-module.md`'s "Design notes" section: existence hidden on
   no-read-access, `403 acl.forbidden` on read-but-not-write) means a 404 here specifically means
   "this note doesn't exist or you can't see it," which deserves a full screen state, not a
   passing toast that leaves the stale detail view visible underneath.
@@ -119,7 +119,7 @@ Global, active only when no input has focus:
 - **M02** (generated client, query keys, error mapping), **M03** (auth guard via M04), **M04**
   (route shell, `MODULE_ROUTES['notes']` entry). Independent of M00/M06 — notes has no settings
   panel in the current manifest (confirmed: `settings_panels=()` in the notes module's manifest per
-  `milestones/M13-notes-module.md` §18.1).
+  `milestones/server/M13-notes-module.md` §18.1).
 
 ## Open questions / judgment calls for the implementer
 

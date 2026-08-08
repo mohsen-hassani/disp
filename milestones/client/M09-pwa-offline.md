@@ -1,6 +1,6 @@
 # M09 — PWA behaviour and offline strategy
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/vite.config.ts` (PWA plugin config), `clients/web/public/icons/*`,
 `clients/web/src/pwa/{registerSW.ts,UpdatePrompt.tsx}`,

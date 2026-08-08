@@ -53,7 +53,7 @@ The `notification_types` entry exists to exercise the manifest; nothing sends it
 
 ### 18.2 Schema `notes` — DDL
 
-(Already hand-authored into `modules/notes/migrations/versions/0001_notes_initial.py` at M5 — see `milestones/M05-alembic.md`.)
+(Already hand-authored into `modules/notes/migrations/versions/0001_notes_initial.py` at M5 — see `milestones/server/M05-alembic.md`.)
 
 ### 18.3 Endpoints
 
@@ -139,7 +139,7 @@ In `register()`, the module subscribes a handler to `NoteCreated` that logs at `
 
 ## Two real contract gaps found and resolved while building this module
 
-Writing the actual notes module — the spec's own proof that the contract works — immediately exposed two places where the M6 boundary test's restrictions, taken literally, made §18.3's requirements impossible to satisfy. Both are documented in full in `milestones/M06-auth.md`'s "retroactive amendment" sections; summarized here:
+Writing the actual notes module — the spec's own proof that the contract works — immediately exposed two places where the M6 boundary test's restrictions, taken literally, made §18.3's requirements impossible to satisfy. Both are documented in full in `milestones/server/M06-auth.md`'s "retroactive amendment" sections; summarized here:
 
 1. **`grant()`/`readable_ids()` weren't in the public auth surface.** §18.3 requires the notes module to call `grant(...)` on note creation and filter its list query with `readable_ids`, but §10.1's literal `auth/__init__.py` only exported `CurrentUser, Permission, can, current_user, require_admin`. Resolved by expanding the export list to the full ACL API (`grant, revoke, list_grants, readable_ids, require` added), since G4/§11.2 only make sense that way and the boundary's stated OIDC-migration rationale has nothing to do with ACL.
 2. **`Base` wasn't in the allowed `disp.core.db` imports.** `notes/models.py` needs `Base` to define its ORM model at all (per the M5 shared-metadata design), but the boundary test only allowed `get_session`/`session_scope`. Resolved by reading §8.4's "the SQLAlchemy engine" ban narrowly (it means `create_engine`/`create_session_maker`, not the declarative base) and adding `Base` to the allowed set.

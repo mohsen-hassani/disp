@@ -1,4 +1,5 @@
-import { test as base, type BrowserContext, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test as base, type BrowserContext, type Page } from '@playwright/test';
 
 // §23.4: the one admin `docker-compose.e2e.yml`'s `migrate` service seeds —
 // deterministic via DISP_SEED_PASSWORD, so no test needs to scrape a
@@ -46,7 +47,30 @@ export const test = base.extend<Fixtures>({
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect };
+
+// M12 §25(21): five key screens, scanned in both themes. Direct
+// localStorage injection (not page.emulateMedia) exercises the same
+// explicit-preference code path real users hit via the theme toggle —
+// emulateMedia only drives the 'system' fallback branch in src/lib/theme.ts.
+export const THEMES = ['light', 'dark'] as const;
+
+export async function setTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
+  // Must run before the test's own page.goto() — addInitScript only affects
+  // *subsequent* navigations, and theme-bootstrap.js (M01) reads this key
+  // synchronously before first paint.
+  await page.addInitScript((value) => {
+    window.localStorage.setItem('disp.theme', value);
+  }, theme);
+}
+
+export async function expectNoSeriousA11yViolations(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  const serious = results.violations.filter(
+    (v) => v.impact === 'serious' || v.impact === 'critical',
+  );
+  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
+}
 
 /**
  * `test.info().testId` is a *stable* hash of the test's file/title, not a

@@ -1,6 +1,6 @@
 # M07 — Account, tokens, and admin screens
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/routes/{_app.settings.account.tsx,_app.settings.tokens.tsx,
 _app.admin.invites.tsx}`.

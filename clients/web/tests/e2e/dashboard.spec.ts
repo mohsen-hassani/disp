@@ -1,6 +1,13 @@
-import AxeBuilder from '@axe-core/playwright';
-
-import { createNote, deleteNote, expect, test, uniqueMarker } from './fixtures';
+import {
+  createNote,
+  deleteNote,
+  expect,
+  expectNoSeriousA11yViolations,
+  setTheme,
+  test,
+  THEMES,
+  uniqueMarker,
+} from './fixtures';
 
 test.describe('dashboard', () => {
   test('the notes tile shows a fixture note, and the quick-add action creates one', async ({
@@ -71,14 +78,13 @@ test.describe('dashboard', () => {
   });
 
   // Case 47: axe scan of the dashboard, one of the five key screens.
-  test('dashboard has no serious/critical accessibility violations', async ({ authedPage }) => {
-    await authedPage.goto('/');
-    const results = await new AxeBuilder({ page: authedPage })
-      .withTags(['wcag2a', 'wcag2aa'])
-      .analyze();
-    const serious = results.violations.filter(
-      (v) => v.impact === 'serious' || v.impact === 'critical',
-    );
-    expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-  });
+  for (const theme of THEMES) {
+    test(`dashboard has no serious/critical accessibility violations (${theme})`, async ({
+      authedPage,
+    }) => {
+      await setTheme(authedPage, theme);
+      await authedPage.goto('/');
+      await expectNoSeriousA11yViolations(authedPage);
+    });
+  }
 });

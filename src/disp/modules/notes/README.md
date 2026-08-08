@@ -134,7 +134,7 @@ curl -s -X POST http://localhost:8000/api/notes \
   service layer directly (auth, pagination, search, sharing, the 404-vs-403 distinction, the purge
   job) plus the full HTTP surface via `TestClient`. Run just this module's tests with
   `./dev test tests/modules/test_notes.py`; run everything with `./dev test`.
-- **Full build history**: [`milestones/M13-notes-module.md`](../../../../milestones/M13-notes-module.md)
+- **Full build history**: [`milestones/server/M13-notes-module.md`](../../../../milestones/server/M13-notes-module.md)
   documents every design decision and contract gap found while building this module (e.g. why
   `Base` had to be added to the auth boundary's allowed imports, how the 3-key sort survives
   generic cursor pagination, why resolving a share target's email is not a boundary violation).

@@ -1,6 +1,6 @@
 # M05 — Dashboard and generic tile rendering
 
-**Status:** Not started
+**Status:** Complete
 
 **Scope:** `clients/web/src/routes/_app.index.tsx`,
 `clients/web/src/components/tiles/{TileGrid,TileCard,TileItemRow,TileActionButton,

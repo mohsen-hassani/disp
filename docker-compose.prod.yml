@@ -1,0 +1,13 @@
+# Layered on docker-compose.yml in production only, the same way
+# docker-compose.e2e.yml layers on it for e2e runs — see that file's header
+# for the rationale. Local dev never uses this: docker-compose.yml's plain
+# `build: .` is correct there. This override exists solely so the production
+# host can `docker compose pull` a prebuilt GHCR image instead of building
+# from source, with the tag supplied by IMAGE_TAG in the host's .env.
+services:
+  api:
+    image: ghcr.io/${GHCR_OWNER}/disp:${IMAGE_TAG}
+  worker:
+    image: ghcr.io/${GHCR_OWNER}/disp:${IMAGE_TAG}
+  web:
+    image: ghcr.io/${GHCR_OWNER}/disp-web:${IMAGE_TAG}

@@ -153,7 +153,7 @@ def _require_csrf_header(request: Request) -> None:
 ## Dependencies
 
 None — this is the first milestone; it only requires the already-complete backend from
-`milestones/M00-M16`.
+`milestones/server/M00-M19`.
 
 ## Blocks
 

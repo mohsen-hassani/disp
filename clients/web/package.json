@@ -17,7 +17,8 @@
     "fmt": "eslint . --fix && prettier --write .",
     "typecheck": "tsc -b",
     "api:generate": "openapi-ts",
-    "api:check": "openapi-ts && git diff --exit-code src/api/generated"
+    "api:check": "openapi-ts && git diff --exit-code src/api/generated",
+    "check:budget": "node scripts/check-bundle-budget.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -43,6 +44,7 @@
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^10.0.1",
     "@hey-api/openapi-ts": "^0.99.0",
+    "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/router-plugin": "^1.168.23",

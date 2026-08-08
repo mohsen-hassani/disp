@@ -1,0 +1,43 @@
+name: Web CI
+
+# Frontend CI was entirely absent before this — deploy.yml only builds and
+# pushes images, no lint/test/typecheck runs anywhere for either backend or
+# frontend. This is the first such gate, scoped to clients/web/. It does NOT
+# run the Playwright e2e suite, the Lighthouse CI config (lighthouserc.cjs),
+# or `pnpm api:check` — all three need the backend (the first two via
+# docker-compose.e2e.yml's Postgres+API stack; api:check because its input,
+# ../../openapi.json, is a gitignored artifact of `disp openapi` that only
+# exists when the backend has actually generated it — not something a fresh
+# checkout has). Wiring any of these in is a valuable but separable
+# follow-up, not part of this pass.
+
+on:
+  push:
+    branches: [prod]
+    paths: ['clients/web/**']
+  pull_request:
+    paths: ['clients/web/**']
+
+defaults:
+  run:
+    working-directory: clients/web
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.11'
+          cache: pnpm
+          cache-dependency-path: clients/web/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm check:budget

@@ -1,6 +1,12 @@
-import AxeBuilder from '@axe-core/playwright';
-
-import { ADMIN_EMAIL, ADMIN_PASSWORD, expect, test } from './fixtures';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  expect,
+  expectNoSeriousA11yViolations,
+  setTheme,
+  test,
+  THEMES,
+} from './fixtures';
 
 test.describe('auth', () => {
   // Case 2: an anonymous visit to a guarded route redirects to /login?next=…
@@ -61,12 +67,13 @@ test.describe('auth', () => {
   });
 
   // Case 47: axe scan of the login screen, one of the five key screens.
-  test('login screen has no serious/critical accessibility violations', async ({ page }) => {
-    await page.goto('/login');
-    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-    const serious = results.violations.filter(
-      (v) => v.impact === 'serious' || v.impact === 'critical',
-    );
-    expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-  });
+  for (const theme of THEMES) {
+    test(`login screen has no serious/critical accessibility violations (${theme})`, async ({
+      page,
+    }) => {
+      await setTheme(page, theme);
+      await page.goto('/login');
+      await expectNoSeriousA11yViolations(page);
+    });
+  }
 });
