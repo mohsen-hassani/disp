@@ -51,8 +51,8 @@ services:
     build: .
     env_file: .env
     environment:
-      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_SEED_PASSWORD: ${DISP_SEED_PASSWORD:-e2e-admin-password}
     depends_on:
       postgres:
@@ -69,8 +69,8 @@ services:
 
   api:
     environment:
-      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       # Plain HTTP, localhost-only — no TLS terminator sits in front of this
       # stack in e2e, so a Secure-flagged cookie would never round-trip back.
       DISP_COOKIE_SECURE: "false"
@@ -86,8 +86,8 @@ services:
 
   worker:
     environment:
-      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
-      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp
+      DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_ENV: development
     depends_on:
       postgres:

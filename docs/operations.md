@@ -122,20 +122,20 @@ This procedure was executed against a real dump of the dev database as part of w
 1. **Take or locate a dump:**
 
    ```
-   $ docker exec disp-postgres-dev pg_dump -Fc -U disp -d disp -f /tmp/disp-test.dump
+   $ docker exec disp-postgres-dev pg_dump -Fc -U disp_user -d disp_db -f /tmp/disp-test.dump
    ```
 
 2. **Create an empty target database** (never restore over the live one directly — see step 4):
 
    ```
-   $ docker exec disp-postgres-dev psql -U disp -d postgres -c "CREATE DATABASE disp_restore_test OWNER disp;"
+   $ docker exec disp-postgres-dev psql -U disp_user -d postgres -c "CREATE DATABASE disp_restore_test OWNER disp_user;"
    CREATE DATABASE
    ```
 
 3. **Restore the dump:**
 
    ```
-   $ docker exec disp-postgres-dev pg_restore -U disp -d disp_restore_test /tmp/disp-test.dump
+   $ docker exec disp-postgres-dev pg_restore -U disp_user -d disp_restore_test /tmp/disp-test.dump
    ```
 
    (No output on success — `pg_restore` is silent unless something fails.)
@@ -143,39 +143,39 @@ This procedure was executed against a real dump of the dev database as part of w
 4. **Verify the restore before cutting over.** At minimum, confirm the expected tables exist and row counts are sane:
 
    ```
-   $ docker exec disp-postgres-dev psql -U disp -d disp_restore_test -c "\dt core.*"
+   $ docker exec disp-postgres-dev psql -U disp_user -d disp_restore_test -c "\dt core.*"
                   List of relations
     Schema |         Name         | Type  | Owner
    --------+----------------------+-------+-------
-    core   | acl                  | table | disp
-    core   | alembic_version_core | table | disp
-    core   | api_tokens           | table | disp
-    core   | invites              | table | disp
-    core   | notification_log     | table | disp
-    core   | sessions             | table | disp
-    core   | settings             | table | disp
-    core   | users                | table | disp
+    core   | acl                  | table | disp_user
+    core   | alembic_version_core | table | disp_user
+    core   | api_tokens           | table | disp_user
+    core   | invites              | table | disp_user
+    core   | notification_log     | table | disp_user
+    core   | sessions             | table | disp_user
+    core   | settings             | table | disp_user
+    core   | users                | table | disp_user
    (8 rows)
 
-   $ docker exec disp-postgres-dev psql -U disp -d disp_restore_test -tAc "SELECT count(*) FROM core.users;"
+   $ docker exec disp-postgres-dev psql -U disp_user -d disp_restore_test -tAc "SELECT count(*) FROM core.users;"
    1
    ```
 
-   Compare the row count against the source database (`psql -d disp -tAc "SELECT count(*) FROM core.users;"`) — it matched exactly in this verification run.
+   Compare the row count against the source database (`psql -d disp_db -tAc "SELECT count(*) FROM core.users;"`) — it matched exactly in this verification run.
 
 5. **Cut over.** Once verified, either:
    - Point `DISP_DATABASE_URL` at the restored database and restart the API/worker, or
    - Rename the live (broken) database aside and rename the restored one into its place, inside a maintenance window with the API stopped:
      ```
      docker compose stop api worker
-     psql -U disp -d postgres -c "ALTER DATABASE disp RENAME TO disp_broken;"
-     psql -U disp -d postgres -c "ALTER DATABASE disp_restore_test RENAME TO disp;"
+     psql -U disp_user -d postgres -c "ALTER DATABASE disp_db RENAME TO disp_broken;"
+     psql -U disp_user -d postgres -c "ALTER DATABASE disp_restore_test RENAME TO disp_db;"
      docker compose start api worker
      ```
 
 6. **Clean up** the scratch database once cut-over is confirmed good:
    ```
-   psql -U disp -d postgres -c "DROP DATABASE disp_restore_test;"
+   psql -U disp_user -d postgres -c "DROP DATABASE disp_restore_test;"
    ```
 
 ## Key rotation

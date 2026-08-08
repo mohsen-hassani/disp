@@ -8,7 +8,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U disp"]
+      test: ["CMD-SHELL", "pg_isready -U disp_user"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,7 +82,7 @@ services:
   pgweb:
     image: sosedoff/pgweb:latest
     environment:
-      PGWEB_DATABASE_URL: postgres://disp:${POSTGRES_PASSWORD:?required}@postgres:5432/disp?sslmode=disable
+      PGWEB_DATABASE_URL: postgres://disp_user:${POSTGRES_PASSWORD:?required}@postgres:5432/disp_db?sslmode=disable
     # Bound to localhost only, no Traefik labels — pgweb has no built-in
     # multi-user auth, so it must never get a public route. Reach it in
     # production via `ssh -L 8081:localhost:8081 <host>`.

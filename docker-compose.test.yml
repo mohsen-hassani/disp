@@ -14,15 +14,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: disp
+      POSTGRES_USER: disp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-disp}
-      POSTGRES_DB: disp
+      POSTGRES_DB: disp_db
     ports:
       - "5432:5432"
     volumes:
       - pgdata_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U disp"]
+      test: ["CMD-SHELL", "pg_isready -U disp_user"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,8 +33,8 @@ services:
     command: ["python", "-m", "disp.worker"]
     env_file: .env
     environment:
-      DISP_DATABASE_URL: postgresql+asyncpg://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp
-      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp
+      DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp_db
+      DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp_db
     depends_on:
       postgres: {condition: service_healthy}
     restart: unless-stopped
@@ -42,7 +42,7 @@ services:
   pgweb:
     image: sosedoff/pgweb:latest
     environment:
-      PGWEB_DATABASE_URL: postgres://disp:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp?sslmode=disable
+      PGWEB_DATABASE_URL: postgres://disp_user:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp_db?sslmode=disable
     ports:
       - "8081:8081"
     depends_on:

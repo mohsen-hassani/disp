@@ -11,5 +11,5 @@ if [[ ! "${SSH_ORIGINAL_COMMAND:-}" =~ ^deploy\ ([a-f0-9]{12})$ ]]; then
     exit 1
 fi
 
-cd /opt/disp
+cd /opt/apps/disp
 exec ./scripts/deploy.sh "${BASH_REMATCH[1]}"

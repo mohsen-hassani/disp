@@ -1768,13 +1768,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: disp
+      POSTGRES_USER: disp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
-      POSTGRES_DB: disp
+      POSTGRES_DB: disp_db
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U disp"]
+      test: ["CMD-SHELL", "pg_isready -U disp_user"]
       interval: 10s
       timeout: 5s
       retries: 5
