@@ -6,11 +6,18 @@
 #
 # Usage: ./scripts/deploy.sh <image-tag>
 #
-# Run from the app directory (docker-compose.yml, docker-compose.prod.yml and
-# .env must already exist there — see docs/operations.md's "SSH deploy"
-# section for one-time host setup). Never runs migrations: those stay a
-# manual step per "First deploy" in docs/operations.md.
+# Run from the app directory, which must be a git checkout of this repo on
+# `prod` (docker-compose.yml, docker-compose.prod.yml and .env must already
+# exist there — see docs/operations.md's "SSH deploy" section for one-time
+# host setup). Never runs migrations: those stay a manual step per "First
+# deploy" in docs/operations.md.
 set -euo pipefail
+
+# ff-only, and before anything else runs: a new image tag often ships
+# alongside compose/script changes (this file included), so the host's
+# checkout needs to match before recreate() reads docker-compose*.yml. A
+# host with local drift should fail loudly here rather than merge silently.
+git pull --ff-only
 
 new_tag="${1:?image tag required}"
 

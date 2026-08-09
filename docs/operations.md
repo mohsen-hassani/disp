@@ -23,8 +23,10 @@ verified against a real Postgres 16 as part of writing this document.
 
 Every push to `prod` (`.github/workflows/deploy.yml`) builds the image, pushes it to GHCR under
 two tags (`ghcr.io/<owner>/disp:<12-char-sha>` and `:latest`), then SSHes into the production host
-and runs a single command: `./scripts/deploy.sh <sha-tag>`. This never runs migrations — those
-stay the explicit, manual step above, on purpose, so a deploy can never silently apply one.
+and runs a single command: `./scripts/deploy.sh <sha-tag>`. The script starts with `git pull
+--ff-only` so the host's compose files (and the script itself) stay in sync with what was pushed,
+then never runs migrations — those stay the explicit, manual step above, on purpose, so a deploy
+can never silently apply one.
 
 Traefik itself is **not** part of this repo — it's shared infrastructure for every app on the
 droplet, defined in a separate `infra` project (`../infra` alongside this repo; see that project's
@@ -32,8 +34,9 @@ droplet, defined in a separate `infra` project (`../infra` alongside this repo; 
 routing labels on `api` — bring the `infra` stack up first, or `docker compose up` here will fail
 with `network edge declared as external, but could not be found`.
 
-**One-time host setup**, assuming `/opt/disp` already holds this repo's `docker-compose.yml`,
-`docker-compose.prod.yml`, and a real `.env` (with `GHCR_OWNER`/`IMAGE_TAG` set per
+**One-time host setup**, assuming `/opt/disp` already holds a `git clone` of this repo checked out
+on `prod` (so `git pull --ff-only` in the script has a remote to pull from) with a real `.env` (with
+`GHCR_OWNER`/`IMAGE_TAG` set per
 `.env.example`), and the `infra` project (see above) is already up:
 
 1. Create a dedicated deploy user on the host (or reuse an existing one) that can run `docker
