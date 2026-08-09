@@ -35,7 +35,11 @@ recreate
 
 healthy=0
 for _ in 1 2 3 4 5 6; do
-    if curl -sf http://localhost:8000/health >/dev/null; then
+    # api publishes no host port (Traefik/edge-network only, see
+    # docker-compose.yml) — probe /health from inside the container's own
+    # network namespace instead of curling it from the host.
+    if docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T api \
+        python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"; then
         healthy=1
         break
     fi

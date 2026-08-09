@@ -54,7 +54,9 @@ with `network edge declared as external, but could not be found`.
 **On every push to `prod`**: `scripts/deploy.sh` runs on the host (invoked over SSH by the
 workflow), writes the new tag into `.env`, `docker compose pull && up -d` for `api`/`worker`/`web`
 (M12) only — never `postgres`/`pgweb` — and polls `GET /health` (readiness, not the liveness-only
-`/health/live`) up to 6 times over 30 seconds. On failure it restores the previous `IMAGE_TAG`,
+`/health/live`) up to 6 times over 30 seconds. `api` publishes no host port (Traefik/`edge`-network
+only), so this runs via `docker compose exec api python -c ...` inside the container's own network
+namespace rather than curling it from the host. On failure it restores the previous `IMAGE_TAG`,
 recreates the containers again, and exits non-zero — which makes the SSH command itself exit
 non-zero, which is what makes the triggering Actions run go red rather than reporting a false
 success.
