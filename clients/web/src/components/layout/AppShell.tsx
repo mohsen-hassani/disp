@@ -9,7 +9,7 @@ import { useCreateNoteDialog } from '../notes/CreateNoteDialogProvider';
 import { ShortcutsDialog } from '../shortcuts/ShortcutsDialog';
 import { OfflineBanner } from '../feedback/OfflineBanner';
 import { BottomNav } from './BottomNav';
-import { computeNavItems } from './navItems';
+import { computeNavSections } from './navItems';
 import { SideNav } from './SideNav';
 import { TopBar } from './TopBar';
 
@@ -26,8 +26,10 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps): ReactElement {
   const { state } = useAuth();
   const manifestQuery = useQuery(dashboardManifestQueryOptions());
-  const manifestDomains = manifestQuery.data?.modules?.map((module) => module.domain) ?? [];
-  const items = computeNavItems({ manifestDomains, isAdmin: isAdmin(state) });
+  const sections = computeNavSections({
+    modules: manifestQuery.data?.modules ?? [],
+    isAdmin: isAdmin(state),
+  });
 
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { open: openCreateNote } = useCreateNoteDialog();
@@ -41,7 +43,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
       <OfflineBanner />
       <TopBar />
       <div className="flex flex-1">
-        <SideNav items={items} />
+        <SideNav sections={sections} />
         <main
           id="main-content"
           className="min-w-0 flex-1 p-4 pb-20 md:p-6 md:pb-6 xl:mx-auto xl:max-w-content"
@@ -49,7 +51,7 @@ export function AppShell({ children }: AppShellProps): ReactElement {
           {children}
         </main>
       </div>
-      <BottomNav items={items} />
+      <BottomNav sections={sections} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>
   );

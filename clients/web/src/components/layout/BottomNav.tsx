@@ -3,22 +3,26 @@ import { Link } from '@tanstack/react-router';
 import { Ellipsis, X } from 'lucide-react';
 import { type ReactElement, useId, useState } from 'react';
 
-import type { NavItem } from './navItems';
+import { flattenNavSections, type NavItem, type NavSection } from './navItems';
 
 interface BottomNavProps {
-  items: NavItem[];
+  sections: NavSection[];
 }
 
 // §12.3: max 4 slots. `desktopOnly` items (Invitations) never appear here at
-// all, so v1 never exceeds 3 — the "5th item collapses into More" rule below
-// exists for when a future module pushes past 4, not because it fires today.
+// all. With Dashboard + Settings fixed, two modules with screens land exactly
+// on 4; a third is what finally trips the "5th item collapses into More" rule
+// below — which is now reachable through the manifest, not just theoretical.
 const MAX_SLOTS = 4;
 
 const linkClass =
   'text-text-muted [&.active]:text-text focus-visible:outline-accent flex min-h-14 min-w-16 flex-1 flex-col items-center justify-center gap-1 rounded-md text-xs focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 [&.active]:font-medium';
 
-export function BottomNav({ items }: BottomNavProps): ReactElement {
-  const mobileItems = items.filter((item) => !item.desktopOnly);
+export function BottomNav({ sections }: BottomNavProps): ReactElement {
+  // Section grouping is a desktop affordance (SideNav's headings); on mobile
+  // the 4-slot bar has no room for headings, so flatten back to one list and
+  // let §12.3's overflow rule below do its job unchanged.
+  const mobileItems = flattenNavSections(sections).filter((item) => !item.desktopOnly);
   const overflowing = mobileItems.length > MAX_SLOTS;
   const visible = overflowing ? mobileItems.slice(0, MAX_SLOTS - 1) : mobileItems;
   const overflow = overflowing ? mobileItems.slice(MAX_SLOTS - 1) : [];

@@ -12,6 +12,7 @@ from disp import __version__
 from disp.core.auth import CurrentUser, current_user
 from disp.core.config import get_settings
 from disp.core.contract import (
+    ClientNavSpec,
     NotificationTypeSpec,
     SettingsPanelSpec,
     TileContext,
@@ -56,6 +57,10 @@ class ModuleManifestOut(BaseModel):
     tiles: list[TileSpec]
     settings_panels: list[SettingsPanelOut]
     notification_types: list[NotificationTypeSpec]
+    # None for a module with no client screens -- it renders on the dashboard
+    # but never in navigation. Reused as-is from the contract, like TileSpec
+    # below, so a field added there reaches the client with no mapping code.
+    client_nav: ClientNavSpec | None = None
 
 
 class DashboardManifestResponse(BaseModel):
@@ -121,6 +126,7 @@ async def get_manifest(
                 tiles=list(dm.manifest.tiles),
                 settings_panels=[_serialize_panel(panel) for panel in dm.manifest.settings_panels],
                 notification_types=list(dm.manifest.notification_types),
+                client_nav=dm.manifest.client_nav,
             )
         )
         seen_panel_keys.update(panel.key for panel in dm.manifest.settings_panels)

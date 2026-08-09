@@ -4,6 +4,7 @@ import { lazy, type ReactElement, Suspense, useId, useState } from 'react';
 import type { TileAction } from '../../api/generated';
 import { useOfflineState } from '../../hooks/useOfflineState';
 import { useToast } from '../feedback/ToastProvider';
+import { tileButtonClass as buttonClass } from './tileButton';
 import { describeActionError, type TileActionError, useTileAction } from './useTileAction';
 
 // Lazy: pulls in SchemaForm + all 8 widget files (~1KB gzipped of import
@@ -19,9 +20,6 @@ interface TileActionButtonProps {
   action: TileAction;
   tileKey: string;
 }
-
-const buttonClass =
-  'border-border text-text focus-visible:outline-accent rounded-sm border px-3 py-1.5 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60';
 
 // §13.6: no `body_schema` fires immediately, except `DELETE`, which
 // confirms first. With `body_schema`, delegates entirely to

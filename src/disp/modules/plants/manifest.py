@@ -1,10 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field
 
 from disp.core.contract import (
+    ClientNavSpec,
     ModuleManifest,
     NotificationTypeSpec,
     ScheduledJobSpec,
     SettingsPanelSpec,
+    TileNavSpec,
     TileSize,
     TileSpec,
 )
@@ -48,7 +50,14 @@ MANIFEST = ModuleManifest(
             size=TileSize.MEDIUM,
             refresh_seconds=300,
             order=20,
+            nav=TileNavSpec(label="Manage plants"),
         ),
+    ),
+    client_nav=ClientNavSpec(
+        label="Plants",
+        icon="sprout",
+        order=20,
+        routes=("", "new", "calendar", "{plant_id}", "{plant_id}/edit"),
     ),
     settings_panels=(
         SettingsPanelSpec(

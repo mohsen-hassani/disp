@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 
 import type { TileItem } from '../../api/generated';
+import { useNavigableDomains } from '../../hooks/useNavigableDomains';
 import { dateTime, relativeTime } from '../../lib/format';
 import { translateTileHref } from './tileLinks';
 
@@ -10,7 +11,8 @@ interface TileItemRowProps {
 }
 
 export function TileItemRow({ item }: TileItemRowProps): ReactElement {
-  const href = item.href ? translateTileHref(item.href) : null;
+  const navigable = useNavigableDomains();
+  const href = item.href ? translateTileHref(item.href, navigable) : null;
 
   return (
     <li className="flex items-start justify-between gap-3 py-1.5">

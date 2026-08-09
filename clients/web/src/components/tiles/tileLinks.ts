@@ -1,5 +1,4 @@
 import type { TileSpec } from '../../api/generated';
-import { MODULE_ROUTES } from '../layout/navItems';
 
 const API_PREFIX = '/api';
 
@@ -9,19 +8,32 @@ export function sortTileSpecs<T extends Pick<TileSpec, 'order' | 'key'>>(specs: 
 }
 
 /**
- * §13.7: strip the `/api` prefix and check the result against M04's
- * `MODULE_ROUTES` map — the one generic rule, with no per-module case.
- * Returns `null` for anything that isn't `/api/...` or whose module has no
- * registered screen, in which case the caller renders plain text instead
- * of a broken link.
+ * §13.7: strip the `/api` prefix and check the domain against the set of
+ * reachable ones — the one generic rule, with no per-module case. Returns
+ * `null` for anything that isn't `/api/...` or whose module has no screens,
+ * in which case the caller renders plain text instead of a broken link.
+ *
+ * `navigableDomains` is passed in rather than imported because it's now
+ * derived from the manifest at runtime (see `modules/registry.ts`), not a
+ * build-time constant. That's also why the transform stays a pure string
+ * rewrite: a module's routes are always `/<domain>/…`, so the UI path is
+ * exactly the API path minus `/api`.
  */
-export function translateTileHref(href: string): string | null {
+export function translateTileHref(
+  href: string,
+  navigableDomains: ReadonlySet<string>,
+): string | null {
   if (!href.startsWith(`${API_PREFIX}/`)) {
     return null;
   }
   const stripped = href.slice(API_PREFIX.length);
   const domain = stripped.split('/').filter(Boolean)[0];
-  return domain && domain in MODULE_ROUTES ? stripped : null;
+  return domain && navigableDomains.has(domain) ? stripped : null;
+}
+
+/** The `<domain>` half of a `<domain>.<name>` tile key. */
+export function tileKeyDomain(key: string): string {
+  return key.split('.')[0] ?? '';
 }
 
 /**

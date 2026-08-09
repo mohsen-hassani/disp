@@ -8,6 +8,10 @@ import {
   dashboardTiles,
   notesGet,
   notesList,
+  plantsCalendar,
+  plantsGet,
+  plantsHistory,
+  plantsList,
   settingsGet,
 } from './generated';
 import type { DashboardManifestResponse } from './generated';
@@ -236,6 +240,91 @@ export function noteDetailQueryOptions(noteId: string) {
     },
     // WEB-SPEC §10.2: ['notes','detail',id] — 60s staleTime, refetch on focus.
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export interface PlantsListFilters {
+  q?: string;
+}
+
+/**
+ * M14 §4: `PlantOut` already carries the list's badge rollups (`due_count`,
+ * `max_days_overdue`, `next_due_on`) — cursor pagination via
+ * `useInfiniteQuery`, same shape as `notesListInfiniteQueryOptions`. A short
+ * `staleTime` matters more here than for notes: those rollups are derived
+ * against "today" server-side (M14 §1), so a longer cache risks showing a
+ * due state that's already wrong after a date boundary.
+ */
+export function plantsListInfiniteQueryOptions(filters: PlantsListFilters) {
+  return infiniteQueryOptions({
+    queryKey: qk.plants.list(filters),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, response } = await plantsList({
+        query: { limit: 20, cursor: pageParam, q: filters.q || undefined },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load plants.');
+      }
+      return data;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/**
+ * A plant plus its intervals. 404 is handled by the route's `loader`, which
+ * turns it into `notFound()` — same pattern as `noteDetailQueryOptions`.
+ * Short `staleTime` for the same reason as the list: `days_overdue` on each
+ * interval is a server-computed fact about "today", not a stable property
+ * of the row (M14 §1).
+ */
+export function plantDetailQueryOptions(plantId: string) {
+  return queryOptions({
+    queryKey: qk.plants.detail(plantId),
+    queryFn: async () => {
+      const { data, error, response } = await plantsGet({ path: { plant_id: plantId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the plant.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** M14 §5's detail-screen "recent history" list. */
+export function plantHistoryQueryOptions(plantId: string) {
+  return queryOptions({
+    queryKey: qk.plants.history(plantId),
+    queryFn: async () => {
+      const { data, error, response } = await plantsHistory({ path: { plant_id: plantId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load care history.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** M14 §5's calendar screen: one month's entries, keyed by `month` so each month is its own cache entry. */
+export function plantCalendarQueryOptions(month: string) {
+  return queryOptions({
+    queryKey: qk.plants.calendar(month),
+    queryFn: async () => {
+      const { data, error, response } = await plantsCalendar({ query: { month } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the calendar.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 }

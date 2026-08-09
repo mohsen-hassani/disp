@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { type ReactElement, useId } from 'react';
 
 import { dashboardTile } from '../../api/generated';
 import type { TileData, TileSpec } from '../../api/generated';
 import { qk } from '../../api/queryKeys';
 import { useIntervalRefresh } from '../../hooks/useIntervalRefresh';
+import { useNavigableDomains } from '../../hooks/useNavigableDomains';
 import { dateTime, relativeTime } from '../../lib/format';
 import { ErrorBoundary } from '../feedback/ErrorBoundary';
 import { TileActionButton } from './TileActionButton';
+import { tileButtonClass } from './tileButton';
 import { TileError } from './TileError';
 import { TileItemRow } from './TileItemRow';
+import { tileKeyDomain } from './tileLinks';
 import { TileSkeleton } from './TileSkeleton';
 
 const MAX_VISIBLE_ITEMS = 5;
@@ -23,6 +27,16 @@ interface TileCardProps {
 function TileCardInner({ spec, initialData }: TileCardProps): ReactElement {
   const headingId = useId();
   const refreshMs = (spec.refresh_seconds ?? DEFAULT_REFRESH_SECONDS) * 1000;
+  const navigable = useNavigableDomains();
+
+  // §13.6: a manifest-declared button into the module's own screens. The
+  // owning domain is the tile key's prefix, so this stays a generic rule —
+  // and it renders only when that domain is actually reachable, so a module
+  // whose screens this client predates gets no dead link.
+  const navPath =
+    spec.nav && navigable.has(tileKeyDomain(spec.key))
+      ? `/${tileKeyDomain(spec.key)}${spec.nav.path ? `/${spec.nav.path}` : ''}`
+      : null;
 
   // §13.4: seeded from the bulk `/tiles` payload so there's no loading
   // flash for a tile already in it; `refetchIntervalInBackground: false`
@@ -108,8 +122,13 @@ function TileCardInner({ spec, initialData }: TileCardProps): ReactElement {
       )}
       {extraCount > 0 && <p className="text-text-muted mt-1 text-xs">+{extraCount} more</p>}
 
-      {actions.length > 0 && (
+      {(actions.length > 0 || navPath) && (
         <footer className="border-border mt-3 flex flex-wrap gap-2 border-t pt-3">
+          {navPath && spec.nav && (
+            <Link to={navPath} className={tileButtonClass}>
+              {spec.nav.label}
+            </Link>
+          )}
           {actions.map((action) => (
             <TileActionButton key={action.id} action={action} tileKey={spec.key} />
           ))}

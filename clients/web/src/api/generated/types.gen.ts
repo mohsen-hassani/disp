@@ -251,6 +251,40 @@ export type CareLogOut = {
 };
 
 /**
+ * ClientNavSpec
+ *
+ * How a module appears in the client's "Modules" navigation section.
+ *
+ * Declaring this states that the module *has* client screens and wants to be
+ * reachable. It does not create them: only a client that actually ships
+ * screens for the domain renders the entry, so a module ahead of its client
+ * degrades to dashboard-only rather than linking somewhere that 404s.
+ *
+ * The route namespace is always /<domain>/, derived rather than declared. The
+ * client translates tile deep links by stripping the /api prefix
+ * (/api/plants/x -> /plants/x), so a declarable base path could silently
+ * break every one of them.
+ */
+export type ClientNavSpec = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Icon
+     */
+    icon?: string;
+    /**
+     * Order
+     */
+    order?: number;
+    /**
+     * Routes
+     */
+    routes?: Array<string>;
+};
+
+/**
  * CompleteRequest
  */
 export type CompleteRequest = {
@@ -601,6 +635,7 @@ export type ModuleManifestOut = {
      * Notification Types
      */
     notification_types: Array<NotificationTypeSpec>;
+    client_nav?: ClientNavSpec | null;
 };
 
 /**
@@ -1016,6 +1051,27 @@ export type TileItem = {
 };
 
 /**
+ * TileNavSpec
+ *
+ * A navigation button in a tile's footer, pointing into the module's screens.
+ *
+ * Lives on TileSpec rather than TileData because it is static structure --
+ * identical for every render and every user -- unlike TileAction, which is
+ * attached per-render because its availability can vary. TileAction also
+ * cannot express this: its `method` is a mutation verb, never navigation.
+ */
+export type TileNavSpec = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Path
+     */
+    path?: string;
+};
+
+/**
  * TileSize
  */
 export type TileSize = 'small' | 'medium' | 'large';
@@ -1045,6 +1101,7 @@ export type TileSpec = {
      * Order
      */
     order?: number;
+    nav?: TileNavSpec | null;
 };
 
 /**

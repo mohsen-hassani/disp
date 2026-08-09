@@ -1,7 +1,9 @@
 from disp.core.contract import (
+    ClientNavSpec,
     ModuleManifest,
     NotificationTypeSpec,
     ScheduledJobSpec,
+    TileNavSpec,
     TileSize,
     TileSpec,
 )
@@ -20,7 +22,14 @@ MANIFEST = ModuleManifest(
             size=TileSize.MEDIUM,
             refresh_seconds=120,
             order=10,
+            nav=TileNavSpec(label="All notes"),
         ),
+    ),
+    client_nav=ClientNavSpec(
+        label="Notes",
+        icon="sticky-note",
+        order=10,
+        routes=("", "{note_id}"),
     ),
     settings_panels=(),
     scheduled_jobs=(

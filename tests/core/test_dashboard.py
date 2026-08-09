@@ -77,3 +77,40 @@ async def test_manifest_panel_schema_marks_secret_field_and_keeps_refs_local(
         def_name = ref.removeprefix("#/$defs/")
         assert "$defs" in schema
         assert def_name in schema["$defs"]
+
+
+# WEB-SPEC §12.2: a module's client surface (nav entry, route namespace, tile
+# nav button) is declared in its manifest rather than hard-coded in the client.
+
+
+async def test_manifest_exposes_client_nav_and_tile_nav(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    await _authed(client, db_session, "manifest-nav@example.com")
+
+    response = await client.get("/api/dashboard/manifest")
+
+    modules = {m["domain"]: m for m in response.json()["modules"]}
+    nav = modules["plants"]["client_nav"]
+    assert nav["label"] == "Plants"
+    assert nav["icon"] == "sprout"
+    # Advisory, but it must reach the client verbatim — a conformance test on
+    # the client side checks its registered routes against exactly this list.
+    assert "{plant_id}/edit" in nav["routes"]
+
+    tile = next(t for t in modules["plants"]["tiles"] if t["key"] == "plants.due")
+    assert tile["nav"] == {"label": "Manage plants", "path": ""}
+
+
+async def test_manifest_omits_client_nav_for_a_module_without_screens(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    """The synthetic "core" domain has no screens and must never claim nav —
+    it exists only to carry core-registered settings panels, and a non-null
+    client_nav here would put a dead "Core" entry in the client's nav."""
+    await _authed(client, db_session, "manifest-nonav@example.com")
+
+    response = await client.get("/api/dashboard/manifest")
+
+    modules = {m["domain"]: m for m in response.json()["modules"]}
+    assert modules["core"]["client_nav"] is None
