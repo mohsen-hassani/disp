@@ -116,3 +116,17 @@ export async function deleteNote(
 ): Promise<void> {
   await context.request.delete(`/api/notes/${id}`, { headers: authHeaders(accessToken) });
 }
+
+/**
+ * `plants.spec.ts`'s CRUD round trip drives creation/deletion through the
+ * UI itself (that's the point of the test) — this is only a `finally`-block
+ * safety net, mirroring `deleteNote` above, so a failed assertion mid-test
+ * doesn't leave the fixture behind for the next run.
+ */
+export async function deletePlant(
+  context: BrowserContext,
+  accessToken: string,
+  id: string,
+): Promise<void> {
+  await context.request.delete(`/api/plants/${id}`, { headers: authHeaders(accessToken) });
+}

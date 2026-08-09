@@ -10,17 +10,25 @@ import { makeTileSpec } from './fixtures';
 
 // Test 26.
 describe('translateTileHref', () => {
+  const navigable = new Set(['notes']);
+
   it('maps an /api/ path for a module with a registered screen to its UI route', () => {
-    expect(translateTileHref('/api/notes/abc')).toBe('/notes/abc');
+    expect(translateTileHref('/api/notes/abc', navigable)).toBe('/notes/abc');
   });
 
   it('returns null for a module with no registered screen', () => {
-    expect(translateTileHref('/api/unregistered-module/abc')).toBeNull();
+    expect(translateTileHref('/api/unregistered-module/abc', navigable)).toBeNull();
+  });
+
+  it('returns null once a module stops being navigable, without any code change', () => {
+    // The whole point of passing the set in: reachability is manifest-derived
+    // at runtime, so the same href resolves differently on two installs.
+    expect(translateTileHref('/api/notes/abc', new Set())).toBeNull();
   });
 
   it('returns null for a href that is not an /api/ path', () => {
-    expect(translateTileHref('/notes/abc')).toBeNull();
-    expect(translateTileHref('https://evil.example/notes/abc')).toBeNull();
+    expect(translateTileHref('/notes/abc', navigable)).toBeNull();
+    expect(translateTileHref('https://evil.example/notes/abc', navigable)).toBeNull();
   });
 });
 

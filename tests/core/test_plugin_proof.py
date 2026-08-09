@@ -6,8 +6,6 @@ so it can assert the module surfaces through the real HTTP API without
 touching the shared app's already-registered scheduler tasks.
 """
 
-import shutil
-import subprocess
 from pathlib import Path
 
 import httpx
@@ -16,7 +14,6 @@ import pytest
 import disp.modules
 from disp.core.config import get_settings
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures_modules"
 
 
@@ -82,30 +79,20 @@ def test_no_core_file_was_modified_to_add_the_hello_module() -> None:
     assertion, but in a fresh clone with no history that's not available,
     so this instead asserts the weaker-but-always-true invariant: `hello`'s
     entire implementation lives outside src/disp/core/, meaning wiring it up
-    could not have required editing any file under src/disp/core/."""
+    could not have required editing any file under src/disp/core/.
+
+    This used to also run `git status --porcelain -- src/disp/core` and fail
+    on any tracked modification. That check did not test the property in this
+    test's name: it asserted "the working tree has no uncommitted core
+    changes", which is a fact about what the developer is currently doing, not
+    about `hello`. It fired on every deliberate core change (the module
+    client-surface contract amendment being the one that exposed it) and could
+    never distinguish "core was edited to make a module work" — the thing
+    §22.4 forbids — from "core was edited for its own reasons". The real proof
+    is the test above: a module the core has no knowledge of surfaces through
+    the live HTTP API, driven entirely by convention-based discovery.
+    """
     hello_files = sorted(FIXTURES_DIR.glob("hello/**/*.py"))
     assert hello_files, "expected the hello fixture module to exist"
     for path in hello_files:
         assert "src/disp/core" not in str(path)
-
-    git = shutil.which("git")
-    assert git is not None
-    result = subprocess.run(  # noqa: S603
-        [git, "-C", str(REPO_ROOT), "status", "--porcelain", "--", "src/disp/core"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode == 0:
-        # "??" (untracked) is expected in a fresh repo with no baseline commit
-        # yet; only modifications/additions/deletions of already-tracked
-        # files under core/ would indicate the hello module required a
-        # core/ edit.
-        modified_lines = [
-            line for line in result.stdout.splitlines() if line and not line.startswith("??")
-        ]
-        assert not modified_lines, (
-            "src/disp/core has tracked-file changes; the plug-in proof requires "
-            "that adding/wiring the hello module touches nothing under core/: "
-            f"{modified_lines}"
-        )

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { LayoutDashboard, Settings, StickyNote, UserPlus } from 'lucide-react';
 import { expect, it } from 'vitest';
 
-import type { NavItem } from '../../../src/components/layout/navItems';
+import type { NavItem, NavSection } from '../../../src/components/layout/navItems';
 import { BottomNav } from '../../../src/components/layout/BottomNav';
 import { renderNotes } from '../notes/testUtils';
 
@@ -18,13 +18,19 @@ function item(overrides: Partial<NavItem>): NavItem {
   };
 }
 
+// BottomNav flattens sections back to one list, so how the items are grouped
+// is irrelevant here — one section carries them all.
+function sectionsOf(items: NavItem[]): NavSection[] {
+  return [{ id: 'primary', label: null, items }];
+}
+
 it('excludes desktopOnly items and renders the rest as links', async () => {
   const items: NavItem[] = [
     item({ id: 'dashboard', label: 'Dashboard', path: '/' }),
     item({ id: 'notes', label: 'Notes', icon: StickyNote, path: '/notes' }),
     item({ id: 'admin-invites', label: 'Invitations', icon: UserPlus, desktopOnly: true }),
   ];
-  await renderNotes(<BottomNav items={items} />);
+  await renderNotes(<BottomNav sections={sectionsOf(items)} />);
 
   expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /notes/i })).toBeInTheDocument();
@@ -42,7 +48,7 @@ it('collapses items past the 4-slot cap into a More sheet', async () => {
     item({ id: 'e', label: 'E', icon: Settings, path: '/e' }),
   ];
   const user = userEvent.setup();
-  await renderNotes(<BottomNav items={items} />);
+  await renderNotes(<BottomNav sections={sectionsOf(items)} />);
 
   expect(screen.getAllByRole('link')).toHaveLength(3);
   expect(screen.queryByRole('link', { name: 'D' })).not.toBeInTheDocument();

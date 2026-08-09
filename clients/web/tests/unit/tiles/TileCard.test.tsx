@@ -81,3 +81,38 @@ it('renders TileError with a working Retry when the request fails', async () => 
   expect(screen.getByRole('heading', { name: spec.title })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
 });
+
+// §13.6's manifest-declared nav button. `renderTile` seeds the manifest that
+// makes a domain reachable, so these two cases differ only in the tile key's
+// domain — no component-level knowledge of any particular module.
+it('renders a manifest-declared nav button linking into the module screens', async () => {
+  const spec = makeTileSpec({ key: 'notes.latest', nav: { label: 'All notes', path: '' } });
+  await renderTile(<TileCard spec={spec} initialData={makeTileData({ key: spec.key })} />);
+
+  expect(screen.getByRole('link', { name: 'All notes' })).toHaveAttribute('href', '/notes');
+});
+
+it('joins a nav sub-path under the module namespace', async () => {
+  const spec = makeTileSpec({ key: 'notes.latest', nav: { label: 'New', path: 'new' } });
+  await renderTile(<TileCard spec={spec} initialData={makeTileData({ key: spec.key })} />);
+
+  expect(screen.getByRole('link', { name: 'New' })).toHaveAttribute('href', '/notes/new');
+});
+
+it('omits the nav button for a module this client has no screens for', async () => {
+  // The tile still renders — only the link to nowhere is suppressed.
+  const spec = makeTileSpec({ nav: { label: 'Manage', path: '' } });
+  await renderTile(<TileCard spec={spec} initialData={makeTileData({ key: spec.key })} />);
+
+  expect(screen.queryByRole('link', { name: 'Manage' })).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Demo' })).toBeInTheDocument();
+});
+
+it('renders the footer for a nav button even when the tile has no actions', async () => {
+  const spec = makeTileSpec({ key: 'notes.latest', nav: { label: 'All notes', path: '' } });
+  await renderTile(
+    <TileCard spec={spec} initialData={makeTileData({ key: spec.key, actions: [] })} />,
+  );
+
+  expect(screen.getByRole('link', { name: 'All notes' })).toBeInTheDocument();
+});

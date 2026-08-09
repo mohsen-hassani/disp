@@ -4,6 +4,10 @@
 // discovers by failing confusingly later.
 import type {
   ApiTokenOut,
+  CalendarEntry,
+  CalendarOut,
+  CareIntervalOut,
+  CareLogOut,
   CreateApiTokenResponse,
   CreateInviteResponse,
   DashboardManifestResponse,
@@ -14,6 +18,9 @@ import type {
   MeResponse,
   NoteOut,
   PageNoteOut,
+  PagePlantOut,
+  PlantDetailOut,
+  PlantOut,
   TileData,
   TileSpec,
   TilesResponse,
@@ -89,6 +96,10 @@ export function mockManifest(
         tiles: [mockTileSpec()],
         notification_types: [],
         settings_panels: [],
+        // §12.2: nav entries and tile deep links are manifest-driven, so a
+        // module with screens must declare this or the client correctly
+        // treats it as dashboard-only — matching what the real backend sends.
+        client_nav: { label: 'Notes', icon: 'sticky-note', order: 10, routes: ['', '{note_id}'] },
       },
     ],
     ...overrides,
@@ -133,6 +144,84 @@ export function mockCreateInviteResponse(
     token: 'invite-token',
     accept_url: 'https://example.com/accept-invite?token=invite-token',
     expires_at: '2026-02-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function mockPlant(overrides: Partial<PlantOut> = {}): PlantOut {
+  return {
+    id: 'plant-1',
+    name: 'Monstera',
+    description: null,
+    care_notes: null,
+    has_image: false,
+    image_url: null,
+    due_count: 0,
+    max_days_overdue: 0,
+    next_due_on: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function mockCareInterval(overrides: Partial<CareIntervalOut> = {}): CareIntervalOut {
+  return {
+    id: 'interval-1',
+    plant_id: 'plant-1',
+    name: 'Water',
+    interval_days: 7,
+    next_due_on: '2026-01-08',
+    last_done_on: '2026-01-01',
+    active: true,
+    days_overdue: -7,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function mockPlantDetail(overrides: Partial<PlantDetailOut> = {}): PlantDetailOut {
+  return { ...mockPlant(), intervals: [mockCareInterval()], ...overrides };
+}
+
+export function mockPlantsPage(overrides: Partial<PagePlantOut> = {}): PagePlantOut {
+  return { items: [mockPlant()], next_cursor: null, has_more: false, ...overrides };
+}
+
+export function mockCareLog(overrides: Partial<CareLogOut> = {}): CareLogOut {
+  return {
+    id: 'log-1',
+    plant_id: 'plant-1',
+    interval_id: 'interval-1',
+    action_name: 'Water',
+    due_on: '2026-01-01',
+    completed_on: '2026-01-01',
+    days_late: 0,
+    note: null,
+    created_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+export function mockCalendarEntry(overrides: Partial<CalendarEntry> = {}): CalendarEntry {
+  return {
+    day: '2026-01-05',
+    kind: 'due',
+    plant_id: 'plant-1',
+    plant_name: 'Monstera',
+    interval_id: 'interval-1',
+    action_name: 'Water',
+    ...overrides,
+  };
+}
+
+export function mockCalendarOut(overrides: Partial<CalendarOut> = {}): CalendarOut {
+  return {
+    month: '2026-01',
+    start: '2026-01-01',
+    end: '2026-01-31',
+    entries: [mockCalendarEntry()],
     ...overrides,
   };
 }

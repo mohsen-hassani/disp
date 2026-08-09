@@ -34,6 +34,9 @@ function manifest(): DashboardManifestResponse {
         tiles: [],
         notification_types: [],
         settings_panels: [],
+        // §12.2: the nav entry comes from the manifest, so a module without
+        // this is dashboard-only no matter what screens the client ships.
+        client_nav: { label: 'Notes', icon: 'sticky-note', order: 10, routes: [] },
       },
     ],
   };

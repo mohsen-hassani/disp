@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MODULE_ROUTES } from '../../../src/components/layout/navItems';
+import { MODULE_SCREENS } from '../../../src/modules/registry';
 
 // Test 27 / WEB-SPEC §13's own rule: "No component in
 // `src/components/tiles/` may contain a conditional on a specific tile key
@@ -19,7 +19,7 @@ const tileFiles = import.meta.glob('../../../src/components/tiles/**/*.{ts,tsx}'
 }) as Record<string, string>;
 
 describe('src/components/tiles has no module-domain string literals', () => {
-  const domains = Object.keys(MODULE_ROUTES);
+  const domains = [...MODULE_SCREENS];
   const files = Object.entries(tileFiles);
 
   it('has at least one domain and one file to scan (a vacuous pass would hide a broken test)', () => {

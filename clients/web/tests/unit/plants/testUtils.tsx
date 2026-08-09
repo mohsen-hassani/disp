@@ -8,26 +8,40 @@ import {
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-import { ToastProvider } from '../../../src/components/feedback/ToastProvider';
 import { qk } from '../../../src/api/queryKeys';
+import { ToastProvider } from '../../../src/components/feedback/ToastProvider';
 import { mockManifest } from '../../mocks/fixtures';
 
 /**
- * Tile components render `<Link>` (§13.7's href translation) and use
- * TanStack Query, so a bare RTL `render()` isn't enough — this wraps both
- * a real (memory-history) router and a fresh `QueryClient` per call, the
- * way `main.tsx` composes the real app.
+ * Same shape as `tests/unit/notes/testUtils.tsx`'s `renderNotes` — plants
+ * components render `<Link>` (row navigation, edit) and use TanStack Query.
+ * `router.load()` must be awaited before `render()`: the router starts in a
+ * `pending` match state and won't render children until it resolves.
  */
-export async function renderTile(children: ReactNode) {
+export async function renderPlants(children: ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   // §12.2/§13.7: which module domains are reachable is manifest-derived, and
   // `routes/_app.tsx`'s loader guarantees the manifest is in cache before any
-  // of this renders. Seeding it here reproduces that guarantee — without it
-  // every component under test sees an empty manifest on first paint and
-  // renders the correct-but-unhelpful "nothing is navigable" state.
-  queryClient.setQueryData(qk.dashboard.manifest(), mockManifest());
+  // of this renders — reproduced here the same way `renderNotes` does.
+  queryClient.setQueryData(
+    qk.dashboard.manifest(),
+    mockManifest({
+      modules: [
+        {
+          domain: 'plants',
+          name: 'Plants',
+          version: '1.0.0',
+          description: null,
+          tiles: [],
+          notification_types: [],
+          settings_panels: [],
+          client_nav: { label: 'Plants', icon: 'sprout', order: 20, routes: [] },
+        },
+      ],
+    }),
+  );
   const rootRoute = createRootRoute({
     component: () => (
       <QueryClientProvider client={queryClient}>
@@ -39,10 +53,6 @@ export async function renderTile(children: ReactNode) {
     routeTree: rootRoute,
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  // The router starts in a `pending` match state; RouterProvider renders
-  // nothing until it resolves. `render()` alone doesn't wait for that (no
-  // loader here means it resolves on a microtask, not synchronously), so
-  // every caller must `await` this helper.
   await router.load();
-  return { ...render(<RouterProvider router={router} />), queryClient };
+  return { ...render(<RouterProvider router={router} />), queryClient, router };
 }
