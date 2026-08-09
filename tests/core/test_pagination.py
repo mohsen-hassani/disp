@@ -23,7 +23,7 @@ def test_decode_invalid_cursor_raises_app_error() -> None:
         decode_cursor("not-valid-base64!!!")
 
     assert exc_info.value.status_code == 400
-    assert exc_info.value.code == "pagination.invalid_cursor"
+    assert exc_info.value.code == "core.pagination.invalid_cursor"
 
 
 def test_decode_malformed_json_raises_app_error() -> None:
@@ -34,4 +34,4 @@ def test_decode_malformed_json_raises_app_error() -> None:
     with pytest.raises(AppError) as exc_info:
         decode_cursor(payload)
 
-    assert exc_info.value.code == "pagination.invalid_cursor"
+    assert exc_info.value.code == "core.pagination.invalid_cursor"

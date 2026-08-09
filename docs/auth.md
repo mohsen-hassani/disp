@@ -12,8 +12,8 @@ what they can and can't do.
 | Lifetime | `DISP_ACCESS_TOKEN_TTL_SECONDS` (default 900s / 15 min) | `DISP_REFRESH_TOKEN_TTL_SECONDS` (default 30 days), rotated on every use | Indefinite by default, or `expires_in_days` at creation |
 | Storage | Not stored — self-contained, verified by signature | `sha256(token)` in `core.sessions.refresh_token_hash` | `sha256(token)` in `core.api_tokens.token_hash` |
 | Revocable before expiry? | **No** (see below) | Yes — the whole family | Yes — sets `revoked_at` |
-| Can create a PAT? | Yes | N/A (never sent to `/api/auth/tokens`) | **No** — `403 auth.pat_cannot_mint` |
-| Can change the password? | Yes | N/A | **No** — `403 auth.pat_insufficient` |
+| Can create a PAT? | Yes | N/A (never sent to `/api/auth/tokens`) | **No** — `403 core.auth.pat_cannot_mint` |
+| Can change the password? | Yes | N/A | **No** — `403 core.auth.pat_insufficient` |
 
 ## The 15-minute access-token exposure window
 
@@ -34,13 +34,13 @@ original login share a `family_id`.
 If a refresh token is presented that has *already* been rotated (or revoked), this is treated as
 a symptom of theft — the presented token was stolen and the legitimate client already rotated past
 it, or vice versa. The server responds by revoking **every session in that family**, logging a
-`WARNING` with `user_id` and `family_id`, and returning `401 auth.refresh_token_reused`. This
+`WARNING` with `user_id` and `family_id`, and returning `401 core.auth.refresh_token_reused`. This
 means a single successful theft-and-use of a stolen refresh token forces re-authentication on
 every device sharing that login, not just the compromised one — a deliberate, conservative choice.
 
 Refresh calls are cookie-authenticated (`disp_refresh`, `HttpOnly`), so they additionally require
 the `X-Requested-With: disp` header as CSRF protection (§10.5) — a browser cross-site request
-cannot set that header, so its absence is treated as `403 auth.csrf_required`.
+cannot set that header, so its absence is treated as `403 core.auth.csrf_required`.
 
 ## Personal access tokens (PATs)
 
@@ -48,7 +48,7 @@ PATs are the credential the `disp` CLI actually uses day to day: `disp login` ex
 password for a short-lived access token internally, immediately mints a PAT with that access
 token, and discards the password and the access token — only the PAT is ever written to
 `~/.config/disp/config.toml`. This is why every PAT-authenticated request has `auth_method ==
-"api_token"`, and why the two restrictions above (`auth.pat_cannot_mint`, `auth.pat_insufficient`)
+"api_token"`, and why the two restrictions above (`core.auth.pat_cannot_mint`, `core.auth.pat_insufficient`)
 matter in practice: a leaked PAT (e.g. an exfiltrated CLI config file) cannot be used to mint a
 longer-lived credential or lock the real owner out by changing their password.
 

@@ -151,7 +151,7 @@ it('renders the server-recomputed next_due_on after completing, not a client com
 // the dialog doesn't reset the form on a rejected submit.
 it('surfaces a future-date rejection inline without losing the note field', async () => {
   fetchSpy = stateFullFetch(interval(), async () =>
-    problemResponse(400, 'plants.future_date', { detail: 'completed_on cannot be in the future.' }),
+    problemResponse(400, 'modules.plants.future_date', { detail: 'completed_on cannot be in the future.' }),
   );
   const user = userEvent.setup();
   await renderPlants(<PlantDetailPage plantId="plant-1" />);

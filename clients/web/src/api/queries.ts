@@ -111,7 +111,7 @@ export function filterDirtyValues(
   );
 }
 
-// Appendix D, verbatim. `settings.decryption_failed` is a real operational
+// Appendix D, verbatim. `core.settings.decryption_failed` is a real operational
 // signal (the server's encryption key changed) the user needs to escalate,
 // not a generic retryable error — it does NOT go through the generic 5xx
 // toast copy.
@@ -120,7 +120,7 @@ const DECRYPTION_FAILED_COPY =
 const PERMISSION_DENIED_COPY = "You don't have permission to do that.";
 
 export function describeSettingsError(problem: ProblemDetail): string {
-  if (problem.code === 'settings.decryption_failed') {
+  if (problem.code === 'core.settings.decryption_failed') {
     return DECRYPTION_FAILED_COPY;
   }
   if (problem.status === 403) {

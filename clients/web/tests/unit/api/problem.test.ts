@@ -8,7 +8,7 @@ const VALID_PROBLEM: ProblemDetail = {
   status: 404,
   detail: 'No note with that id.',
   instance: '/api/notes/abc',
-  code: 'notes.not_found',
+  code: 'modules.notes.not_found',
   request_id: 'req-123',
 };
 
@@ -37,13 +37,13 @@ describe('parseProblem', () => {
   it('tolerates a non-conforming body (HTML proxy error page) without throwing', () => {
     const res = new Response(null, { status: 502 });
     const problem = parseProblem(res, '<html><body>502 Bad Gateway</body></html>');
-    expect(problem.code).toBe('internal_error');
+    expect(problem.code).toBe('core.platform.internal_error');
     expect(problem.status).toBe(502);
   });
 
   it('tolerates an empty body without throwing', () => {
     const res = new Response(null, { status: 500 });
     expect(() => parseProblem(res, undefined)).not.toThrow();
-    expect(parseProblem(res, undefined).code).toBe('internal_error');
+    expect(parseProblem(res, undefined).code).toBe('core.platform.internal_error');
   });
 });

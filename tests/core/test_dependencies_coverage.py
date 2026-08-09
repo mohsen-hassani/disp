@@ -22,7 +22,7 @@ async def test_pat_for_disabled_user_returns_403(
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {plaintext}"})
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.account_disabled"
+    assert response.json()["code"] == "core.auth.account_disabled"
 
 
 async def test_access_token_with_expired_exp_returns_401(client: httpx.AsyncClient) -> None:
@@ -38,7 +38,7 @@ async def test_access_token_with_expired_exp_returns_401(client: httpx.AsyncClie
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.token_expired"
+    assert response.json()["code"] == "core.auth.token_expired"
 
 
 async def test_access_token_with_non_uuid_sub_returns_401(client: httpx.AsyncClient) -> None:
@@ -58,7 +58,7 @@ async def test_access_token_with_non_uuid_sub_returns_401(client: httpx.AsyncCli
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_token"
+    assert response.json()["code"] == "core.auth.invalid_token"
 
 
 async def test_access_token_for_nonexistent_user_returns_401(client: httpx.AsyncClient) -> None:
@@ -74,7 +74,7 @@ async def test_access_token_for_nonexistent_user_returns_401(client: httpx.Async
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_token"
+    assert response.json()["code"] == "core.auth.invalid_token"
 
 
 async def test_access_token_for_disabled_user_returns_403(
@@ -96,7 +96,7 @@ async def test_access_token_for_disabled_user_returns_403(
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.account_disabled"
+    assert response.json()["code"] == "core.auth.account_disabled"
 
 
 async def test_optional_user_returns_none_without_header(db_session: AsyncSession) -> None:

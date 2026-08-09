@@ -135,7 +135,7 @@ async def test_require_raises_app_error_when_denied(db_session: AsyncSession) ->
         await require(db_session, current_user_for(stranger), "read", RESOURCE_TYPE, "nope")
 
     assert exc_info.value.status_code == 403
-    assert exc_info.value.code == "acl.forbidden"
+    assert exc_info.value.code == "core.acl.forbidden"
 
 
 async def test_require_succeeds_when_permitted(db_session: AsyncSession) -> None:

@@ -39,7 +39,7 @@ function requestTo(pathname: string, extraHeaders: HeadersInit = {}): Request {
 
 // Case 9: a 401 on /auth/refresh itself does not recurse.
 it('does not attempt a refresh when the failing request is /auth/refresh itself', async () => {
-  const original401 = problemResponse(401, 'auth.invalid_refresh_token');
+  const original401 = problemResponse(401, 'core.auth.invalid_refresh_token');
   const request = requestTo('/api/auth/refresh');
 
   const result = await handleUnauthorizedResponse(original401, request);
@@ -50,7 +50,7 @@ it('does not attempt a refresh when the failing request is /auth/refresh itself'
 
 // Case 10: an already-retried-once request is not retried again.
 it('does not retry a request that already carries the retry marker', async () => {
-  const original401 = problemResponse(401, 'auth.invalid_token');
+  const original401 = problemResponse(401, 'core.auth.invalid_token');
   const request = requestTo('/api/notes', { 'X-Disp-Retried': '1' });
 
   const result = await handleUnauthorizedResponse(original401, request);
@@ -70,7 +70,7 @@ it('single-flights a refresh across three concurrent 401s and replays all three'
     return Promise.resolve(new Response('{}', { status: 200 }));
   });
 
-  const original401 = problemResponse(401, 'auth.invalid_token');
+  const original401 = problemResponse(401, 'core.auth.invalid_token');
   const requests = [requestTo('/api/notes'), requestTo('/api/notes/1'), requestTo('/api/notes/2')];
 
   const results = await Promise.all(
@@ -103,9 +103,9 @@ it('single-flights a refresh across three concurrent 401s and replays all three'
 });
 
 it('hard-logs-out on auth.refresh_token_reused instead of retrying', async () => {
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.refresh_token_reused'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.refresh_token_reused'));
 
-  const original401 = problemResponse(401, 'auth.invalid_token');
+  const original401 = problemResponse(401, 'core.auth.invalid_token');
   const result = await handleUnauthorizedResponse(original401, requestTo('/api/notes'));
 
   expect(result).toBe(original401);
@@ -114,9 +114,9 @@ it('hard-logs-out on auth.refresh_token_reused instead of retrying', async () =>
 });
 
 it('soft-logs-out when the refresh attempt itself fails for an unrelated reason', async () => {
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.invalid_refresh_token'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.invalid_refresh_token'));
 
-  const original401 = problemResponse(401, 'auth.invalid_token');
+  const original401 = problemResponse(401, 'core.auth.invalid_token');
   const result = await handleUnauthorizedResponse(original401, requestTo('/api/notes'));
 
   expect(result).toBe(original401);

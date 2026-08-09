@@ -99,7 +99,7 @@ async def test_reading_another_users_note_returns_404(db_session: AsyncSession) 
     with pytest.raises(AppError) as exc_info:
         await get_note(db_session, current_user_for(stranger), note.id)
     assert exc_info.value.status_code == 404
-    assert exc_info.value.code == "notes.not_found"
+    assert exc_info.value.code == "modules.notes.not_found"
 
 
 # Case 48: share with 'read' lets the grantee read but not update (update
@@ -123,7 +123,7 @@ async def test_share_read_permits_read_forbids_write(db_session: AsyncSession) -
     with pytest.raises(AppError) as exc_info:
         await update_note(db_session, grantee_cu, note.id, NoteUpdate(body="hacked"))
     assert exc_info.value.status_code == 403
-    assert exc_info.value.code == "acl.forbidden"
+    assert exc_info.value.code == "core.acl.forbidden"
 
 
 # Case 49: full-text search matches on title and body.

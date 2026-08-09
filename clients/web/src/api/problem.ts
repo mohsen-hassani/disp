@@ -48,7 +48,7 @@ export function parseProblem(res: Response, body: unknown): ProblemDetail {
     status: res.status,
     detail: 'The server returned an unexpected response.',
     instance: res.url,
-    code: 'internal_error',
+    code: 'core.platform.internal_error',
     request_id: '',
   };
 }

@@ -83,9 +83,9 @@ export function LoginPage(): ReactElement {
     }
 
     const { problem, retryAfterSeconds } = result.error;
-    if (problem.code === 'auth.invalid_credentials') {
+    if (problem.code === 'core.auth.invalid_credentials') {
       setFormError(INVALID_CREDENTIALS_COPY);
-    } else if (problem.code === 'auth.account_disabled') {
+    } else if (problem.code === 'core.auth.account_disabled') {
       setFormError(ACCOUNT_DISABLED_COPY);
     } else if (problem.status === 429) {
       setRetryAfter(retryAfterSeconds ?? DEFAULT_RETRY_AFTER_SECONDS);

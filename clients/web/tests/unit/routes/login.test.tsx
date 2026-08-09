@@ -76,7 +76,7 @@ it('falls back to / when next in the URL is an absolute URL', async () => {
 
 // Case 6: a 401 shows one generic error, identical for both failure modes.
 it('shows the same generic error for both invalid-credentials scenarios', async () => {
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.invalid_credentials'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.invalid_credentials'));
 
   render(<LoginPage />);
   await fillAndSubmit('unknown@example.com', 'whatever-password');
@@ -84,7 +84,7 @@ it('shows the same generic error for both invalid-credentials scenarios', async 
   const firstError = await screen.findByRole('alert');
   expect(firstError).toHaveTextContent(/that email and password don't match/i);
 
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.invalid_credentials'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.invalid_credentials'));
   await fillAndSubmit('known@example.com', 'wrong-password');
 
   const secondError = await screen.findByRole('alert');
@@ -119,7 +119,7 @@ it('does not render the security banner when merely anonymous', () => {
 // Case 7: a 429 disables submit for Retry-After seconds with a countdown.
 it('disables submit and counts down on a 429', async () => {
   fetchSpy.mockResolvedValueOnce(
-    problemResponse(429, 'rate_limited', { headers: { 'Retry-After': '5' } }),
+    problemResponse(429, 'core.platform.rate_limited', { headers: { 'Retry-After': '5' } }),
   );
 
   render(<LoginPage />);

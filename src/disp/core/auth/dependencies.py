@@ -37,7 +37,7 @@ class CurrentUser:
 def _missing_credentials_error() -> AppError:
     return AppError(
         status_code=401,
-        code="auth.missing_credentials",
+        code="core.auth.missing_credentials",
         title="Missing credentials",
         detail="An Authorization header is required.",
         headers={"WWW-Authenticate": "Bearer"},
@@ -47,7 +47,7 @@ def _missing_credentials_error() -> AppError:
 def _malformed_credentials_error() -> AppError:
     return AppError(
         status_code=401,
-        code="auth.malformed_credentials",
+        code="core.auth.malformed_credentials",
         title="Malformed credentials",
         detail="The Authorization header must be of the form 'Bearer <token>'.",
     )
@@ -56,7 +56,7 @@ def _malformed_credentials_error() -> AppError:
 def _invalid_token_error() -> AppError:
     return AppError(
         status_code=401,
-        code="auth.invalid_token",
+        code="core.auth.invalid_token",
         title="Invalid token",
         detail="The access token is invalid.",
     )
@@ -65,7 +65,7 @@ def _invalid_token_error() -> AppError:
 def _account_disabled_error() -> AppError:
     return AppError(
         status_code=403,
-        code="auth.account_disabled",
+        code="core.auth.account_disabled",
         title="Account disabled",
         detail="This account has been disabled.",
     )
@@ -78,14 +78,14 @@ async def _resolve_pat(session: AsyncSession, credential: str) -> CurrentUser:
     if token_row is None:
         raise AppError(
             status_code=401,
-            code="auth.invalid_token",
+            code="core.auth.invalid_token",
             title="Invalid token",
             detail="The access token is invalid.",
         )
     if token_row.revoked_at is not None:
         raise AppError(
             status_code=401,
-            code="auth.token_revoked",
+            code="core.auth.token_revoked",
             title="Token revoked",
             detail="This token has been revoked.",
         )
@@ -93,7 +93,7 @@ async def _resolve_pat(session: AsyncSession, credential: str) -> CurrentUser:
     if token_row.expires_at is not None and token_row.expires_at < now:
         raise AppError(
             status_code=401,
-            code="auth.token_expired",
+            code="core.auth.token_expired",
             title="Token expired",
             detail="This token has expired.",
         )
@@ -125,7 +125,7 @@ async def _resolve_access_token(session: AsyncSession, credential: str) -> Curre
     except ExpiredAccessTokenError as exc:
         raise AppError(
             status_code=401,
-            code="auth.token_expired",
+            code="core.auth.token_expired",
             title="Token expired",
             detail="This token has expired.",
         ) from exc
@@ -181,7 +181,7 @@ async def require_admin(user: Annotated[CurrentUser, Depends(current_user)]) -> 
     if not user.is_admin:
         raise AppError(
             status_code=403,
-            code="auth.admin_required",
+            code="core.auth.admin_required",
             title="Admin required",
             detail="This action requires administrator privileges.",
         )

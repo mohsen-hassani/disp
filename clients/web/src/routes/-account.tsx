@@ -80,7 +80,7 @@ export function AccountPage(): ReactElement {
       const problem = parseProblem(response ?? new Response(null, { status: 0 }), error);
       if (problem.status === 401) {
         setError('currentPassword', { message: CURRENT_PASSWORD_INCORRECT_COPY });
-      } else if (problem.code === 'auth.password_policy') {
+      } else if (problem.code === 'core.auth.password_policy') {
         setError('newPassword', { message: problem.detail });
       } else if (problem.status === 429) {
         setFormError('Too many attempts. Please try again later.');

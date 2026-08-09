@@ -83,7 +83,7 @@ async def test_dashboard_unknown_tile_returns_404(
     response = await client.get("/api/dashboard/tiles/nonexistent.tile")
 
     assert response.status_code == 404
-    assert response.json()["code"] == "dashboard.tile_not_found"
+    assert response.json()["code"] == "core.dashboard.tile_not_found"
 
 
 # Case 55: every route in the OpenAPI document has a unique operation_id.

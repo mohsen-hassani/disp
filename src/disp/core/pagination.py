@@ -26,7 +26,7 @@ def decode_cursor(cursor: str) -> CursorData:
     except Exception as exc:
         raise AppError(
             status_code=400,
-            code="pagination.invalid_cursor",
+            code="core.pagination.invalid_cursor",
             title="Invalid cursor",
             detail="The pagination cursor could not be decoded.",
         ) from exc

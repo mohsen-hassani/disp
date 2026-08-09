@@ -60,7 +60,7 @@ it('accepts a valid invite, stores the token, and navigates to /', async () => {
 
 it('shows the expired-invite screen on 410 auth.invite_expired', async () => {
   window.history.replaceState(null, '', '/accept-invite?token=abc123');
-  fetchSpy.mockResolvedValueOnce(problemResponse(410, 'auth.invite_expired'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(410, 'core.auth.invite_expired'));
 
   render(<AcceptInvitePage />);
   const user = userEvent.setup();

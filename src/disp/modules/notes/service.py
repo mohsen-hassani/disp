@@ -28,7 +28,7 @@ PURGE_AFTER_DAYS = 30
 def _not_found_error() -> AppError:
     return AppError(
         status_code=404,
-        code="notes.not_found",
+        code="modules.notes.not_found",
         title="Note not found",
         detail="The note does not exist or is not visible to you.",
     )
@@ -62,7 +62,7 @@ async def _authorize(session: AsyncSession, user: CurrentUser, note_id: UUID, ac
         raise _not_found_error()
     raise AppError(
         status_code=403,
-        code="acl.forbidden",
+        code="core.acl.forbidden",
         title="Forbidden",
         detail="You do not have permission to perform this action.",
     )
@@ -97,7 +97,7 @@ async def list_notes(
         except ValueError as exc:
             raise AppError(
                 status_code=400,
-                code="pagination.invalid_cursor",
+                code="core.pagination.invalid_cursor",
                 title="Invalid cursor",
                 detail="The pagination cursor could not be decoded.",
             ) from exc
@@ -105,7 +105,7 @@ async def list_notes(
         if seek_note is None:
             raise AppError(
                 status_code=400,
-                code="pagination.invalid_cursor",
+                code="core.pagination.invalid_cursor",
                 title="Invalid cursor",
                 detail="The pagination cursor could not be decoded.",
             )
@@ -204,7 +204,7 @@ async def share_note(
     if email.strip().lower() == user.email.strip().lower():
         raise AppError(
             status_code=400,
-            code="notes.cannot_share_with_self",
+            code="modules.notes.cannot_share_with_self",
             title="Cannot share with yourself",
             detail="You cannot share a note with your own account.",
         )
@@ -214,7 +214,7 @@ async def share_note(
     if target_user is None:
         raise AppError(
             status_code=404,
-            code="notes.user_not_found",
+            code="modules.notes.user_not_found",
             title="User not found",
             detail="No user is registered with that email address.",
         )

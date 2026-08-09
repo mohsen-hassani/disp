@@ -68,7 +68,7 @@ it('renders TileError with a working Retry when the request fails', async () => 
         status: 500,
         detail: 'boom',
         instance: '/api/dashboard/tiles/demo.tile',
-        code: 'internal_error',
+        code: 'core.platform.internal_error',
         request_id: 'req-1',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },

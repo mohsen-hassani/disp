@@ -218,7 +218,7 @@ async def get_tile(
     if spec is None or provider is None:
         raise AppError(
             status_code=404,
-            code="dashboard.tile_not_found",
+            code="core.dashboard.tile_not_found",
             title="Tile not found",
             detail=f"No tile is registered under key {tile_key!r}.",
         )

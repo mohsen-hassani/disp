@@ -206,7 +206,7 @@ export function useShareNote(noteId: string) {
 
 // §7.3's table, the subset relevant to a note mutation with no per-field mapping of its own.
 export function describeNoteError(problem: ProblemDetail): string {
-  if (problem.code === 'acl.forbidden') {
+  if (problem.code === 'core.acl.forbidden') {
     return "You don't have permission to do that.";
   }
   if (problem.status >= 500) {

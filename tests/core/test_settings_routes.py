@@ -75,7 +75,7 @@ async def test_put_unknown_field_returns_422(
     response = await client.put("/api/settings/core", json={"nonexistent_field": 1})
 
     assert response.status_code == 422
-    assert response.json()["code"] == "validation_error"
+    assert response.json()["code"] == "core.platform.validation_error"
 
 
 async def test_get_unknown_domain_returns_404(
@@ -86,4 +86,4 @@ async def test_get_unknown_domain_returns_404(
     response = await client.get("/api/settings/nonexistent.domain")
 
     assert response.status_code == 404
-    assert response.json()["code"] == "settings.domain_not_found"
+    assert response.json()["code"] == "core.settings.domain_not_found"

@@ -194,7 +194,7 @@ async def test_future_last_done_is_rejected(db_session: AsyncSession) -> None:
             ),
         )
     assert exc.value.status_code == 400
-    assert exc.value.code == "plants.future_date"
+    assert exc.value.code == "modules.plants.future_date"
 
 
 # --------------------------------------------------------------------------
@@ -294,7 +294,7 @@ async def test_completion_can_be_backdated_but_not_future_dated(
             water.id,
             CompleteRequest(completed_on=TODAY + timedelta(days=1)),
         )
-    assert exc.value.code == "plants.future_date"
+    assert exc.value.code == "modules.plants.future_date"
 
     with pytest.raises(AppError) as too_old:
         await service.complete_interval(
@@ -304,7 +304,7 @@ async def test_completion_can_be_backdated_but_not_future_dated(
             water.id,
             CompleteRequest(completed_on=TODAY - timedelta(days=400)),
         )
-    assert too_old.value.code == "plants.date_too_old"
+    assert too_old.value.code == "modules.plants.date_too_old"
 
 
 async def test_changing_the_cadence_rederives_the_next_due_date(
@@ -472,7 +472,7 @@ async def test_read_share_permits_reading_but_not_completing(db_session: AsyncSe
     with pytest.raises(AppError) as exc:
         await service.complete_interval(db_session, guest, plant.id, water.id, CompleteRequest())
     assert exc.value.status_code == 403
-    assert exc.value.code == "acl.forbidden"
+    assert exc.value.code == "core.acl.forbidden"
 
 
 async def test_interval_from_another_plant_is_not_addressable(db_session: AsyncSession) -> None:
@@ -486,7 +486,7 @@ async def test_interval_from_another_plant_is_not_addressable(db_session: AsyncS
     with pytest.raises(AppError) as exc:
         await service.complete_interval(db_session, cu, first.id, water.id, CompleteRequest())
     assert exc.value.status_code == 404
-    assert exc.value.code == "plants.interval_not_found"
+    assert exc.value.code == "modules.plants.interval_not_found"
 
 
 # --------------------------------------------------------------------------
@@ -574,7 +574,7 @@ async def test_calendar_rejects_a_malformed_month(db_session: AsyncSession) -> N
     with pytest.raises(AppError) as exc:
         await service.month_calendar(db_session, cu, month="2026-13")
     assert exc.value.status_code == 400
-    assert exc.value.code == "plants.invalid_month"
+    assert exc.value.code == "modules.plants.invalid_month"
 
 
 async def test_calendar_projection_is_bounded_for_a_daily_interval(
@@ -841,7 +841,7 @@ async def test_image_type_is_sniffed_not_taken_on_trust(
     with pytest.raises(AppError) as exc:
         await service.set_plant_image(db_session, cu, plant.id, data=b"<html>not an image</html>")
     assert exc.value.status_code == 415
-    assert exc.value.code == "plants.unsupported_image"
+    assert exc.value.code == "modules.plants.unsupported_image"
     # Rejected before anything touched the disk.
     assert not media_dir.exists() or list(media_dir.glob("*")) == []
 
@@ -858,7 +858,7 @@ async def test_oversized_image_is_rejected(
     with pytest.raises(AppError) as exc:
         await service.set_plant_image(db_session, cu, plant.id, data=PNG_1PX + b"\x00" * 200)
     assert exc.value.status_code == 413
-    assert exc.value.code == "plants.image_too_large"
+    assert exc.value.code == "modules.plants.image_too_large"
 
 
 async def test_deleting_an_image_removes_the_file_and_the_pointer(
@@ -874,7 +874,7 @@ async def test_deleting_an_image_removes_the_file_and_the_pointer(
     with pytest.raises(AppError) as exc:
         await service.get_plant_image(db_session, cu, plant.id)
     assert exc.value.status_code == 404
-    assert exc.value.code == "plants.no_image"
+    assert exc.value.code == "modules.plants.no_image"
 
 
 async def test_image_of_a_plant_you_cannot_see_is_a_404(
@@ -888,7 +888,7 @@ async def test_image_of_a_plant_you_cannot_see_is_a_404(
     with pytest.raises(AppError) as exc:
         await service.get_plant_image(db_session, stranger, plant.id)
     assert exc.value.status_code == 404
-    assert exc.value.code == "plants.not_found"
+    assert exc.value.code == "modules.plants.not_found"
 
 
 # --------------------------------------------------------------------------

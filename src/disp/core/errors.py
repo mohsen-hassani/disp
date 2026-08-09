@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import structlog
@@ -12,6 +13,31 @@ from slowapi.util import get_remote_address
 logger = structlog.get_logger(__name__)
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
+
+# Every `code` in a problem response is "<realm>.<subsystem>.<error>": realm is
+# `core` for anything the backbone owns and `modules` for anything a module
+# owns. Three segments, always.
+#
+# Deliberately NOT contract.KEY_RE, which is the *other* dotted namespace in
+# this platform (tile keys, job names, notification types) and has exactly two
+# segments. The two used to be indistinguishable on sight — "notes.not_found"
+# an error, "notes.latest" a tile key — and the ambiguity is why a proposed
+# milestone reached for a third shape ("core.files.too_large") without anyone
+# noticing it matched neither. Segment count now tells them apart.
+#
+# Enforced at construction rather than at response time so a bad code fails in
+# the test that raises it, not in front of a client.
+ERROR_CODE_RE = re.compile(r"^(core|modules)\.[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,63}$")
+
+
+def validate_error_code(code: str) -> str:
+    if not ERROR_CODE_RE.match(code):
+        raise ValueError(
+            f"error code {code!r} must be '<core|modules>.<subsystem>.<error>' "
+            f"(three segments, matching {ERROR_CODE_RE.pattern})"
+        )
+    return code
+
 
 # Shared across app.py (SlowAPIMiddleware + app.state.limiter) and any router
 # that needs a `@limiter.limit(...)` decorator. Toggled on/off at startup via
@@ -44,7 +70,7 @@ class AppError(Exception):
     ) -> None:
         super().__init__(detail)
         self.status_code = status_code
-        self.code = code
+        self.code = validate_error_code(code)
         self.title = title
         self.detail = detail
         self.headers = headers
@@ -69,7 +95,7 @@ def problem_response(
         status=status_code,
         detail=detail,
         instance=request.url.path,
-        code=code,
+        code=validate_error_code(code),
         request_id=_request_id(request),
         errors=errors,
     )
@@ -101,7 +127,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return problem_response(
             request,
             status_code=422,
-            code="validation_error",
+            code="core.platform.validation_error",
             title="Validation error",
             detail="The request did not match the expected schema.",
             errors=errors,
@@ -113,7 +139,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return problem_response(
             request,
             status_code=exc.status_code,
-            code="http_error",
+            code="core.platform.http_error",
             title=str(exc.detail) if exc.detail else "HTTP error",
             detail=str(exc.detail) if exc.detail else "An HTTP error occurred.",
             headers=headers,
@@ -125,7 +151,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return problem_response(
             request,
             status_code=429,
-            code="rate_limited",
+            code="core.platform.rate_limited",
             title="Rate limited",
             detail="Too many requests. Please try again later.",
             headers={"Retry-After": retry_after},
@@ -142,7 +168,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return problem_response(
             request,
             status_code=500,
-            code="internal_error",
+            code="core.platform.internal_error",
             title="Internal server error",
             detail="An unexpected error occurred.",
         )

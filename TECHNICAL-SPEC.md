@@ -876,10 +876,10 @@ Request (`application/json`):
 Algorithm (order is normative):
 
 1. Look up the user by `lower(email)`.
-2. If not found: call `verify_password(password, DUMMY_HASH)` and discard the result, then return `401 auth.invalid_credentials`.
-3. If found but `is_active` is false: still perform the verify, then return `403 auth.account_disabled`.
-4. If `password_hash` is NULL: return `401 auth.invalid_credentials`.
-5. Verify. On failure return `401 auth.invalid_credentials`.
+2. If not found: call `verify_password(password, DUMMY_HASH)` and discard the result, then return `401 core.auth.invalid_credentials`.
+3. If found but `is_active` is false: still perform the verify, then return `403 core.auth.account_disabled`.
+4. If `password_hash` is NULL: return `401 core.auth.invalid_credentials`.
+5. Verify. On failure return `401 core.auth.invalid_credentials`.
 6. Create a session: new `family_id = uuid4()`, refresh token per §10.5, `expires_at = now + REFRESH_TOKEN_TTL`, record `user_agent` (truncated to 256 chars) and `ip_address` from `X-Forwarded-For` (first hop) or the peer address.
 7. Issue an access JWT per §10.6.
 
@@ -888,10 +888,10 @@ Responses:
 | Status | Body |
 |---|---|
 | `200` | `{"access_token": "...", "token_type": "bearer", "expires_in": 900, "user": {UserOut}}` |
-| `401` | problem, `code=auth.invalid_credentials` |
-| `403` | problem, `code=auth.account_disabled` |
+| `401` | problem, `code=core.auth.invalid_credentials` |
+| `403` | problem, `code=core.auth.account_disabled` |
 | `422` | validation problem |
-| `429` | problem, `code=rate_limited` |
+| `429` | problem, `code=core.platform.rate_limited` |
 
 `200` MUST also set:
 
@@ -901,7 +901,7 @@ Set-Cookie: disp_refresh=<token>; Path=/api/auth; HttpOnly; Secure; SameSite=Lax
 
 `Secure` is omitted only when `DISP_COOKIE_SECURE` is false. `Domain` is set only when configured.
 
-The error message text for `auth.invalid_credentials` MUST be identical for unknown-email and wrong-password cases.
+The error message text for `core.auth.invalid_credentials` MUST be identical for unknown-email and wrong-password cases.
 
 ### 10.5 Refresh tokens and rotation
 
@@ -912,15 +912,15 @@ The error message text for `auth.invalid_credentials` MUST be identical for unkn
 **`POST /api/auth/refresh`**
 
 - Reads the token from the `disp_refresh` cookie. It MUST NOT accept the token from a request body or header.
-- MUST require the header `X-Requested-With: disp`; absence returns `403 auth.csrf_required`. This is the CSRF defence, since the endpoint is cookie-authenticated.
+- MUST require the header `X-Requested-With: disp`; absence returns `403 core.auth.csrf_required`. This is the CSRF defence, since the endpoint is cookie-authenticated.
 
 Algorithm:
 
 1. Hash the presented token; look up the session.
-2. Not found → `401 auth.invalid_refresh_token`.
-3. `revoked_at IS NOT NULL` **or** `rotated_at IS NOT NULL` → **reuse detected**: revoke every session in the same `family_id` (set `revoked_at = now()`, `revoked_reason = 'reuse_detected'`), log at `WARNING` with `user_id` and `family_id`, clear the cookie, return `401 auth.refresh_token_reused`.
-4. `expires_at < now()` → mark `revoked_reason='expired'`, return `401 auth.refresh_token_expired`.
-5. User inactive → `403 auth.account_disabled`.
+2. Not found → `401 core.auth.invalid_refresh_token`.
+3. `revoked_at IS NOT NULL` **or** `rotated_at IS NOT NULL` → **reuse detected**: revoke every session in the same `family_id` (set `revoked_at = now()`, `revoked_reason = 'reuse_detected'`), log at `WARNING` with `user_id` and `family_id`, clear the cookie, return `401 core.auth.refresh_token_reused`.
+4. `expires_at < now()` → mark `revoked_reason='expired'`, return `401 core.auth.refresh_token_expired`.
+5. User inactive → `403 core.auth.account_disabled`.
 6. Otherwise rotate: create a new session row with the same `family_id`, `previous_session_id` set to the current row; set the current row's `rotated_at = now()`, `revoked_at = now()`, `revoked_reason='rotation'`. Issue a new access token and set a new cookie.
 
 Steps 1–6 MUST run inside a single transaction with `SELECT … FOR UPDATE` on the session row.
@@ -952,7 +952,7 @@ Endpoints:
 | `POST` | `/api/auth/tokens` | **access_token only** | Creates a token. Body: `{"name": str, "expires_in_days": int \| null}`. Returns `201` with the plaintext in field `token`. |
 | `DELETE` | `/api/auth/tokens/{id}` | any | Sets `revoked_at`. `204`. `404` if not the caller's. |
 
-**A PAT MUST NOT be usable to create another PAT.** `POST /api/auth/tokens` MUST reject `auth_method == "api_token"` with `403 auth.pat_cannot_mint`. This prevents a leaked token from minting persistence.
+**A PAT MUST NOT be usable to create another PAT.** `POST /api/auth/tokens` MUST reject `auth_method == "api_token"` with `403 core.auth.pat_cannot_mint`. This prevents a leaked token from minting persistence.
 
 `last_used_at` MUST be updated on successful authentication, but at most once per 60 seconds per token (compare before writing) to avoid a write on every request.
 
@@ -970,21 +970,21 @@ async def current_user(
 
 Resolution:
 
-1. No `Authorization` header → `401 auth.missing_credentials`, response includes `WWW-Authenticate: Bearer`.
-2. Header not matching `^Bearer (.+)$` → `401 auth.malformed_credentials`.
-3. Credential starts with `disp_pat_` → PAT path: hash, look up, reject if `revoked_at` set (`401 auth.token_revoked`) or `expires_at` past (`401 auth.token_expired`); load user; reject inactive (`403 auth.account_disabled`); update `last_used_at` subject to the 60-second rule; return `CurrentUser(auth_method="api_token", token_id=...)`.
-4. Otherwise JWT path: decode and validate; on any `PyJWTError` → `401 auth.invalid_token`; expired → `401 auth.token_expired`; load user by `sub`; missing → `401 auth.invalid_token`; inactive → `403 auth.account_disabled`; return `CurrentUser(auth_method="access_token", token_id=None)`.
+1. No `Authorization` header → `401 core.auth.missing_credentials`, response includes `WWW-Authenticate: Bearer`.
+2. Header not matching `^Bearer (.+)$` → `401 core.auth.malformed_credentials`.
+3. Credential starts with `disp_pat_` → PAT path: hash, look up, reject if `revoked_at` set (`401 core.auth.token_revoked`) or `expires_at` past (`401 core.auth.token_expired`); load user; reject inactive (`403 core.auth.account_disabled`); update `last_used_at` subject to the 60-second rule; return `CurrentUser(auth_method="api_token", token_id=...)`.
+4. Otherwise JWT path: decode and validate; on any `PyJWTError` → `401 core.auth.invalid_token`; expired → `401 core.auth.token_expired`; load user by `sub`; missing → `401 core.auth.invalid_token`; inactive → `403 core.auth.account_disabled`; return `CurrentUser(auth_method="access_token", token_id=None)`.
 
 The refresh cookie MUST NOT authenticate any endpoint other than `/api/auth/refresh` and `/api/auth/logout`.
 
-`require_admin` wraps `current_user` and raises `403 auth.admin_required` when `is_admin` is false.
+`require_admin` wraps `current_user` and raises `403 core.auth.admin_required` when `is_admin` is false.
 
 ### 10.9 Invites
 
 **`POST /api/auth/invites`** — admin only. Body `{"email": str, "is_admin": bool = false}`.
 
-- Rejects an email that already belongs to a user (`409 auth.user_exists`).
-- Rejects a second pending invite for the same email (`409 auth.invite_pending`) — enforced by `uq_invites_pending_email`.
+- Rejects an email that already belongs to a user (`409 core.auth.user_exists`).
+- Rejects a second pending invite for the same email (`409 core.auth.invite_pending`) — enforced by `uq_invites_pending_email`.
 - Token: `secrets.token_urlsafe(32)`, stored hashed.
 - Returns `201` with `{"id", "email", "token", "accept_url", "expires_at"}` where `accept_url = f"{DISP_BASE_URL}/accept-invite?token={token}"`. The plaintext token appears only here. Delivery to the invitee is the admin's problem; the system sends no email.
 
@@ -994,11 +994,11 @@ The refresh cookie MUST NOT authenticate any endpoint other than `/api/auth/refr
 
 **`POST /api/auth/accept-invite`** — unauthenticated. Body `{"token", "display_name", "password"}`.
 
-1. Hash and look up. Not found → `404 auth.invite_not_found`.
-2. `accepted_at` set → `409 auth.invite_used`.
-3. `expires_at` past → `410 auth.invite_expired`.
-4. Validate the password policy → `422 auth.password_policy` with the specific reason in `detail`.
-5. If a user with that email now exists → `409 auth.user_exists`.
+1. Hash and look up. Not found → `404 core.auth.invite_not_found`.
+2. `accepted_at` set → `409 core.auth.invite_used`.
+3. `expires_at` past → `410 core.auth.invite_expired`.
+4. Validate the password policy → `422 core.auth.password_policy` with the specific reason in `detail`.
+5. If a user with that email now exists → `409 core.auth.user_exists`.
 6. Create the user with `is_admin` from the invite; mark the invite accepted; create a session and issue tokens exactly as login does.
 7. Return `201` with the login response body and the refresh cookie.
 
@@ -1006,7 +1006,7 @@ Steps 1–6 run in one transaction.
 
 ### 10.10 Password change and the OIDC stub
 
-**`POST /api/auth/password`** — authenticated, **access_token only** (`403 auth.pat_insufficient` for PATs). Body `{"current_password", "new_password"}`. Verifies the current password, validates the new one, rehashes, then revokes **all** sessions for the user except the caller's current family, with reason `password_change`. Returns `204`.
+**`POST /api/auth/password`** — authenticated, **access_token only** (`403 core.auth.pat_insufficient` for PATs). Body `{"current_password", "new_password"}`. Verifies the current password, validates the new one, rehashes, then revokes **all** sessions for the user except the caller's current family, with reason `password_change`. Returns `204`.
 
 **`GET /api/auth/me`** — returns `UserOut` plus `auth_method`.
 
@@ -1230,7 +1230,7 @@ class SettingsStore:
 - Non-secret values are stored in `value_json`; secrets are `json.dumps`-ed, encoded UTF-8, encrypted with Fernet using `DISP_SETTINGS_KEY`, and stored in `value_encrypted`.
 - `get_all` with `reveal_secrets=False` returns `"***"` for secrets. Only the notifier task uses `reveal_secrets=True`.
 - Changing a key from non-secret to secret (or back) is allowed; `set` rewrites both columns consistently to satisfy `ck_settings_one_value`.
-- Decryption failure (wrong key) MUST raise `SettingsDecryptionError`, be logged at `ERROR`, and surface as `500 settings.decryption_failed` — never as a silent `None`.
+- Decryption failure (wrong key) MUST raise `SettingsDecryptionError`, be logged at `ERROR`, and surface as `500 core.settings.decryption_failed` — never as a silent `None`.
 - `user_id=None` denotes a global setting; only admins may write global settings through the HTTP API.
 
 **HTTP:**
@@ -1288,7 +1288,7 @@ A provider MUST be given at most 3 seconds (`asyncio.timeout`); a timeout is tre
 
 ### 16.3 `GET /api/dashboard/tiles/{tile_key}`
 
-Renders one tile. `404 dashboard.tile_not_found` for an unknown key. Errors here **do** propagate as `500`, since the caller asked for that specific tile.
+Renders one tile. `404 core.dashboard.tile_not_found` for an unknown key. Errors here **do** propagate as `500`, since the caller asked for that specific tile.
 
 ---
 
@@ -1314,6 +1314,8 @@ Renders one tile. `404 dashboard.tile_not_found` for an unknown key. Errors here
 | `404` | Not found, or found but not visible to the caller |
 | `409` | Conflict with current state |
 | `410` | Gone (expired invite) |
+| `413` | Request payload exceeds a size limit |
+| `415` | Payload media type not accepted |
 | `422` | Schema validation failure |
 | `429` | Rate limited; `Retry-After` header set |
 | `500` | Unhandled server error |
@@ -1331,7 +1333,7 @@ All errors use RFC 9457 `application/problem+json`:
   "status": 401,
   "detail": "The email or password is incorrect.",
   "instance": "/api/auth/login",
-  "code": "auth.invalid_credentials",
+  "code": "core.auth.invalid_credentials",
   "request_id": "01JF3K…"
 }
 ```
@@ -1342,13 +1344,15 @@ All errors use RFC 9457 `application/problem+json`:
 
 ### 17.4 Exception handlers
 
-`create_app` MUST register handlers for: `AppError` (the project's base class carrying `status`, `code`, `title`, `detail`), `RequestValidationError`, `HTTPException`, and `Exception`. The catch-all handler logs the full traceback at `ERROR` with the request id and returns a generic `500 internal_error` whose `detail` is `"An unexpected error occurred."` — never the exception text.
+`create_app` MUST register handlers for: `AppError` (the project's base class carrying `status`, `code`, `title`, `detail`), `RequestValidationError`, `HTTPException`, and `Exception`. The catch-all handler logs the full traceback at `ERROR` with the request id and returns a generic `500 core.platform.internal_error` whose `detail` is `"An unexpected error occurred."` — never the exception text.
+
+Codes raised by these handlers rather than by a domain use the `core.platform.*` subsystem (Appendix A).
 
 ### 17.5 Pagination
 
 Cursor-based. Query parameters `limit` (default 20, min 1, max 100) and `cursor` (opaque).
 
-The cursor is `base64url(json.dumps({"ts": <iso8601>, "id": "<uuid>"}))`, encoding the sort key of the last returned item. Decoding failure → `400 pagination.invalid_cursor`.
+The cursor is `base64url(json.dumps({"ts": <iso8601>, "id": "<uuid>"}))`, encoding the sort key of the last returned item. Decoding failure → `400 core.pagination.invalid_cursor`.
 
 Response envelope for every list endpoint:
 
@@ -1488,9 +1492,9 @@ MUST, in one transaction: insert the note, call `grant(resource_type="notes.note
 
 **`DELETE`** requires `write`. Sets `deleted_at`. Returns `204`. Publishes `NoteDeleted`. Repeating the call on an already-deleted note returns `404`.
 
-**`POST /{note_id}/share`** requires `owner`. Body `{"email": str, "permission": "read"|"write"}`. Resolves the email to a user (`404 notes.user_not_found` if absent), then `grant`s. Returns `204`. Sharing with oneself returns `400 notes.cannot_share_with_self`.
+**`POST /{note_id}/share`** requires `owner`. Body `{"email": str, "permission": "read"|"write"}`. Resolves the email to a user (`404 modules.notes.user_not_found` if absent), then `grant`s. Returns `204`. Sharing with oneself returns `400 modules.notes.cannot_share_with_self`.
 
-All single-note routes: resolve the note, then `require(action)`. Absent or not readable → `404 notes.not_found`.
+All single-note routes: resolve the note, then `require(action)`. Absent or not readable → `404 modules.notes.not_found`.
 
 ### 18.4 Events
 
@@ -1682,6 +1686,10 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 
 Overall line coverage ≥ 85 %. `src/disp/core/auth/` ≥ 95 %. The build fails below either threshold.
 
+The overall gate is `pytest --cov-fail-under=85`. The per-directory gate is a separate
+`coverage report --include=… --fail-under=95` over the same `.coverage` file, because `coverage.py`
+has no per-path threshold setting. Both live in `./dev test`; add a line there per gated directory.
+
 ### 22.3 Required test cases
 
 **Auth**
@@ -1691,13 +1699,13 @@ Overall line coverage ≥ 85 %. `src/disp/core/auth/` ≥ 95 %. The build fails 
 4. Login with unknown email and login with wrong password return byte-identical bodies (modulo `request_id`) and both `401`.
 5. Login on a disabled account returns `403`.
 6. Refresh rotates: new access token issued, new cookie set, old refresh token now rejected.
-7. Refresh replay of a rotated token returns `401 auth.refresh_token_reused` **and** every session in the family has `revoked_at` set.
+7. Refresh replay of a rotated token returns `401 core.auth.refresh_token_reused` **and** every session in the family has `revoked_at` set.
 8. Refresh without `X-Requested-With` returns `403`.
-9. Expired refresh token returns `401 auth.refresh_token_expired`.
+9. Expired refresh token returns `401 core.auth.refresh_token_expired`.
 10. Logout revokes the family and clears the cookie; a second logout still returns `204`.
 11. PAT creation returns plaintext once; the same value never appears in the list response.
 12. A PAT authenticates a normal endpoint successfully.
-13. A PAT is rejected by `POST /api/auth/tokens` with `403 auth.pat_cannot_mint`.
+13. A PAT is rejected by `POST /api/auth/tokens` with `403 core.auth.pat_cannot_mint`.
 14. A PAT is rejected by `POST /api/auth/password`.
 15. A revoked PAT returns `401`; an expired PAT returns `401`.
 16. `last_used_at` updates on first use and does not update again within 60 seconds.
@@ -1925,7 +1933,7 @@ The implementation is complete when every item below is demonstrably true.
 
 **Auth**
 8. Login, refresh rotation, logout, invite acceptance, PAT creation, and password change all behave exactly as §10 specifies.
-9. Refresh-token replay revokes the family and returns `401 auth.refresh_token_reused`.
+9. Refresh-token replay revokes the family and returns `401 core.auth.refresh_token_reused`.
 10. A PAT and an access token for the same user resolve to equivalent `CurrentUser` values.
 11. A PAT cannot create a PAT or change a password.
 12. Unknown-email and wrong-password logins are indistinguishable.
@@ -1971,41 +1979,79 @@ The implementer MUST NOT build: any web UI; the plants, habits, or shopping-list
 
 ## Appendix A — Error code registry
 
-Every `code` the API may emit. New codes require a specification amendment.
+### Naming (normative)
+
+Every `code` is **three segments**: `<realm>.<subsystem>.<error>`.
+
+- `realm` is `core` for anything the backbone owns, `modules` for anything a module owns.
+- `subsystem` is the core subsystem (`auth`, `acl`, `pagination`, `dashboard`, `settings`, `platform`)
+  or the module's domain (`notes`, `plants`).
+- `platform` is the subsystem for codes raised by the exception handlers themselves (§17.4), which
+  belong to no domain.
+
+Enforced at construction by `ERROR_CODE_RE` in `src/disp/core/errors.py`:
+
+```
+^(core|modules)\.[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,63}$
+```
+
+This is deliberately **not** `KEY_RE` (§8.1), the platform's other dotted namespace — tile keys, job
+names, notification types — which has exactly two segments. The two were indistinguishable on sight
+until the segment count separated them: `modules.notes.not_found` was an error code and `notes.latest` a tile
+key, and nothing but context said which. See `milestones/server/M21-error-code-namespace.md`.
+
+### Registry
+
+Every `core.*` code the API may emit. New codes require a specification amendment.
+
+**Module-owned codes are registered in the module's own specification**, not here — see
+`src/disp/modules/plants/TECHNICAL-SPEC.md` §18 for `modules.plants.*`. The `modules.notes.*` codes
+appear below because `notes` is specified in this document (§18), not because module codes belong in
+the backbone registry.
 
 | Code | Status | Meaning |
 |---|---|---|
-| `auth.missing_credentials` | 401 | No `Authorization` header |
-| `auth.malformed_credentials` | 401 | Header is not `Bearer <token>` |
-| `auth.invalid_credentials` | 401 | Wrong email or password |
-| `auth.invalid_token` | 401 | JWT failed validation or user missing |
-| `auth.token_expired` | 401 | Access token or PAT expired |
-| `auth.token_revoked` | 401 | PAT revoked |
-| `auth.invalid_refresh_token` | 401 | Refresh token unknown |
-| `auth.refresh_token_expired` | 401 | Refresh token past expiry |
-| `auth.refresh_token_reused` | 401 | Rotated token replayed; family revoked |
-| `auth.csrf_required` | 403 | `X-Requested-With` missing |
-| `auth.account_disabled` | 403 | `is_active` false |
-| `auth.admin_required` | 403 | Admin-only route |
-| `auth.pat_cannot_mint` | 403 | PAT tried to create a PAT |
-| `auth.pat_insufficient` | 403 | PAT used on an access-token-only route |
-| `auth.password_policy` | 422 | New password rejected |
-| `auth.user_exists` | 409 | Email already registered |
-| `auth.invite_pending` | 409 | Pending invite exists for that email |
-| `auth.invite_used` | 409 | Invite already accepted |
-| `auth.invite_not_found` | 404 | Invite token unknown |
-| `auth.invite_expired` | 410 | Invite past expiry |
-| `acl.forbidden` | 403 | Permission rank too low |
-| `pagination.invalid_cursor` | 400 | Cursor could not be decoded |
-| `dashboard.tile_not_found` | 404 | Unknown tile key |
-| `settings.domain_not_found` | 404 | No settings panel for that domain |
-| `settings.decryption_failed` | 500 | Wrong or rotated `SETTINGS_KEY` |
-| `notes.not_found` | 404 | Note absent or not readable |
-| `notes.user_not_found` | 404 | Share target email unknown |
-| `notes.cannot_share_with_self` | 400 | Share target is the caller |
-| `rate_limited` | 429 | Rate limit exceeded |
-| `validation_error` | 422 | Request schema violation |
-| `internal_error` | 500 | Unhandled exception |
+| `core.auth.missing_credentials` | 401 | No `Authorization` header |
+| `core.auth.malformed_credentials` | 401 | Header is not `Bearer <token>` |
+| `core.auth.invalid_credentials` | 401 | Wrong email or password |
+| `core.auth.invalid_token` | 401 | JWT failed validation or user missing |
+| `core.auth.token_expired` | 401 | Access token or PAT expired |
+| `core.auth.token_revoked` | 401 | PAT revoked |
+| `core.auth.invalid_refresh_token` | 401 | Refresh token unknown |
+| `core.auth.refresh_token_expired` | 401 | Refresh token past expiry |
+| `core.auth.refresh_token_reused` | 401 | Rotated token replayed; family revoked |
+| `core.auth.csrf_required` | 403 | `X-Requested-With` missing |
+| `core.auth.account_disabled` | 403 | `is_active` false |
+| `core.auth.admin_required` | 403 | Admin-only route |
+| `core.auth.pat_cannot_mint` | 403 | PAT tried to create a PAT |
+| `core.auth.pat_insufficient` | 403 | PAT used on an access-token-only route |
+| `core.auth.password_policy` | 422 | New password rejected |
+| `core.auth.user_exists` | 409 | Email already registered |
+| `core.auth.invite_pending` | 409 | Pending invite exists for that email |
+| `core.auth.invite_used` | 409 | Invite already accepted |
+| `core.auth.invite_not_found` | 404 | Invite token unknown |
+| `core.auth.invite_expired` | 410 | Invite past expiry |
+| `core.acl.forbidden` | 403 | Permission rank too low |
+| `core.pagination.invalid_cursor` | 400 | Cursor could not be decoded |
+| `core.dashboard.tile_not_found` | 404 | Unknown tile key |
+| `core.settings.domain_not_found` | 404 | No settings panel for that domain |
+| `core.settings.decryption_failed` | 500 | Wrong or rotated `SETTINGS_KEY` — see the note below |
+| `core.platform.rate_limited` | 429 | Rate limit exceeded |
+| `core.platform.validation_error` | 422 | Request schema violation |
+| `core.platform.http_error` | 4xx/5xx | A bare `HTTPException` reached the handler (§17.4) |
+| `core.platform.internal_error` | 500 | Unhandled exception |
+| `modules.notes.not_found` | 404 | Note absent or not readable |
+| `modules.notes.user_not_found` | 404 | Share target email unknown |
+| `modules.notes.cannot_share_with_self` | 400 | Share target is the caller |
+
+> **`core.settings.decryption_failed` is registered but never raised.** `settings_store.py` logs a
+> `settings_decryption_failed` *event* on a decryption failure but emits no problem response with this
+> code, while the web client carries a branch for it (`clients/web/src/api/queries.ts`). Found during
+> the M21 rename and left as-is: making the registry honest means either raising it or deleting it, and
+> that is a behaviour change, not a rename. Resolve it deliberately rather than by accident.
+
+> **`core.platform.http_error` was emitted but unregistered** until M21 — `errors.py`'s `HTTPException`
+> handler has always produced it. It is listed now so the registry's opening claim is true.
 
 ---
 
@@ -2077,7 +2123,7 @@ Content-Type: application/problem+json
 
 {"type":"about:blank","title":"Forbidden","status":403,
  "detail":"You do not have write access to this note.",
- "instance":"/api/notes/9a2f1c74-…","code":"acl.forbidden",
+ "instance":"/api/notes/9a2f1c74-…","code":"core.acl.forbidden",
  "request_id":"01JF3KXYZ"}
 ```
 

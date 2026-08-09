@@ -289,15 +289,15 @@ export function useDeletePlantImage() {
   });
 }
 
-// M14 §6's counterpart to `describeNoteError` — `plants.future_date` /
-// `plants.date_too_old` (both 400s from completing/back-dating an interval)
+// M14 §6's counterpart to `describeNoteError` — `modules.plants.future_date` /
+// `modules.plants.date_too_old` (both 400s from completing/back-dating an interval)
 // are deliberately left out: those are surfaced inline next to the date
 // field they belong to, not as a generic toast (M14 §5, §7 case 3).
 export function describePlantError(problem: ProblemDetail): string {
-  if (problem.code === 'acl.forbidden') {
+  if (problem.code === 'core.acl.forbidden') {
     return "You don't have permission to do that.";
   }
-  if (problem.code === 'plants.no_image') {
+  if (problem.code === 'modules.plants.no_image') {
     return "This plant's photo is missing.";
   }
   if (problem.status >= 500) {

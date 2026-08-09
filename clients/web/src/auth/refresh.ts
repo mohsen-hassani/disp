@@ -23,7 +23,7 @@ const RETRY_HEADER = 'X-Disp-Retried';
 // refresh-and-retry logic on themselves — doing so would recurse into the
 // exact request that's already failing. Bootstrap (§8.3) and the login/
 // accept-invite screens (§8.7/§8.8) inspect their own direct call's
-// response for auth.refresh_token_reused independently of this interceptor.
+// response for core.auth.refresh_token_reused independently of this interceptor.
 const NO_RETRY_PATHNAMES = new Set([
   '/api/auth/refresh',
   '/api/auth/login',
@@ -84,7 +84,7 @@ async function performRefresh(): Promise<RefreshResult> {
   }
 
   const problem = parseProblem(result.response, result.error);
-  return { outcome: problem.code === 'auth.refresh_token_reused' ? 'reused' : 'failed' };
+  return { outcome: problem.code === 'core.auth.refresh_token_reused' ? 'reused' : 'failed' };
 }
 
 // Single-flighted: refresh tokens are one-time-use and rotate on every call,

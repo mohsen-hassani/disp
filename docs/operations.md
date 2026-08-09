@@ -96,7 +96,7 @@ Every HTTP request log line includes `request_id`, which also appears in every `
 `media` volume (`/data/media/plants` in `docker-compose.yml`, `DISP_PLANTS_MEDIA_ROOT`), which
 keeps `pg_dump` small and text-only but puts them outside every backup above. Restoring only the
 database gives you every plant, schedule and care log back with its photo pointer intact and the
-image itself missing (`GET /api/plants/{id}/image` then returns `404 plants.no_image` — it degrades
+image itself missing (`GET /api/plants/{id}/image` then returns `404 modules.plants.no_image` — it degrades
 rather than erroring, but the photo is gone).
 
 Back the volume up alongside the dump, e.g.:
@@ -188,11 +188,11 @@ This procedure was executed against a real dump of the dev database as part of w
 | Key | Rotation impact | Procedure |
 |---|---|---|
 | `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call. |
-| `DISP_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
+| `DISP_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 core.settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
 | Postgres credentials (`POSTGRES_PASSWORD`) | None to application data; only affects new connections. | Update the password in Postgres and in `.env`'s `DISP_DATABASE_URL`(`_SYNC`)/`POSTGRES_PASSWORD`, then restart `api` and `worker`. |
 
 Neither key rotation requires a database migration — both are purely environment-variable changes plus, for `DISP_SETTINGS_KEY`, the manual re-encryption pass described above.
 
 ## Rate limits (§17.6)
 
-Enabled by default (`DISP_RATE_LIMIT_ENABLED=true` in production). A `429` response always carries a `Retry-After` header and `code=rate_limited`. If legitimate traffic is being throttled, check `DISP_RATE_LIMIT_ENABLED` and the specific limiter hit (login: 5/minute per email; PAT creation: 20/hour per user; password change: 5/hour per user; default: 300/minute per remote address) before disabling rate limiting entirely.
+Enabled by default (`DISP_RATE_LIMIT_ENABLED=true` in production). A `429` response always carries a `Retry-After` header and `code=core.platform.rate_limited`. If legitimate traffic is being throttled, check `DISP_RATE_LIMIT_ENABLED` and the specific limiter hit (login: 5/minute per email; PAT creation: 20/hour per user; password change: 5/hour per user; default: 300/minute per remote address) before disabling rate limiting entirely.

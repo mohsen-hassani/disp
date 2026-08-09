@@ -7,11 +7,11 @@ Guidance for Claude Code when working in this repository.
 DISP: a self-hosted personal platform (FastAPI backbone + plug-in module contract + built-in auth
 + a Typer CLI). Built end-to-end from `TECHNICAL-SPEC.md`, a normative spec — if you're asked to
 extend this project, that spec (and `docs/`) is the source of truth, not assumptions from other
-FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M20` for
+FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M21` for
 the full build history, including every resolved spec ambiguity and bug found along the way.
 
 A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
-sequence at `milestones/client/M00-M14` — unlike the backend's `milestones/server/M00-M20`, those
+sequence at `milestones/client/M00-M14` — unlike the backend's `milestones/server/M00-M21`, those
 started as prospective (not-yet-built) briefs, not retrospective build logs.
 `milestones/client/M00-M14` are all implemented (see `README.md`'s "Web client" section for what
 each covers, and "Web client" below for testing/dev notes specific to it). `M12`'s own
@@ -68,6 +68,30 @@ A module under `src/disp/modules/<domain>/` may **not**:
 
 Violating any of these fails the build, not a lint warning. See `docs/adding-a-module.md` for the
 four-step recipe to add a new one.
+
+## Error codes are three segments; manifest keys are two
+
+Two dotted namespaces exist and they used to be indistinguishable on sight. Since
+`milestones/server/M21-error-code-namespace.md` the segment count tells them apart:
+
+| | Shape | Validated by | Examples |
+|---|---|---|---|
+| **Error codes** (RFC 9457 `code`) | `<core\|modules>.<subsystem>.<error>` | `ERROR_CODE_RE` in `core/errors.py` | `core.auth.token_expired`, `core.platform.rate_limited`, `modules.notes.not_found` |
+| **Manifest keys** (tiles, jobs, panels, notification types) | `<domain>.<name>` | `KEY_RE` in `core/contract.py` | `notes.latest`, `plants.daily_check` |
+
+`validate_error_code()` runs in `AppError.__init__` *and* in `problem_response`, so a malformed code
+fails where it is raised rather than in front of a client. A module MUST NOT re-code a core error into
+its own namespace — a client should handle "rate limited" once, not once per domain.
+
+Two things to know before trusting a code you read somewhere:
+
+- **`milestones/server/M00`–`M17` and `milestones/client/M00`–`M14` are frozen build logs** and still
+  quote the pre-M21 two-segment shape (`auth.token_expired`). They record what was built at the time;
+  they are not current reference. `TECHNICAL-SPEC.md` Appendix A is. (`milestones/server/M18`–`M21` are
+  live specs and do use the current shape.)
+- **Appendix A registers `core.*` only.** Module-owned codes live in the module's own spec —
+  `src/disp/modules/plants/TECHNICAL-SPEC.md` §18. `modules.notes.*` is in Appendix A only because
+  `notes` is specified in that document.
 
 ## Settings panel JSON Schema (`GET /api/dashboard/manifest`)
 
@@ -132,7 +156,7 @@ branches explicitly). Don't reintroduce a hardcoded module list in either derive
 
 - **Plant photos are files on a volume, not rows.** `DISP_PLANTS_MEDIA_ROOT`, mounted as
   `media:/data/media` in `docker-compose.yml`. `pg_dump` therefore does **not** contain them, and a
-  database-only restore fails *gracefully* (`404 plants.no_image`) which makes the gap easy to miss
+  database-only restore fails *gracefully* (`404 modules.plants.no_image`) which makes the gap easy to miss
   — `docs/operations.md` has the volume backup cron.
 - **The media root default is a *relative* path** (`var/media/plants`). Anything comparing paths
   under it must compare resolved-to-resolved: a bug where `write_image` deleted the file it had just

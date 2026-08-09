@@ -148,7 +148,7 @@ it('a 422 error maps to its field via the shared §19.3 mapper', async () => {
             status: 422,
             detail: 'Invalid input.',
             instance: '/api/settings/demo',
-            code: 'validation_error',
+            code: 'core.platform.validation_error',
             request_id: 'req-settings',
             errors: [{ loc: ['body', 'label'], msg: 'Too long.' }],
           }),

@@ -88,7 +88,7 @@ async def require(
     if not await can(session, user, action, resource_type, resource_id):
         raise AppError(
             status_code=403,
-            code="acl.forbidden",
+            code="core.acl.forbidden",
             title="Forbidden",
             detail="You do not have permission to perform this action.",
         )

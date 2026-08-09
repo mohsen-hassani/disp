@@ -20,14 +20,14 @@ async def _login(client: httpx.AsyncClient, email: str) -> dict[str, str]:
 async def test_refresh_with_no_cookie_returns_401(client: httpx.AsyncClient) -> None:
     response = await client.post("/api/auth/refresh", headers=CSRF_HEADERS)
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_refresh_token"
+    assert response.json()["code"] == "core.auth.invalid_refresh_token"
 
 
 async def test_refresh_with_unknown_token_returns_401(client: httpx.AsyncClient) -> None:
     client.cookies.set("disp_refresh", "totally-unknown-refresh-token")
     response = await client.post("/api/auth/refresh", headers=CSRF_HEADERS)
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_refresh_token"
+    assert response.json()["code"] == "core.auth.invalid_refresh_token"
 
 
 async def test_refresh_for_disabled_account_returns_403(
@@ -41,7 +41,7 @@ async def test_refresh_for_disabled_account_returns_403(
 
     response = await client.post("/api/auth/refresh", headers=CSRF_HEADERS)
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.account_disabled"
+    assert response.json()["code"] == "core.auth.account_disabled"
 
 
 async def test_revoke_unknown_token_returns_404(
@@ -53,7 +53,7 @@ async def test_revoke_unknown_token_returns_404(
     response = await client.delete(f"/api/auth/tokens/{uuid.uuid4()}", headers=headers)
 
     assert response.status_code == 404
-    assert response.json()["code"] == "auth.token_not_found"
+    assert response.json()["code"] == "core.auth.token_not_found"
 
 
 async def test_create_invite_for_existing_user_returns_409(
@@ -70,7 +70,7 @@ async def test_create_invite_for_existing_user_returns_409(
     )
 
     assert response.status_code == 409
-    assert response.json()["code"] == "auth.user_exists"
+    assert response.json()["code"] == "core.auth.user_exists"
 
 
 async def test_accept_invite_with_unknown_token_returns_404(client: httpx.AsyncClient) -> None:
@@ -79,7 +79,7 @@ async def test_accept_invite_with_unknown_token_returns_404(client: httpx.AsyncC
         json={"token": "no-such-token", "display_name": "X", "password": "a-decent-password-1"},
     )
     assert response.status_code == 404
-    assert response.json()["code"] == "auth.invite_not_found"
+    assert response.json()["code"] == "core.auth.invite_not_found"
 
 
 async def test_accept_invite_weak_password_returns_422(
@@ -100,7 +100,7 @@ async def test_accept_invite_weak_password_returns_422(
         json={"token": token, "display_name": "X", "password": "short"},
     )
     assert response.status_code == 422
-    assert response.json()["code"] == "auth.password_policy"
+    assert response.json()["code"] == "core.auth.password_policy"
 
 
 async def test_change_password_wrong_current_password_returns_401(
@@ -116,7 +116,7 @@ async def test_change_password_wrong_current_password_returns_401(
     )
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_credentials"
+    assert response.json()["code"] == "core.auth.invalid_credentials"
 
 
 async def test_change_password_weak_new_password_returns_422(
@@ -132,7 +132,7 @@ async def test_change_password_weak_new_password_returns_422(
     )
 
     assert response.status_code == 422
-    assert response.json()["code"] == "auth.password_policy"
+    assert response.json()["code"] == "core.auth.password_policy"
 
 
 async def test_change_password_without_refresh_cookie_present(
@@ -182,7 +182,7 @@ async def test_login_rate_limit_triggers_429(
         )
     assert last_response is not None
     assert last_response.status_code == 429
-    assert last_response.json()["code"] == "rate_limited"
+    assert last_response.json()["code"] == "core.platform.rate_limited"
     assert "Retry-After" in last_response.headers
 
 

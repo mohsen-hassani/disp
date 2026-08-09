@@ -69,19 +69,19 @@ export function ShareDialog({
       showToast(`Shared with ${values.email}.`, 'success');
     } catch (thrown) {
       const problem = thrown as ProblemDetail;
-      if (problem.code === 'notes.user_not_found') {
+      if (problem.code === 'modules.notes.user_not_found') {
         setError('email', {
           message: 'No user with that email. They need an account first.',
         });
         setFocus('email');
         return;
       }
-      if (problem.code === 'notes.cannot_share_with_self') {
+      if (problem.code === 'modules.notes.cannot_share_with_self') {
         setError('email', { message: problem.detail || 'You cannot share a note with yourself.' });
         setFocus('email');
         return;
       }
-      if (problem.code === 'acl.forbidden') {
+      if (problem.code === 'core.acl.forbidden') {
         onOpenChange(false);
         showToast('Only the owner can share this note.', 'error');
         return;

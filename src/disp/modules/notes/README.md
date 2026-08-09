@@ -40,8 +40,8 @@ creation the owner gets an `OWNER` grant on resource `("notes.note", <note id>)`
 grants `read`/`write` to another user by email. `list_notes` calls `readable_ids()` once to get
 every note the caller can see, then filters — not a per-row permission check. See
 [`service.py`](service.py)'s `_authorize()` for the exact 404-vs-403 rule: a caller who can't even
-read a note gets `404 notes.not_found` (existence hidden); a caller who can read it but lacks the
-permission for the specific action gets `403 acl.forbidden`.
+read a note gets `404 modules.notes.not_found` (existence hidden); a caller who can read it but lacks the
+permission for the specific action gets `403 core.acl.forbidden`.
 
 ## HTTP API
 
@@ -56,8 +56,8 @@ Base path `/api/notes`, tag `notes`. Every route requires authentication.
 | `DELETE` | `/{note_id}` | `notes_delete` | Soft delete, `204`. Repeating on an already-deleted note is `404`. |
 | `POST` | `/{note_id}/share` | `notes_share` | Body: `{email, permission: "read"\|"write"}`. Owner only. |
 
-Error codes worth knowing: `notes.not_found` (404), `acl.forbidden` (403, readable but not
-writable), `notes.cannot_share_with_self` (400), `notes.user_not_found` (404, share target has no
+Error codes worth knowing: `modules.notes.not_found` (404), `core.acl.forbidden` (403, readable but not
+writable), `modules.notes.cannot_share_with_self` (400), `modules.notes.user_not_found` (404, share target has no
 account). Full request/response schemas are in [`schemas.py`](schemas.py) and the live OpenAPI doc
 (`./dev openapi`, or `GET /openapi.json` against a running server).
 

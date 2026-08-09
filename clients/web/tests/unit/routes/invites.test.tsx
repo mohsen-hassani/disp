@@ -93,7 +93,7 @@ it('maps 409 auth.user_exists and auth.invite_pending to the email field with di
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(invitesListResponse([]))
-    .mockResolvedValueOnce(problemResponse(409, 'auth.user_exists'));
+    .mockResolvedValueOnce(problemResponse(409, 'core.auth.user_exists'));
   const user = userEvent.setup();
   renderWithProviders(<InvitesPage />);
   await screen.findByText('No pending invites.');
@@ -106,7 +106,7 @@ it('maps 409 auth.user_exists and auth.invite_pending to the email field with di
 
   await waitFor(() => expect(screen.getByText(/already exists/i)).toBeInTheDocument());
 
-  fetchSpy.mockResolvedValueOnce(problemResponse(409, 'auth.invite_pending'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(409, 'core.auth.invite_pending'));
   await user.clear(screen.getByLabelText(/^email$/i));
   await user.type(screen.getByLabelText(/^email$/i), 'someone@example.com');
   await user.click(

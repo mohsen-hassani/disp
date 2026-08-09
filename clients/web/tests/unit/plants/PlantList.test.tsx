@@ -98,7 +98,7 @@ it('shows the filtered empty state with a Clear filters button', async () => {
 it('shows an error state with a retry button', async () => {
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(problemResponse(500, 'internal_error'));
+    .mockResolvedValue(problemResponse(500, 'core.platform.internal_error'));
   await renderPlants(<PlantList q={undefined} onQChange={noop} />);
 
   expect(await screen.findByText('Failed to load plants.')).toBeInTheDocument();

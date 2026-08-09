@@ -57,7 +57,7 @@ it('maps a 401 to the current-password field', async () => {
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(meResponse())
-    .mockResolvedValueOnce(problemResponse(401, 'auth.invalid_credentials'));
+    .mockResolvedValueOnce(problemResponse(401, 'core.auth.invalid_credentials'));
   const user = userEvent.setup();
   renderWithProviders(<AccountPage />);
   await screen.findByText('Test User');
@@ -75,7 +75,7 @@ it('maps a 422 auth.password_policy to the new-password field using the server d
     .spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(meResponse())
     .mockResolvedValueOnce(
-      problemResponse(422, 'auth.password_policy', { detail: 'Too common a password.' }),
+      problemResponse(422, 'core.auth.password_policy', { detail: 'Too common a password.' }),
     );
   const user = userEvent.setup();
   renderWithProviders(<AccountPage />);

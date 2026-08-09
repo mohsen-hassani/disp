@@ -39,7 +39,7 @@ const primaryButtonClass =
  * returned `interval.next_due_on` is what actually gets shown, not
  * anything computed here. Back-dating up to a year is the point of the
  * field (§1); future dates are rejected by the server (§5's `plants.
- * future_date`/`plants.date_too_old`) and surfaced inline rather than
+ * future_date`/`modules.plants.date_too_old`) and surfaced inline rather than
  * pre-validated client-side, since a client-side rule could drift from the
  * server's.
  */
@@ -90,7 +90,7 @@ export function CompleteDialog({
       );
     } catch (thrown) {
       const problem = thrown as ProblemDetail;
-      if (problem.code === 'plants.future_date' || problem.code === 'plants.date_too_old') {
+      if (problem.code === 'modules.plants.future_date' || problem.code === 'modules.plants.date_too_old') {
         setError('completed_on', { message: problem.detail || 'Enter a valid completion date.' });
         setFocus('completed_on');
         return;

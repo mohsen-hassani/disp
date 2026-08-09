@@ -391,7 +391,7 @@ next_due_on         = effective_last_done + interval_days
 stored last_done_on = last_done_on          (NULL if omitted — §3.5)
 ```
 
-`last_done_on` in the future → `400 plants.future_date`.
+`last_done_on` in the future → `400 modules.plants.future_date`.
 
 The optional `last_done_on` is what makes "I already watered it 20 days ago" produce a schedule
 that is correctly 5 days overdue, instead of one silently 20 days out of phase.
@@ -420,8 +420,8 @@ An explicit `next_due_on` in the same request always wins, so a user can pin one
 `complete_interval(...)` with `CompleteRequest{completed_on?, note?}`:
 
 1. `completed_on` defaults to `today()`.
-2. Future date → `400 plants.future_date`. More than `MAX_BACKDATE_DAYS` (365) ago →
-   `400 plants.date_too_old` (catches a mistyped year while still allowing "I forgot to log last
+2. Future date → `400 modules.plants.future_date`. More than `MAX_BACKDATE_DAYS` (365) ago →
+   `400 modules.plants.date_too_old` (catches a mistyped year while still allowing "I forgot to log last
    month's repotting").
 3. Insert `care_log` with `due_on = interval.next_due_on`, `days_late = completed_on - due_on`,
    `action_name` snapshotted.
@@ -459,7 +459,7 @@ all state lateness identically.
 ## 9. Calendar projection
 
 `month_calendar(session, user, *, month)` where `month` is `YYYY-MM`. Malformed → `400
-plants.invalid_month`.
+modules.plants.invalid_month`.
 
 Returns a flat `CalendarEntry[]` — the client groups by day. Four kinds:
 
@@ -585,10 +585,10 @@ resolved paths.
 ### 11.4 Upload
 
 - `PUT /api/plants/{id}/image`, `multipart/form-data`, field `file`. Requires `python-multipart`.
-- Empty body → `400 plants.empty_image`. Over the limit → `413 plants.image_too_large`.
+- Empty body → `400 modules.plants.empty_image`. Over the limit → `413 modules.plants.image_too_large`.
 - **The declared `Content-Type` is ignored.** The type is sniffed from the leading bytes
   (`sniff_image_type`, checking JPEG/PNG/GIF magic and RIFF-framed WebP). Unrecognised →
-  `415 plants.unsupported_image`.
+  `415 modules.plants.unsupported_image`.
   Rationale: what is stored and later served back is decided by what the bytes actually are, not by
   what the client claimed they were.
 - Written to a `.tmp` sibling then `replace()`d — atomic, so a failed write can never leave a
@@ -605,7 +605,7 @@ Served through an authenticated route rather than a static mount, so the **same 
 photo as the plant**. `private` is required: the response is user-specific and MUST NOT enter a
 shared cache.
 
-A pointer to a missing file degrades to `404 plants.no_image` rather than erroring.
+A pointer to a missing file degrades to `404 modules.plants.no_image` rather than erroring.
 
 ### 11.6 Known non-atomicity
 
@@ -623,9 +623,9 @@ path is deterministic per plant). Accepted rather than engineered around, at thi
   against `plant_id`.
 - Create grants `Permission.OWNER` to the creator in the same transaction as the insert.
 - `_authorize()` implements the platform's resolve-then-require rule: a caller who cannot **read**
-  the plant gets `404`, never `403`. `403 acl.forbidden` is reserved for a caller who can see it but
+  the plant gets `404`, never `403`. `403 core.acl.forbidden` is reserved for a caller who can see it but
   lacks the specific permission. Existence is not disclosed to someone without read access.
-- An interval id that exists but belongs to a different plant → `404 plants.interval_not_found`.
+- An interval id that exists but belongs to a different plant → `404 modules.plants.interval_not_found`.
   Interval ids are not addressable outside their plant.
 
 Action → permission mapping is the platform default: `read`/`list` need READ; `create`, `update`,
@@ -779,22 +779,35 @@ would call today.
 No date library and no calendar library was added — a month grid is a small amount of arithmetic,
 and `Intl` covers the formatting.
 
-### 17.4 Photos are fetched, not `<img src>`-linked
+### 17.4 Photos cannot be `<img src>`-linked, and currently are — so they do not render
+
+> **Known bug.** This section documented a working solution that was subsequently deleted. It now
+> documents the defect instead. The fix is `milestones/server/M18-files.md` (signed URLs); do not
+> re-solve it here.
 
 `GET /{plant_id}/image` sits behind the same bearer-only `current_user` dependency as every other
-route (§12), and the platform has no cookie-session fallback. A plain `<img src="/api/plants/{id}/
-image">` can therefore never authenticate — a browser attaches cookies and address-bar navigation
-to an image load, never a JS-held bearer token — so pointing an `<img>` straight at `image_url`
-401s both when a user pastes the URL directly and, more importantly, *inside the app itself*.
+route (§12), and the platform has no cookie-session fallback — `core/auth/dependencies.py:156-167`
+reads the `Authorization` header and nothing else, and the refresh cookie is `Path=/api/auth` so it
+is never sent here anyway. A plain `<img src="/api/plants/{id}/image">` can therefore never
+authenticate: a browser attaches cookies and address-bar navigation to an image load, never a
+JS-held bearer token.
 
-`usePlantImageUrl` (`components/plants/usePlantImageUrl.ts`) fetches the bytes through the same
-authenticated generated-SDK client every other request uses (`plantsGetImage(..., { parseAs:
-'blob' })`) and exposes them as a `URL.createObjectURL(...)` object URL, revoked whenever the blob
-changes or the component unmounts. `PlantPhoto` and `PlantCard` both render from this hook rather
-than `plant.image_url` directly. The underlying query key (`qk.plants.image(id)`) starts with
-`'plants'` like every other plants key (§17.2), so a completed upload/delete is picked up for free
-by the existing whole-prefix `invalidatePlants()` sweep — no manual cache-busting query param is
-needed the way a stable `<img src>` would have required.
+**The shipped client does exactly that.** `components/plants/PlantThumbnail.tsx:38` renders
+`<img src={imageUrl}>` straight from `plant.image_url`, so every photo 401s. The failure is silent:
+`PlantThumbnail`'s `onError` handler (`:42`) falls back to the `Sprout` placeholder that
+`milestones/client/M14` §5 added for the database-only-restore case (see the component's own
+docstring), and a 401 is indistinguishable from "this plant has no photo".
+The unit tests (`tests/unit/plants/PlantThumbnail.test.tsx`) assert the `<img>` element renders, never
+that it loads, which is why this survived.
+
+An earlier client solved it with a `usePlantImageUrl` hook that fetched bytes through the
+authenticated SDK client and exposed them via `URL.createObjectURL`. That hook was removed in
+`33d2b0f` and the plants client rebuilt without it in `1f64607`. The approach is recorded here only
+because `M18` cited it as existing code for some time after it stopped existing.
+
+The real fix is a URL a browser can load unauthenticated and the server can still verify: a signed
+URL, minted after the module's own `_authorize` check. That is `M18` §9, and it deletes this whole
+problem for every module at once rather than reintroducing a per-module blob workaround.
 
 ---
 
@@ -802,17 +815,17 @@ needed the way a stable `<img src>` would have required.
 
 | Code | Status | Raised when |
 |---|---|---|
-| `plants.not_found` | 404 | Plant absent, soft-deleted, or not readable by the caller |
-| `plants.interval_not_found` | 404 | Interval absent, or belongs to a different plant |
-| `plants.no_image` | 404 | Plant has no photo, or the file is missing on disk |
-| `plants.future_date` | 400 | `last_done_on` / `completed_on` in the future |
-| `plants.date_too_old` | 400 | `completed_on` more than 365 days ago |
-| `plants.invalid_month` | 400 | `month` not parseable as `YYYY-MM` |
-| `plants.empty_image` | 400 | Upload contained no bytes |
-| `plants.image_too_large` | 413 | Over `DISP_PLANTS_MAX_IMAGE_BYTES` |
-| `plants.unsupported_image` | 415 | Bytes are not JPEG/PNG/WebP/GIF |
-| `acl.forbidden` | 403 | Caller can read the plant but lacks the permission |
-| `pagination.invalid_cursor` | 400 | Undecodable cursor (platform-shared) |
+| `modules.plants.not_found` | 404 | Plant absent, soft-deleted, or not readable by the caller |
+| `modules.plants.interval_not_found` | 404 | Interval absent, or belongs to a different plant |
+| `modules.plants.no_image` | 404 | Plant has no photo, or the file is missing on disk |
+| `modules.plants.future_date` | 400 | `last_done_on` / `completed_on` in the future |
+| `modules.plants.date_too_old` | 400 | `completed_on` more than 365 days ago |
+| `modules.plants.invalid_month` | 400 | `month` not parseable as `YYYY-MM` |
+| `modules.plants.empty_image` | 400 | Upload contained no bytes |
+| `modules.plants.image_too_large` | 413 | Over `DISP_PLANTS_MAX_IMAGE_BYTES` |
+| `modules.plants.unsupported_image` | 415 | Bytes are not JPEG/PNG/WebP/GIF |
+| `core.acl.forbidden` | 403 | Caller can read the plant but lacks the permission |
+| `core.pagination.invalid_cursor` | 400 | Undecodable cursor (platform-shared) |
 
 ---
 
@@ -855,7 +868,7 @@ default's shape.**
 > `scripts/backup.sh` covers Postgres only. **Restoring only the database returns every plant,
 > schedule and log with its photo pointer intact and the image gone.**
 
-The failure is graceful (`404 plants.no_image`), not an error, which makes it easy to miss. The
+The failure is graceful (`404 modules.plants.no_image`), not an error, which makes it easy to miss. The
 `media` volume MUST be backed up alongside the dump; `docs/operations.md` carries a worked cron
 example.
 

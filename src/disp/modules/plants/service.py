@@ -57,7 +57,7 @@ def today() -> date:
 def _not_found_error() -> AppError:
     return AppError(
         status_code=404,
-        code="plants.not_found",
+        code="modules.plants.not_found",
         title="Plant not found",
         detail="The plant does not exist or is not visible to you.",
     )
@@ -66,7 +66,7 @@ def _not_found_error() -> AppError:
 def _interval_not_found_error() -> AppError:
     return AppError(
         status_code=404,
-        code="plants.interval_not_found",
+        code="modules.plants.interval_not_found",
         title="Care interval not found",
         detail="The care interval does not exist on this plant.",
     )
@@ -90,7 +90,7 @@ async def _authorize(session: AsyncSession, user: CurrentUser, plant_id: UUID, a
         raise _not_found_error()
     raise AppError(
         status_code=403,
-        code="acl.forbidden",
+        code="core.acl.forbidden",
         title="Forbidden",
         detail="You do not have permission to perform this action.",
     )
@@ -210,7 +210,7 @@ async def list_plants(
         except ValueError as exc:
             raise AppError(
                 status_code=400,
-                code="pagination.invalid_cursor",
+                code="core.pagination.invalid_cursor",
                 title="Invalid cursor",
                 detail="The pagination cursor could not be decoded.",
             ) from exc
@@ -317,7 +317,7 @@ async def add_interval(
     if last_done_on > on_day:
         raise AppError(
             status_code=400,
-            code="plants.future_date",
+            code="modules.plants.future_date",
             title="Date is in the future",
             detail="last_done_on cannot be in the future.",
         )
@@ -400,14 +400,14 @@ async def complete_interval(
     if completed_on > on_day:
         raise AppError(
             status_code=400,
-            code="plants.future_date",
+            code="modules.plants.future_date",
             title="Date is in the future",
             detail="completed_on cannot be in the future.",
         )
     if (on_day - completed_on).days > MAX_BACKDATE_DAYS:
         raise AppError(
             status_code=400,
-            code="plants.date_too_old",
+            code="modules.plants.date_too_old",
             title="Date is too far in the past",
             detail=f"completed_on cannot be more than {MAX_BACKDATE_DAYS} days ago.",
         )
@@ -522,7 +522,7 @@ def parse_month(month: str) -> tuple[date, date]:
     except (ValueError, TypeError) as exc:
         raise AppError(
             status_code=400,
-            code="plants.invalid_month",
+            code="modules.plants.invalid_month",
             title="Invalid month",
             detail="month must be formatted as YYYY-MM.",
         ) from exc
@@ -643,14 +643,14 @@ async def set_plant_image(
     if not data:
         raise AppError(
             status_code=400,
-            code="plants.empty_image",
+            code="modules.plants.empty_image",
             title="Empty upload",
             detail="The uploaded file contained no data.",
         )
     if len(data) > max_bytes:
         raise AppError(
             status_code=413,
-            code="plants.image_too_large",
+            code="modules.plants.image_too_large",
             title="Image too large",
             detail=f"Images must be at most {max_bytes // 1024} KiB.",
         )
@@ -661,7 +661,7 @@ async def set_plant_image(
     if content_type is None:
         raise AppError(
             status_code=415,
-            code="plants.unsupported_image",
+            code="modules.plants.unsupported_image",
             title="Unsupported image type",
             detail="Images must be JPEG, PNG, WebP or GIF.",
         )
@@ -697,7 +697,7 @@ async def get_plant_image(
     if path is None or not path.is_file():
         raise AppError(
             status_code=404,
-            code="plants.no_image",
+            code="modules.plants.no_image",
             title="No image",
             detail="This plant has no image.",
         )

@@ -47,7 +47,7 @@ it('bootstrap: successful refresh yields authenticated with the resolved user', 
 
 // Case 2: a plain 401 yields `anonymous`.
 it('bootstrap: a 401 without the reuse code yields anonymous', async () => {
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.invalid_refresh_token'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.invalid_refresh_token'));
 
   await bootstrap();
 
@@ -57,7 +57,7 @@ it('bootstrap: a 401 without the reuse code yields anonymous', async () => {
 
 // Case 3: auth.refresh_token_reused yields `revoked`.
 it('bootstrap: auth.refresh_token_reused yields revoked', async () => {
-  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'auth.refresh_token_reused'));
+  fetchSpy.mockResolvedValueOnce(problemResponse(401, 'core.auth.refresh_token_reused'));
 
   await bootstrap();
 

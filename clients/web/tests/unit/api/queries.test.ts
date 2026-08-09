@@ -10,7 +10,7 @@ function makeProblem(overrides: Partial<ProblemDetail> = {}): ProblemDetail {
     status: 500,
     detail: 'Something broke',
     instance: '/api/settings/core',
-    code: 'internal_error',
+    code: 'core.platform.internal_error',
     request_id: 'req-1',
     ...overrides,
   };
@@ -42,7 +42,7 @@ describe('filterDirtyValues', () => {
 // §14.5.
 describe('describeSettingsError', () => {
   it('uses the distinct decryption-failed copy, not a generic 5xx toast', () => {
-    const message = describeSettingsError(makeProblem({ code: 'settings.decryption_failed' }));
+    const message = describeSettingsError(makeProblem({ code: 'core.settings.decryption_failed' }));
     expect(message).toMatch(/encryption key may have changed/i);
   });
 

@@ -77,7 +77,7 @@ async def test_login_on_disabled_account_returns_403(
     response = await client.post("/api/auth/login", json=_login_payload("disabled@example.com"))
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.account_disabled"
+    assert response.json()["code"] == "core.auth.account_disabled"
 
 
 # Case 6: refresh rotates: new access token issued, new cookie set, old refresh
@@ -125,7 +125,7 @@ async def test_refresh_replay_revokes_family(
     client.cookies.set("disp_refresh", original_refresh)
     replay_response = await client.post("/api/auth/refresh", headers=CSRF_HEADERS)
     assert replay_response.status_code == 401
-    assert replay_response.json()["code"] == "auth.refresh_token_reused"
+    assert replay_response.json()["code"] == "core.auth.refresh_token_reused"
 
     user_row = (
         await db_session.execute(select(User).where(User.email == "replay@example.com"))
@@ -151,7 +151,7 @@ async def test_refresh_without_csrf_header_returns_403(
     response = await client.post("/api/auth/refresh")
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.csrf_required"
+    assert response.json()["code"] == "core.auth.csrf_required"
 
 
 # Case 9: expired refresh token returns 401 auth.refresh_token_expired.
@@ -173,7 +173,7 @@ async def test_expired_refresh_token_returns_401(
     response = await client.post("/api/auth/refresh", headers=CSRF_HEADERS)
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.refresh_token_expired"
+    assert response.json()["code"] == "core.auth.refresh_token_expired"
 
 
 # Case 10: logout revokes the family and clears the cookie; a second logout
@@ -258,7 +258,7 @@ async def test_pat_cannot_mint_another_pat(
     )
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.pat_cannot_mint"
+    assert response.json()["code"] == "core.auth.pat_cannot_mint"
 
 
 # Case 14: a PAT is rejected by POST /api/auth/password.
@@ -277,7 +277,7 @@ async def test_pat_cannot_change_password(
     )
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.pat_insufficient"
+    assert response.json()["code"] == "core.auth.pat_insufficient"
 
 
 # Case 15: a revoked PAT returns 401; an expired PAT returns 401.
@@ -290,7 +290,7 @@ async def test_revoked_pat_returns_401(client: httpx.AsyncClient, db_session: As
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {plaintext}"})
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.token_revoked"
+    assert response.json()["code"] == "core.auth.token_revoked"
 
 
 async def test_expired_pat_returns_401(client: httpx.AsyncClient, db_session: AsyncSession) -> None:
@@ -302,7 +302,7 @@ async def test_expired_pat_returns_401(client: httpx.AsyncClient, db_session: As
     response = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {plaintext}"})
 
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.token_expired"
+    assert response.json()["code"] == "core.auth.token_expired"
 
 
 # Case 16: last_used_at updates on first use and does not update again within
@@ -364,19 +364,19 @@ async def test_jwt_and_pat_resolve_to_equivalent_current_user(
 async def test_missing_authorization_header(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/auth/me")
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.missing_credentials"
+    assert response.json()["code"] == "core.auth.missing_credentials"
 
 
 async def test_malformed_authorization_header(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/auth/me", headers={"Authorization": "Basic dXNlcjpwYXNz"})
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.malformed_credentials"
+    assert response.json()["code"] == "core.auth.malformed_credentials"
 
 
 async def test_garbage_bearer_token(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/auth/me", headers={"Authorization": "Bearer garbage.value"})
     assert response.status_code == 401
-    assert response.json()["code"] == "auth.invalid_token"
+    assert response.json()["code"] == "core.auth.invalid_token"
 
 
 # Case 19: invite create -> accept -> login works; the token is single-use
@@ -427,7 +427,7 @@ async def test_invite_accept_login_flow_and_single_use(
         },
     )
     assert second_accept.status_code == 409
-    assert second_accept.json()["code"] == "auth.invite_used"
+    assert second_accept.json()["code"] == "core.auth.invite_used"
 
 
 # Case 20: an expired invite returns 410.
@@ -458,7 +458,7 @@ async def test_expired_invite_returns_410(
         json={"token": plaintext, "display_name": "X", "password": "a-decent-password-123"},
     )
     assert response.status_code == 410
-    assert response.json()["code"] == "auth.invite_expired"
+    assert response.json()["code"] == "core.auth.invite_expired"
 
 
 # Case 21: a second pending invite for the same email returns 409.
@@ -486,7 +486,7 @@ async def test_second_pending_invite_same_email_returns_409(
         headers=headers,
     )
     assert second.status_code == 409
-    assert second.json()["code"] == "auth.invite_pending"
+    assert second.json()["code"] == "core.auth.invite_pending"
 
 
 # Case 22: non-admin invite creation returns 403.
@@ -508,7 +508,7 @@ async def test_non_admin_cannot_create_invite(
     )
 
     assert response.status_code == 403
-    assert response.json()["code"] == "auth.admin_required"
+    assert response.json()["code"] == "core.auth.admin_required"
 
 
 # Case 23: password change revokes other sessions but not the caller's.

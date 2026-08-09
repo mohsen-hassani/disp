@@ -60,7 +60,7 @@ describe('TileGrid error isolation (case 24)', () => {
             status: 500,
             detail: 'boom',
             instance: '/api/dashboard/tiles/failing.tile',
-            code: 'internal_error',
+            code: 'core.platform.internal_error',
             request_id: 'req-iso',
           }),
           { status: 500, headers: { 'Content-Type': 'application/json' } },

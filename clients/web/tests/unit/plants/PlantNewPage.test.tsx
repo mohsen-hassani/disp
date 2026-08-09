@@ -56,7 +56,7 @@ it('maps a 422 name conflict onto the name field', async () => {
         status: 422,
         detail: 'Invalid request.',
         instance: '/api/plants',
-        code: 'validation_error',
+        code: 'core.platform.validation_error',
         request_id: 'req-1',
         errors: [{ loc: ['body', 'name'], msg: 'Name is required.', type: 'value_error' }],
       }),
@@ -75,7 +75,7 @@ it('maps a 422 name conflict onto the name field', async () => {
 it('shows a generic error toast-worthy message for a non-field error', async () => {
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(problemResponse(500, 'internal_error'));
+    .mockResolvedValueOnce(problemResponse(500, 'core.platform.internal_error'));
   const user = userEvent.setup();
   await renderPlants(<PlantNewPage />);
 

@@ -86,13 +86,13 @@ export function AcceptInvitePage(): ReactElement {
 
     const { problem } = result.error;
     switch (problem.code) {
-      case 'auth.invite_not_found':
+      case 'core.auth.invite_not_found':
         setScreen('not_found');
         break;
-      case 'auth.invite_used':
+      case 'core.auth.invite_used':
         setScreen('used');
         break;
-      case 'auth.invite_expired':
+      case 'core.auth.invite_expired':
         setScreen('expired');
         break;
       default:

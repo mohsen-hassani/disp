@@ -126,7 +126,7 @@ export function IntervalFormDialog({
       showToast(mode === 'add' ? 'Care interval added.' : 'Care interval updated.', 'success');
     } catch (thrown) {
       const problem = thrown as ProblemDetail;
-      if (problem.code === 'plants.future_date') {
+      if (problem.code === 'modules.plants.future_date') {
         setError('last_done_on', { message: problem.detail || 'Enter a date in the past.' });
         setFocus('last_done_on');
         return;

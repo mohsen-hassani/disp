@@ -27,7 +27,7 @@ async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>, email: st
 it('404 notes.user_not_found maps to the email field (case 41)', async () => {
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(problemResponse(404, 'notes.user_not_found'));
+    .mockResolvedValueOnce(problemResponse(404, 'modules.notes.user_not_found'));
   const user = userEvent.setup();
   await renderNotes(
     <ShareDialog noteId="note-1" noteHeading="My note" open onOpenChange={() => {}} />,
@@ -40,7 +40,7 @@ it('404 notes.user_not_found maps to the email field (case 41)', async () => {
 
 it('400 notes.cannot_share_with_self maps to the email field', async () => {
   fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-    problemResponse(400, 'notes.cannot_share_with_self', {
+    problemResponse(400, 'modules.notes.cannot_share_with_self', {
       detail: 'You cannot share with yourself.',
     }),
   );
@@ -59,7 +59,7 @@ it('400 notes.cannot_share_with_self maps to the email field', async () => {
 it('403 closes the dialog and shows a toast', async () => {
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(problemResponse(403, 'acl.forbidden'));
+    .mockResolvedValueOnce(problemResponse(403, 'core.acl.forbidden'));
   const onOpenChange = vi.fn();
   const user = userEvent.setup();
   await renderNotes(

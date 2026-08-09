@@ -220,7 +220,7 @@ def _find_panel(request: Request, domain: str) -> SettingsPanelSpec:
     if panel is None:
         raise AppError(
             status_code=404,
-            code="settings.domain_not_found",
+            code="core.settings.domain_not_found",
             title="Settings domain not found",
             detail=f"No settings panel is registered for domain {domain!r}.",
         )
@@ -284,7 +284,7 @@ async def update_domain_settings(
     if unknown:
         raise AppError(
             status_code=422,
-            code="validation_error",
+            code="core.platform.validation_error",
             title="Validation error",
             detail=f"Unknown settings field(s): {sorted(unknown)}",
         )

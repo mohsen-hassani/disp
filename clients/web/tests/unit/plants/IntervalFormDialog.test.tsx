@@ -72,7 +72,7 @@ it('surfaces a future last_done_on rejection inline on that field', async () => 
   fetchSpy = vi
     .spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(
-      problemResponse(400, 'plants.future_date', {
+      problemResponse(400, 'modules.plants.future_date', {
         detail: 'last_done_on cannot be in the future.',
       }),
     );

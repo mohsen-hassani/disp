@@ -75,9 +75,9 @@ export function InvitesPage(): ReactElement {
     });
     if (!response?.ok || !data) {
       const problem = parseProblem(response ?? new Response(null, { status: 0 }), error);
-      if (problem.code === 'auth.user_exists') {
+      if (problem.code === 'core.auth.user_exists') {
         setError('email', { message: USER_EXISTS_COPY });
-      } else if (problem.code === 'auth.invite_pending') {
+      } else if (problem.code === 'core.auth.invite_pending') {
         setError('email', { message: INVITE_PENDING_COPY });
       } else {
         setFormError(problem.detail || 'Something went wrong. Please try again.');

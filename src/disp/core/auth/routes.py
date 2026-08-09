@@ -143,7 +143,7 @@ def _error_response_clearing_cookie(
 def _invalid_credentials_error() -> AppError:
     return AppError(
         status_code=401,
-        code="auth.invalid_credentials",
+        code="core.auth.invalid_credentials",
         title="Invalid credentials",
         detail="The email or password is incorrect.",
     )
@@ -152,7 +152,7 @@ def _invalid_credentials_error() -> AppError:
 def _account_disabled_error() -> AppError:
     return AppError(
         status_code=403,
-        code="auth.account_disabled",
+        code="core.auth.account_disabled",
         title="Account disabled",
         detail="This account has been disabled.",
     )
@@ -162,7 +162,7 @@ def _require_csrf_header(x_requested_with: str | None) -> None:
     if x_requested_with != REQUIRED_CSRF_HEADER_VALUE:
         raise AppError(
             status_code=403,
-            code="auth.csrf_required",
+            code="core.auth.csrf_required",
             title="CSRF header required",
             detail=f"The X-Requested-With: {REQUIRED_CSRF_HEADER_VALUE} header is required.",
         )
@@ -177,7 +177,7 @@ def _check_email_login_rate_limit(email: str) -> None:
         retry_after = max(1, int(reset_time - time.time()))
         raise AppError(
             status_code=429,
-            code="rate_limited",
+            code="core.platform.rate_limited",
             title="Rate limited",
             detail="Too many login attempts for this email. Please try again later.",
             headers={"Retry-After": str(retry_after)},
@@ -193,7 +193,7 @@ def _check_user_rate_limit(user_id: UUID, scope: str, item: RateLimitItemPerHour
         retry_after = max(1, int(reset_time - time.time()))
         raise AppError(
             status_code=429,
-            code="rate_limited",
+            code="core.platform.rate_limited",
             title="Rate limited",
             detail="Too many requests. Please try again later.",
             headers={"Retry-After": str(retry_after)},
@@ -322,7 +322,7 @@ async def refresh(
             request,
             settings,
             status_code=401,
-            code="auth.invalid_refresh_token",
+            code="core.auth.invalid_refresh_token",
             title="Invalid refresh token",
             detail="No refresh token was presented.",
         )
@@ -340,7 +340,7 @@ async def refresh(
             request,
             settings,
             status_code=401,
-            code="auth.invalid_refresh_token",
+            code="core.auth.invalid_refresh_token",
             title="Invalid refresh token",
             detail="The refresh token is unknown.",
         )
@@ -355,7 +355,7 @@ async def refresh(
             request,
             settings,
             status_code=401,
-            code="auth.refresh_token_reused",
+            code="core.auth.refresh_token_reused",
             title="Refresh token reused",
             detail="This refresh token has already been used.",
         )
@@ -364,7 +364,7 @@ async def refresh(
             request,
             settings,
             status_code=401,
-            code="auth.refresh_token_expired",
+            code="core.auth.refresh_token_expired",
             title="Refresh token expired",
             detail="This refresh token has expired.",
         )
@@ -373,7 +373,7 @@ async def refresh(
             request,
             settings,
             status_code=403,
-            code="auth.account_disabled",
+            code="core.auth.account_disabled",
             title="Account disabled",
             detail="This account has been disabled.",
         )
@@ -479,7 +479,7 @@ async def create_token(
     if user.auth_method == "api_token":
         raise AppError(
             status_code=403,
-            code="auth.pat_cannot_mint",
+            code="core.auth.pat_cannot_mint",
             title="PATs cannot mint PATs",
             detail="A personal access token cannot be used to create another token.",
         )
@@ -538,7 +538,7 @@ async def revoke_token(
     if row is None:
         raise AppError(
             status_code=404,
-            code="auth.token_not_found",
+            code="core.auth.token_not_found",
             title="Token not found",
             detail="The token does not exist.",
         )
@@ -591,14 +591,14 @@ async def create_invite_route(
     except UserAlreadyExistsError as exc:
         raise AppError(
             status_code=409,
-            code="auth.user_exists",
+            code="core.auth.user_exists",
             title="User already exists",
             detail="A user with this email address already exists.",
         ) from exc
     except InvitePendingError as exc:
         raise AppError(
             status_code=409,
-            code="auth.invite_pending",
+            code="core.auth.invite_pending",
             title="Invite already pending",
             detail="A pending invite already exists for this email address.",
         ) from exc
@@ -648,7 +648,7 @@ async def delete_invite_route(
     if not deleted:
         raise AppError(
             status_code=404,
-            code="auth.invite_not_found",
+            code="core.auth.invite_not_found",
             title="Invite not found",
             detail="The invite does not exist or has already been accepted.",
         )
@@ -687,35 +687,35 @@ async def accept_invite_route(
     except InviteNotFoundError as exc:
         raise AppError(
             status_code=404,
-            code="auth.invite_not_found",
+            code="core.auth.invite_not_found",
             title="Invite not found",
             detail="The invite token is unknown.",
         ) from exc
     except InviteAlreadyAcceptedError as exc:
         raise AppError(
             status_code=409,
-            code="auth.invite_used",
+            code="core.auth.invite_used",
             title="Invite already used",
             detail="This invite has already been accepted.",
         ) from exc
     except InviteExpiredError as exc:
         raise AppError(
             status_code=410,
-            code="auth.invite_expired",
+            code="core.auth.invite_expired",
             title="Invite expired",
             detail="This invite has expired.",
         ) from exc
     except PasswordPolicyError as exc:
         raise AppError(
             status_code=422,
-            code="auth.password_policy",
+            code="core.auth.password_policy",
             title="Password policy violation",
             detail=exc.reason,
         ) from exc
     except UserAlreadyExistsError as exc:
         raise AppError(
             status_code=409,
-            code="auth.user_exists",
+            code="core.auth.user_exists",
             title="User already exists",
             detail="A user with this email address already exists.",
         ) from exc
@@ -752,7 +752,7 @@ async def change_password(
     if user.auth_method == "api_token":
         raise AppError(
             status_code=403,
-            code="auth.pat_insufficient",
+            code="core.auth.pat_insufficient",
             title="PAT insufficient",
             detail="Personal access tokens cannot change the account password.",
         )
@@ -767,7 +767,7 @@ async def change_password(
     ):
         raise AppError(
             status_code=401,
-            code="auth.invalid_credentials",
+            code="core.auth.invalid_credentials",
             title="Invalid credentials",
             detail="The current password is incorrect.",
         )
@@ -777,7 +777,7 @@ async def change_password(
     except PasswordPolicyError as exc:
         raise AppError(
             status_code=422,
-            code="auth.password_policy",
+            code="core.auth.password_policy",
             title="Password policy violation",
             detail=exc.reason,
         ) from exc

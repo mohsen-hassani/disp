@@ -46,7 +46,7 @@ async def test_delete_unknown_invite_returns_404(
     response = await client.delete(f"/api/auth/invites/{uuid.uuid4()}", headers=headers)
 
     assert response.status_code == 404
-    assert response.json()["code"] == "auth.invite_not_found"
+    assert response.json()["code"] == "core.auth.invite_not_found"
 
 
 async def test_non_admin_cannot_list_or_delete_invites(

@@ -354,19 +354,19 @@ export function parseProblem(res: Response, body: unknown): ProblemDetail
 export function isProblem(value: unknown): value is ProblemDetail
 ```
 
-`parseProblem` MUST tolerate a non-conforming body (an HTML error page from a proxy, an empty body) and synthesise a `ProblemDetail` with `code: 'internal_error'` rather than throwing.
+`parseProblem` MUST tolerate a non-conforming body (an HTML error page from a proxy, an empty body) and synthesise a `ProblemDetail` with `code: 'core.platform.internal_error'` rather than throwing.
 
 ### 7.3 Error presentation rules
 
 | Server `code` | Client behaviour |
 |---|---|
-| `auth.refresh_token_reused` | Hard logout (§8.6). Persistent red banner with the security copy in Appendix D. |
+| `core.auth.refresh_token_reused` | Hard logout (§8.6). Persistent red banner with the security copy in Appendix D. |
 | any other `401` | Attempt refresh once (§8.4); if that fails, soft logout and redirect to `/login?next=<path>` |
-| `403 acl.forbidden` | Inline error on the affected control; toast "You don't have permission to do that." |
-| `403 auth.admin_required` | Route guard should have prevented it; render the 403 screen |
+| `403 core.acl.forbidden` | Inline error on the affected control; toast "You don't have permission to do that." |
+| `403 core.auth.admin_required` | Route guard should have prevented it; render the 403 screen |
 | `404` | Route-level: 404 screen. Item-level: toast + invalidate the containing list query |
-| `409` | Inline field error where a field is implicated (`auth.user_exists` → email field); otherwise toast |
-| `410 auth.invite_expired` | Dedicated screen state on `/accept-invite` with copy from Appendix D |
+| `409` | Inline field error where a field is implicated (`core.auth.user_exists` → email field); otherwise toast |
+| `410 core.auth.invite_expired` | Dedicated screen state on `/accept-invite` with copy from Appendix D |
 | `422` | Map `errors[].loc` to form fields via §19.3; unmapped entries become a form-level error |
 | `429` | Toast with the `Retry-After` value rendered as "Try again in N seconds"; disable the submit button for that duration |
 | `5xx` | Toast "Something went wrong on the server." plus the `request_id` in small text, copyable |
@@ -426,7 +426,7 @@ On application mount, `AuthProvider` MUST:
 1. Set state `loading`. Render a full-page skeleton — **not** a redirect, and **not** the login screen.
 2. Call `POST /api/auth/refresh` with `X-Requested-With: disp` and `credentials: 'same-origin'`.
 3. On `200`: store the access token in memory, schedule proactive refresh (§8.5), call `GET /api/auth/me`, set state `authenticated`.
-4. On `401 auth.refresh_token_reused`: set state `revoked`.
+4. On `401 core.auth.refresh_token_reused`: set state `revoked`.
 5. On any other `401`/`403`: set state `anonymous`.
 6. On network failure: if a cached `GET /api/auth/me` response exists in the query cache **and** the app is offline, enter a degraded read-only authenticated state (§18.4). Otherwise set state `anonymous`.
 
@@ -438,7 +438,7 @@ The response interceptor MUST implement exactly this:
 
 1. If the response status is not `401`, return it unchanged.
 2. If the failed request was itself `/auth/refresh`, `/auth/login`, `/auth/logout`, or `/auth/accept-invite`, do not retry — return the response.
-3. If the problem `code` is `auth.refresh_token_reused`, trigger hard logout (§8.6) and return.
+3. If the problem `code` is `core.auth.refresh_token_reused`, trigger hard logout (§8.6) and return.
 4. If the request has already been retried once (tracked with a symbol on the request init), return the response.
 5. If a refresh is already in flight, await the existing promise. Otherwise start one and store the promise so concurrent 401s share it. **There MUST be at most one in-flight refresh per tab.**
 6. If refresh succeeds, replay the original request once with the new token and return that response.
@@ -456,7 +456,7 @@ Rationale: a phone that has been asleep for an hour returns with a dead token; r
 
 **Explicit logout** (user pressed the button): call `POST /api/auth/logout`, then perform the soft-logout steps, then navigate to `/login` with no `next`.
 
-**Hard logout** (`auth.refresh_token_reused`): perform the soft-logout steps, set state `revoked`, navigate to `/login`, and render the persistent security banner. The banner MUST remain until the user dismisses it explicitly.
+**Hard logout** (`core.auth.refresh_token_reused`): perform the soft-logout steps, set state `revoked`, navigate to `/login`, and render the persistent security banner. The banner MUST remain until the user dismisses it explicitly.
 
 Cache purging on every logout path is mandatory: cached API responses in Cache Storage survive a page reload and would otherwise be readable by the next user of a shared device.
 
@@ -464,8 +464,8 @@ Cache purging on every logout path is mandatory: cached API responses in Cache S
 
 - Fields: email (`type="email"`, `autocomplete="username"`), password (`type="password"`, `autocomplete="current-password"`).
 - Submit calls `POST /api/auth/login`. On `200`, store the token, invalidate `['auth','me']`, and navigate to `next` if it is a same-origin relative path beginning with `/`, otherwise to `/`. An absolute or protocol-relative `next` MUST be ignored (open-redirect defence).
-- `401 auth.invalid_credentials` → a single form-level error using the copy in Appendix D. The client MUST NOT distinguish unknown-email from wrong-password, mirroring PLATFORM-SPEC §10.4.
-- `403 auth.account_disabled` → form-level error with distinct copy.
+- `401 core.auth.invalid_credentials` → a single form-level error using the copy in Appendix D. The client MUST NOT distinguish unknown-email from wrong-password, mirroring PLATFORM-SPEC §10.4.
+- `403 core.auth.account_disabled` → form-level error with distinct copy.
 - `429` → disable submit for the `Retry-After` duration with a live countdown.
 - The submit button MUST be disabled while in flight and MUST show a spinner. Double-submit MUST be impossible.
 - No "remember me" checkbox — the refresh cookie's 30-day lifetime is the only persistence.
@@ -475,7 +475,7 @@ Cache purging on every logout path is mandatory: cached API responses in Cache S
 
 Reads `token` from the query string. Fields: display name, password, confirm password. Client-side policy mirrors PLATFORM-SPEC §10.3 (≥12 chars, ≤128, not equal to the invited email) with a strength meter that is advisory only. On success the server returns a session; store the token and navigate to `/`.
 
-Distinct screen states for `404 auth.invite_not_found`, `409 auth.invite_used`, and `410 auth.invite_expired`, each with copy from Appendix D and no form rendered.
+Distinct screen states for `404 core.auth.invite_not_found`, `409 core.auth.invite_used`, and `410 core.auth.invite_expired`, each with copy from Appendix D and no form rendered.
 
 ### 8.9 What the client MUST NOT do
 
@@ -835,7 +835,7 @@ A property with `"x-secret": true` (amendment A2):
 
 ### 14.5 Save behaviour
 
-Optimistic updates are forbidden here. The form disables during the request, shows a spinner on the submit button, and on success shows a success toast and resets dirty state to the server's response. `422` maps to field errors (§19.3). `500 settings.decryption_failed` shows a distinct, non-generic message (Appendix D) because it indicates a server key problem the user must escalate, not retry.
+Optimistic updates are forbidden here. The form disables during the request, shows a spinner on the submit button, and on success shows a success toast and resets dirty state to the server's response. `422` maps to field errors (§19.3). `500 core.settings.decryption_failed` shows a distinct, non-generic message (Appendix D) because it indicates a server key problem the user must escalate, not retry.
 
 ---
 
@@ -844,7 +844,7 @@ Optimistic updates are forbidden here. The form disables during the request, sho
 ### 15.1 `/settings/account`
 
 - Read-only display of display name, email, admin status, and account creation date.
-- **Change password** form: current password, new password, confirm. `autocomplete` values `current-password` and `new-password`. Client-side policy mirrors §8.8. On success, a toast explaining that other sessions were signed out (PLATFORM-SPEC §10.10) and the form resets. `422 auth.password_policy` renders the server's `detail` on the new-password field.
+- **Change password** form: current password, new password, confirm. `autocomplete` values `current-password` and `new-password`. Client-side policy mirrors §8.8. On success, a toast explaining that other sessions were signed out (PLATFORM-SPEC §10.10) and the form resets. `422 core.auth.password_policy` renders the server's `detail` on the new-password field.
 - The client MUST note in helper text that this form is unavailable when signed in with an API token — although the browser never uses one, the copy documents the server's rule truthfully.
 
 ### 15.2 `/settings/tokens`
@@ -862,7 +862,7 @@ Admin-only.
 
 - Table of pending invites: email, created by, expires (relative), and a Revoke action.
 - **Create** dialog: email (required), "Grant admin access" switch. On success, display the `accept_url` once with a copy button and copy explaining that the system sends no email and the link must be delivered by the admin personally.
-- `409 auth.user_exists` and `409 auth.invite_pending` map to the email field with distinct messages.
+- `409 core.auth.user_exists` and `409 core.auth.invite_pending` map to the email field with distinct messages.
 - The invite token MUST NOT be logged or persisted.
 
 ---
@@ -892,7 +892,7 @@ The `notes` module gets bespoke screens, demonstrating that a module can exceed 
 - Body rendered as **plain text with preserved whitespace** (`white-space: pre-wrap`). Markdown is **not** rendered — PLATFORM-SPEC defines `body` as plain text, and rendering it as Markdown would misrepresent stored data and add an XSS surface. The implementer MUST NOT add a Markdown renderer.
 - Metadata: created and updated timestamps, absolute, locale-formatted.
 - Edit is inline: clicking the body or the Edit button switches to a textarea with Save and Cancel. `Cmd/Ctrl+Enter` saves, `Escape` cancels with an unsaved-changes confirmation.
-- `404 notes.not_found` renders the not-found screen, not a toast.
+- `404 modules.notes.not_found` renders the not-found screen, not a toast.
 
 ### 16.3 Note creation
 
@@ -904,8 +904,8 @@ On success: close, toast with an "Open" action linking to the new note, invalida
 
 `ShareDialog` on a note: email input and a read/write radio group, calling `POST /api/notes/{id}/share`.
 
-- `404 notes.user_not_found` → email field error, "No user with that email. They need an account first."
-- `400 notes.cannot_share_with_self` → email field error.
+- `404 modules.notes.user_not_found` → email field error, "No user with that email. They need an account first."
+- `400 modules.notes.cannot_share_with_self` → email field error.
 - `403` → the dialog closes with a toast; only owners may share.
 - PLATFORM-SPEC provides no endpoint listing a note's existing grants, so the dialog MUST NOT display current shares. It states plainly that sharing is additive and that removing access requires the API. The implementer MUST NOT invent an endpoint.
 
@@ -1153,7 +1153,7 @@ MSW handlers MUST be generated from the same `openapi.json` types so a mock cann
 **Auth**
 1. Bootstrap: successful refresh yields `authenticated` and never renders the login screen.
 2. Bootstrap: `401` yields `anonymous` and redirects a guarded route to `/login?next=…`.
-3. Bootstrap: `auth.refresh_token_reused` yields `revoked` and renders the security banner.
+3. Bootstrap: `core.auth.refresh_token_reused` yields `revoked` and renders the security banner.
 4. Login success stores the token in memory and navigates to `next`.
 5. `next` containing an absolute URL is ignored; navigation goes to `/`.
 6. Login `401` shows one generic error identical for both failure modes.
@@ -1197,7 +1197,7 @@ MSW handlers MUST be generated from the same `openapi.json` types so a mock cann
 38. Create from the dialog invalidates the list and the notes tile.
 39. Detail renders the body as plain text — an input containing `<script>` and Markdown syntax renders literally.
 40. `404` on detail renders the not-found screen, not a toast.
-41. Share `404 notes.user_not_found` maps to the email field.
+41. Share `404 modules.notes.user_not_found` maps to the email field.
 
 **Offline and PWA**
 42. With `navigator.onLine === false`, the banner appears and mutating controls are disabled.
