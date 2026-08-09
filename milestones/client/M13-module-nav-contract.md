@@ -8,7 +8,7 @@
 `clients/web/src/components/tiles/{tileLinks.ts,TileCard.tsx,TileItemRow.tsx,TileActionButton.tsx,tileButton.ts}`.
 
 Implements WEB-SPEC amendment A3 (§1.2, §12.2, §13.3, §13.6, §13.7). The backend half is
-`milestones/server/M20`.
+`milestones/server/M17`.
 
 ---
 
@@ -54,7 +54,7 @@ The function closed over `MODULE_ROUTES` at module scope; reachability is now ru
 so the navigable-domain set is passed in as a second argument, sourced from `useNavigableDomains()`
 (manifest query ∩ `MODULE_SCREENS`, memoised because it returns a fresh `Set`). `TileItemRow` calls
 the hook and forwards it. The transform stays a pure string rewrite, which remains sound only
-because routes are always `/<domain>/…` (M20's derived-namespace decision).
+because routes are always `/<domain>/…` (M17's derived-namespace decision).
 
 **The tile nav button derives its domain from `spec.key.split('.')[0]`.** No literal, no map. It
 renders only when that domain is navigable, so the honesty rule holds at tile level too. The footer

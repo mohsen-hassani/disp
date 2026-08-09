@@ -7,14 +7,15 @@ Guidance for Claude Code when working in this repository.
 DISP: a self-hosted personal platform (FastAPI backbone + plug-in module contract + built-in auth
 + a Typer CLI). Built end-to-end from `TECHNICAL-SPEC.md`, a normative spec — if you're asked to
 extend this project, that spec (and `docs/`) is the source of truth, not assumptions from other
-FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M19` for
+FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M20` for
 the full build history, including every resolved spec ambiguity and bug found along the way.
 
 A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
-sequence at `milestones/client/M00-M12` — unlike the backend's `milestones/server/M00-M19`, those started as
-prospective (not-yet-built) briefs, not retrospective build logs. All of `milestones/client/M00-M12`
-are now implemented (see `README.md`'s "Web client" section for what each covers, and "Web client"
-below for testing/dev notes specific to it). `M12`'s own `**Status:**` line has the exact split of
+sequence at `milestones/client/M00-M14` — unlike the backend's `milestones/server/M00-M20`, those
+started as prospective (not-yet-built) briefs, not retrospective build logs.
+`milestones/client/M00-M14` are all implemented (see `README.md`'s "Web client" section for what
+each covers, and "Web client" below for testing/dev notes specific to it). `M12`'s own
+`**Status:**` line has the exact split of
 what's automated and verified versus what still needs a human with real infrastructure (a live TLS
 deploy, iOS/Android home-screen install) — check it before assuming "implemented" means "every
 acceptance criterion independently confirmed."
@@ -24,11 +25,12 @@ schedules). `plants` was built after the spec rather than from it, so it documen
 `src/disp/modules/plants/TECHNICAL-SPEC.md` is the complete as-built reference (data model,
 scheduling invariants, API, photo storage, rationale for every decision) and is the source of truth
 before changing anything under `src/disp/modules/plants/`. Its `README.md` is the short
-orientation. (The web client has no `plants` screens — per `TECHNICAL-SPEC-WEB.md`'s explicit
-non-goals, `plants` renders only through the generic manifest-driven dashboard, same as any other
-module without bespoke client code.) **The load-bearing rule: completing a care action reschedules
-from the completion date, not the due date** (done on the 3rd for a 15-day cycle → next due the
-18th, not the 16th), and due/overdue state is *derived* at read time, never stored.
+orientation. The web client's `plants` screens (full CRUD: list, create/edit, detail with care
+intervals and history, photo upload, calendar) are implemented per `milestones/client/M14-plants-
+screens.md`, registered in `MODULE_SCREENS` alongside `notes`. **The load-bearing rule:
+completing a care action reschedules from the completion date, not the due date** (done on the 3rd
+for a 15-day cycle → next due the 18th, not the 16th), and due/overdue state is *derived* at read
+time, never stored.
 
 ## Commands
 
@@ -87,6 +89,33 @@ for whatever's left in `registry.settings_panels` after the per-module loop. Thi
 manifest's `modules` list always includes a `"core"` domain in addition to real modules — a test
 asserting an exact domain set needs `{"notes", "plants", "core"}`, not just the real module domains;
 two tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_proof.py`).
+
+## A module's client surface is manifest-declared (not hard-coded in the client)
+
+A module declares whether it has web-client screens, and how they present, in its own manifest —
+`ModuleManifest.client_nav` (`label`, `icon` as a kebab-case *lucide name*, `order`, advisory
+`routes`) and `TileSpec.nav` (a navigation button in that tile's footer). See
+`milestones/server/M17-client-surface-contract.md` and `milestones/client/M13-module-nav-contract.md`.
+
+Two rules that are easy to get wrong:
+
+- **The route namespace is `/<domain>/…`, derived from the domain and never declarable.** There is
+  deliberately no `base_path` field. `translateTileHref` (`clients/web/src/components/tiles/tileLinks.ts`)
+  is a pure string rewrite — strip `/api`, keep the rest — so the UI path *must* equal the API path
+  minus `/api`. A declarable base path would silently break every tile deep link the module ships.
+- **Navigation is the intersection of manifest and client, not the manifest alone.** A nav entry
+  renders only when the manifest declares `client_nav` **and** the domain is in `MODULE_SCREENS`
+  (`clients/web/src/modules/registry.ts`) — server = policy, client = capability. A module ahead of
+  the client is dashboard-only, never a link to a 404. `plants` was in exactly that state before
+  `milestones/client/M14-plants-screens.md` was implemented — its screens now exist and it's
+  registered in `MODULE_SCREENS` alongside `notes`. A *future* module ahead of the client repeats
+  this same pattern: declaring `client_nav` with no matching `MODULE_SCREENS` entry, dashboard-only
+  until its screens land — one line in `MODULE_SCREENS` plus the route files, no shell edits.
+
+`tests/unit/tiles/no-domain-literals.test.ts` derives its forbidden-word list from `MODULE_SCREENS`
+and scans `src/components/tiles/` as **raw text, comments included**. So registering a module's
+screens immediately makes its domain name forbidden in that directory — module-specific code goes in
+`src/components/<domain>/`, never in `tiles/`.
 
 ## Adding a module: branch registration is one line now
 

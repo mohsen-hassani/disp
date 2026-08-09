@@ -17,7 +17,7 @@ network access should do that run once before relying on it in CI. `pnpm lint`, 
 `clients/web/src/api/queries.ts`, `clients/web/src/modules/registry.ts` (one line),
 `clients/web/src/lib/icons.ts` (already carries `sprout`).
 
-Depends on **M13** (manifest-driven navigation) and **M20** (the backend contract). Both are
+Depends on **M13** (manifest-driven navigation) and **M17** (the backend contract). Both are
 complete: `plants` already declares `client_nav` and a `plants.due` tile nav button, so the nav
 entry and the tile's "Manage plants" button appear the instant `MODULE_SCREENS` gains `'plants'` —
 **no contract, spec, or shell work is part of this milestone.** If you find yourself editing

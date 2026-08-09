@@ -588,11 +588,23 @@ The `api` container MUST NOT run migrations automatically. Migrations run as an 
 DOMAIN_RE = r"^[a-z][a-z0-9_]{1,31}$"
 KEY_RE = r"^[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,63}$"  # "<domain>.<name>"
 
+# A client route relative to the module's own /<domain> namespace: "", "new",
+# "{plant_id}", "{plant_id}/edit". Leading slashes are rejected on purpose.
+SUBPATH_RE = r"^$|^[a-z0-9_{}-]+(?:/[a-z0-9_{}-]+)*$"
+ICON_RE = r"^[a-z][a-z0-9-]{0,31}$"  # kebab-case lucide icon name
+
 
 class TileSize(StrEnum):
     SMALL = "small"
     MEDIUM = "medium"
     LARGE = "large"
+
+
+class TileNavSpec(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    label: str = Field(min_length=1, max_length=32)   # "Manage plants"
+    path: str = Field(default="", pattern=SUBPATH_RE)  # sub-path under /<domain>
 
 
 class TileSpec(BaseModel):
@@ -604,6 +616,7 @@ class TileSpec(BaseModel):
     size: TileSize = TileSize.MEDIUM
     refresh_seconds: int = Field(default=300, ge=10, le=86400)
     order: int = Field(default=100, ge=0, le=1000)
+    nav: TileNavSpec | None = None  # requires the manifest to declare client_nav
 
 
 class SettingsPanelSpec(BaseModel):
@@ -633,6 +646,15 @@ class NotificationTypeSpec(BaseModel):
     default_enabled: bool = True
 
 
+class ClientNavSpec(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    label: str = Field(min_length=1, max_length=32)
+    icon: str = Field(default="box", pattern=ICON_RE)  # lucide icon name
+    order: int = Field(default=100, ge=0, le=1000)
+    routes: tuple[str, ...] = ()  # advisory: sub-paths under /<domain>
+
+
 class ModuleManifest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -645,9 +667,16 @@ class ModuleManifest(BaseModel):
     settings_panels: tuple[SettingsPanelSpec, ...] = ()
     scheduled_jobs: tuple[ScheduledJobSpec, ...] = ()
     notification_types: tuple[NotificationTypeSpec, ...] = ()
+    client_nav: ClientNavSpec | None = None
 ```
 
 **Cross-field validation** — `ModuleManifest` MUST enforce, via a model validator, that every `key` in `tiles`, `settings_panels`, `scheduled_jobs`, and `notification_types` begins with `f"{domain}."`. Violations raise `ValueError` at import time.
+
+**Client surface (amendment A3).** `client_nav` declares that a module ships client screens and how they present (label, icon, order). Its **route namespace is always `/<domain>/…`, derived from the domain and never declarable** — the client translates tile deep links by stripping the `/api` prefix (`/api/plants/x` → `/plants/x`), so a declarable base path would silently break every one of them. `routes` is advisory documentation of the intended URL surface; the server cannot ship the screens.
+
+Declaring `client_nav` does not create screens. A client renders the nav entry only if it also has screens for that domain, so a module ahead of its client degrades to dashboard-only rather than linking somewhere that 404s (WEB-SPEC §12.2).
+
+`ModuleManifest` MUST additionally enforce that a `TileSpec.nav` is only present when `client_nav` is set — a tile nav button links into a namespace the module must have claimed — and that no `client_nav.routes` entry is an absolute path.
 
 ### 8.2 Tile data models
 

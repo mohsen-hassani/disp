@@ -5,8 +5,8 @@ tiered learning path, and quizzes and exercises that know what you're bad at.
 
 > **Status: specified, not built.** `TECHNICAL-SPEC.md` in this directory is the complete reference.
 > This module depends on two capabilities that are themselves unbuilt — the core file service
-> (`milestones/server/M17-files.md`) and the core LLM service (`milestones/server/M18-llm.md`) — and
-> `milestones/server/M19-learning.md` sequences the work.
+> (`milestones/server/M18-files.md`) and the core LLM service (`milestones/server/M19-llm.md`) — and
+> `milestones/server/M20-learning.md` sequences the work.
 
 ## Model
 

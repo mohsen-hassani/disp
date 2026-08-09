@@ -69,7 +69,9 @@ Section 3 lists three small amendments this client requires from the backend. Th
 
 ### 1.2 Non-goals
 
-Do **not** implement: web push notifications; background sync or an offline mutation queue; a service-worker-based offline write cache; screens for plants, habits, or shopping lists; internationalisation beyond locale-aware date/number formatting; theming beyond light/dark; server-side rendering; native app packaging (Capacitor, Tauri); analytics or telemetry of any kind.
+Do **not** implement: web push notifications; background sync or an offline mutation queue; a service-worker-based offline write cache; screens for habits or shopping lists; internationalisation beyond locale-aware date/number formatting; theming beyond light/dark; server-side rendering; native app packaging (Capacitor, Tauri); analytics or telemetry of any kind.
+
+> **Amended (A3).** "Screens for plants" was originally a non-goal here, on the reasoning that `plants` renders adequately through the generic dashboard. In practice the tile is read-only with no way to reach the module at all, so `plants` screens are now in scope — specified in `milestones/client/M14-plants-screens.md` and reachable through the manifest-declared navigation of §12.2. Habits and shopping lists remain out of scope; they have no backend module.
 
 ### 1.3 Operating assumptions
 
@@ -648,16 +650,27 @@ Mobile-first: base styles are mobile, breakpoints add.
 
 ### 12.2 Navigation items
 
-Built from `['dashboard','manifest']` plus fixed entries:
+Built from `['dashboard','manifest']` plus fixed entries, grouped into **sections**:
 
-| Order | Label | Icon | Path | Visibility |
-|---|---|---|---|---|
-| 1 | Dashboard | `layout-dashboard` | `/` | always |
-| 2 | Notes | `sticky-note` | `/notes` | when the `notes` module is in the manifest |
-| 3 | Settings | `settings` | `/settings` | always |
-| 4 | Invitations | `user-plus` | `/admin/invites` | `is_admin` only, desktop side nav only |
+| Section | Order | Label | Icon | Path | Visibility |
+|---|---|---|---|---|---|
+| (unlabelled) | 1 | Dashboard | `layout-dashboard` | `/` | always |
+| **Modules** | — | *manifest-declared* | *manifest-declared* | `/<domain>` | see the rule below |
+| (unlabelled) | 3 | Settings | `settings` | `/settings` | always |
+| (unlabelled) | 4 | Invitations | `user-plus` | `/admin/invites` | `is_admin` only, desktop side nav only |
 
-**Module-driven navigation rule:** a module that registers tiles but has no bespoke screen appears only on the dashboard. Only modules with an entry in a hard-coded `MODULE_ROUTES` map (v1: `notes` alone) get a nav item. This is deliberate — bespoke screens require bespoke code, and the client must not pretend otherwise. `MODULE_ROUTES` MUST be a single, clearly commented constant so adding a future module's screen is a one-line change plus the screen itself.
+Only the **Modules** section carries a visible heading, and it is omitted entirely when it would be empty. Section grouping is a side-nav affordance; the bottom nav flattens all sections into one list (§12.3).
+
+**Module-driven navigation rule (amendment A3):** a module's client surface is declared in its own manifest, not hard-coded in the client. `ModuleManifest.client_nav` (`label`, `icon`, `order`, `routes`) states that the module has screens and how it should present; its route namespace is always `/<domain>/…`, **derived from the domain, never declared** — §13.7 translates tile deep links by stripping the `/api` prefix, so a declarable base path would silently break every one of them.
+
+A nav entry renders only when **both** hold:
+
+1. the module's manifest declares `client_nav` (server-side policy: label, icon, order, whether to appear at all), **and**
+2. the client ships screens for that domain, recorded in a single `MODULE_SCREENS` set (client-side capability).
+
+Navigation is the *intersection*. A module declaring `client_nav` that this client has no screens for renders on the dashboard only, exactly as if it had declared nothing — the client must never pretend a module has a screen it doesn't. This preserves the original rule's intent while moving every piece of presentation to the server: adding a module's screens is one line in `MODULE_SCREENS` plus the route files, with no label, icon, path, or ordering anywhere in the shell.
+
+`icon` is a lucide icon *name*; the client resolves it through an allow-list and falls back to a placeholder for a name it does not carry, the same way an unknown tile `size` falls back to `medium` (§13.2). `routes` is advisory — it documents the module's intended URL surface for a client-side conformance check; the server cannot ship the screens themselves.
 
 ### 12.3 Mobile bottom navigation
 
@@ -726,7 +739,8 @@ Rules:
 - At most five `items` are rendered regardless of how many arrive; if more arrive, a muted "+N more" line follows. The server is expected to send few, but the client MUST NOT assume it.
 - When `items` is empty, render `empty_text` in muted italic. Actions still render.
 - `generated_at` is rendered as a relative timestamp ("updated 2 min ago") in the header on hover/focus only (a `title` attribute plus visually-hidden text), to avoid visual noise.
-- The whole card is **not** a link. Only `TileItem.href` values are links.
+- The whole card is **not** a link. Only `TileItem.href` values and the footer's nav button (§13.6) are links.
+- The footer renders when the tile has actions **or** a nav button — not actions alone.
 
 ### 13.4 Per-tile refresh
 
@@ -757,9 +771,17 @@ After a successful action the client MUST invalidate `['dashboard','tile', <the 
 
 Errors follow §7.3. A failed action leaves the dialog open with the error rendered inline so input is not lost.
 
+**Tile nav button (amendment A3).** `TileSpec.nav` (`label`, `path`) declares a navigation button in the tile's footer, pointing into the module's own screens at `/<domain>/<path>`. It renders as a router link styled identically to the action buttons beside it, placed first in the footer.
+
+It lives on `TileSpec` (the manifest) rather than on `TileData.actions` (per-render) because it is static structure — identical for every render and every user — whereas an action's availability can vary. `TileAction` also cannot express it: its `method` is a mutation verb, never navigation.
+
+The owning domain is the tile key's `<domain>.` prefix, so the rule stays generic. The button renders only when that domain is navigable per §12.2, so a module whose screens this client predates gets no dead link. A manifest declaring `TileSpec.nav` without `ModuleManifest.client_nav` is rejected at manifest construction time on the server.
+
 ### 13.7 `href` translation
 
-`TileItem.href` values are API paths (`/api/notes/{id}`). The client maps them to UI routes with a single generic rule: strip the `/api` prefix and look the result up in `MODULE_ROUTES` (§12.2). `/api/notes/abc` → `/notes/abc`. A path with no mapping renders as plain text, not a broken link.
+`TileItem.href` values are API paths (`/api/notes/{id}`). The client maps them to UI routes with a single generic rule: strip the `/api` prefix and check the leading segment against the set of **navigable domains** (§12.2's intersection of manifest `client_nav` and `MODULE_SCREENS`). `/api/notes/abc` → `/notes/abc`. A path whose domain is not navigable renders as plain text, not a broken link.
+
+Because reachability is manifest-derived at runtime rather than a build-time constant, the navigable-domain set is passed into the translation rather than imported by it. The transform itself stays a pure string rewrite, which is only sound because a module's routes are always `/<domain>/…` (§12.2).
 
 ### 13.8 Tile failure and loading
 
