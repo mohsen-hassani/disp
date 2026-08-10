@@ -62,6 +62,14 @@ def test_domain_package_mismatch_is_fatal(monkeypatch: MonkeyPatch) -> None:
     assert "wrong_domain" in message
 
 
+def test_discovery_rejects_the_reserved_files_domain(monkeypatch: MonkeyPatch) -> None:
+    with pytest.raises(ModuleRegistrationError) as exc_info:
+        _discover(monkeypatch, "files")
+
+    assert "files" in str(exc_info.value)
+    assert "reserved" in str(exc_info.value)
+
+
 def test_dependency_cycle_is_fatal_and_names_both_modules(monkeypatch: MonkeyPatch) -> None:
     with pytest.raises(ModuleRegistrationError) as exc_info:
         _discover(monkeypatch, "cyclic_a,cyclic_b")

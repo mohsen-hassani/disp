@@ -55,13 +55,10 @@ class Plant(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     care_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Path relative to the module's media root, never an absolute path: the
-    # volume mount point differs between the container and a local `uv run`.
-    image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_content_type: Mapped[str | None] = mapped_column(Text, nullable=True)
-    image_updated_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    # A core.assets id (M18-files.md) — bare column, no cross-schema FK, same
+    # convention as user_id above. Nulled and re-pointed on every photo
+    # replacement (assets are immutable; a new upload is a new asset).
+    image_asset_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

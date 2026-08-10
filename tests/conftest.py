@@ -2,6 +2,7 @@ import atexit
 import os
 import subprocess
 import sys
+import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -30,6 +31,14 @@ os.environ["DISP_BASE_URL"] = "http://localhost:8000"
 os.environ["DISP_ENV"] = "test"
 os.environ["DISP_COOKIE_SECURE"] = "false"
 os.environ["DISP_RATE_LIMIT_ENABLED"] = "false"
+# The session-scoped `app`/`client` fixtures build their FileStore via the
+# real create_app(), which reads DISP_FILES_ROOT at face value — unlike
+# tests that construct their own sandboxed FileStore/LocalBackend against
+# `tmp_path`, anything going through those fixtures (e.g. an HTTP-level PUT
+# .../image test) would otherwise write real objects into the repo's own
+# var/media/ on every run. A session-scoped mkdtemp() here keeps that
+# hermetic without touching the working tree.
+os.environ["DISP_FILES_ROOT"] = tempfile.mkdtemp(prefix="disp-test-files-")
 
 # §22.1 requires a real PostgreSQL 16 via testcontainers, started once per
 # session. This MUST happen at conftest.py *module import time* (not inside a

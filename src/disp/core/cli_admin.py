@@ -6,6 +6,7 @@ import typer
 from sqlalchemy import func, select
 
 from disp.core.auth.passwords import hash_password
+from disp.core.cli_admin_files import files_app
 from disp.core.config import get_settings
 from disp.core.db import create_engine, create_session_maker
 from disp.core.models import User
@@ -16,6 +17,9 @@ app = typer.Typer(add_completion=False, help="Server-side admin CLI for disp.")
 @app.callback()
 def _callback() -> None:
     """Server-side admin CLI for disp."""
+
+
+app.add_typer(files_app, name="files")
 
 
 @app.command("seed-admin")

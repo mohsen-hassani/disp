@@ -2,11 +2,12 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from disp.core.auth import CurrentUser, current_user
 from disp.core.db import get_session
+from disp.core.files import FileStore, get_file_store
 from disp.core.pagination import Page
 from disp.modules.plants import service
 from disp.modules.plants.schemas import (
@@ -51,11 +52,12 @@ _FORBIDDEN: _Responses = {
 async def list_plants(
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     cursor: Annotated[str | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
 ) -> Page[PlantOut]:
-    return await service.list_plants(session, user, limit=limit, cursor=cursor, q=q)
+    return await service.list_plants(session, user, limit=limit, cursor=cursor, q=q, files=files)
 
 
 @router.post(
@@ -70,8 +72,9 @@ async def create_plant(
     response: Response,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> PlantOut:
-    plant = await service.create_plant(session, user, payload)
+    plant = await service.create_plant(session, user, payload, files=files)
     response.headers["Location"] = f"/api/plants/{plant.id}"
     return plant
 
@@ -119,8 +122,9 @@ async def get_plant(
     plant_id: UUID,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> PlantDetailOut:
-    return await service.get_plant(session, user, plant_id)
+    return await service.get_plant(session, user, plant_id, files=files)
 
 
 @router.patch(
@@ -136,8 +140,9 @@ async def update_plant(
     payload: PlantUpdate,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> PlantOut:
-    return await service.update_plant(session, user, plant_id, payload)
+    return await service.update_plant(session, user, plant_id, payload, files=files)
 
 
 @router.delete(
@@ -158,12 +163,11 @@ async def delete_plant(
 
 @router.get(
     "/{plant_id}/image",
-    status_code=200,
+    status_code=302,
     summary="Fetch a plant's photo",
     operation_id="plants_get_image",
-    response_class=FileResponse,
     responses={
-        200: {"content": {"image/jpeg": {}, "image/png": {}, "image/webp": {}, "image/gif": {}}},
+        302: {"description": "Redirect to a signed /api/files URL"},
         404: {"description": "Plant not visible to the caller, or it has no photo"},
     },
 )
@@ -171,14 +175,10 @@ async def get_plant_image(
     plant_id: UUID,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
-) -> FileResponse:
-    path, content_type = await service.get_plant_image(session, user, plant_id)
-    # `private` matters: the photo is ACL-gated, so no shared cache may keep it.
-    return FileResponse(
-        path,
-        media_type=content_type,
-        headers={"Cache-Control": "private, max-age=300"},
-    )
+    files: Annotated[FileStore, Depends(get_file_store)],
+) -> RedirectResponse:
+    url = await service.plant_image_redirect_url(session, user, plant_id, files=files)
+    return RedirectResponse(url, status_code=302)
 
 
 @router.put(
@@ -191,16 +191,19 @@ async def get_plant_image(
         **_FORBIDDEN,
         **_NOT_FOUND,
         413: {"description": "Image exceeds the configured size limit"},
-        415: {"description": "File is not a JPEG, PNG, WebP or GIF"},
+        415: {"description": "File is not a supported image type (core.files.unsupported_type)"},
     },
 )
 async def set_plant_image(
     plant_id: UUID,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
     file: Annotated[UploadFile, File()],
 ) -> PlantOut:
-    return await service.set_plant_image(session, user, plant_id, data=await file.read())
+    return await service.set_plant_image(
+        session, user, plant_id, source=file, filename=file.filename, files=files
+    )
 
 
 @router.delete(
@@ -214,8 +217,9 @@ async def delete_plant_image(
     plant_id: UUID,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> Response:
-    await service.clear_plant_image(session, user, plant_id)
+    await service.clear_plant_image(session, user, plant_id, files=files)
     return Response(status_code=204)
 
 

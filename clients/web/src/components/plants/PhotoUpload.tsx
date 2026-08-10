@@ -52,6 +52,7 @@ export function PhotoUpload({ plant }: PhotoUploadProps): ReactElement {
   return (
     <div className="flex items-center gap-3">
       <PlantThumbnail
+        plantId={plant.id}
         imageUrl={plant.image_url}
         hasImage={plant.has_image}
         name={plant.name}

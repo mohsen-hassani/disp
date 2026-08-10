@@ -1115,6 +1115,50 @@ export type TilesResponse = {
 };
 
 /**
+ * UsageRow
+ */
+export type UsageRow = {
+    /**
+     * Domain
+     */
+    domain: string;
+    /**
+     * Purpose
+     */
+    purpose: string;
+    /**
+     * Owner User Id
+     */
+    owner_user_id: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Total Bytes
+     */
+    total_bytes: number;
+};
+
+/**
+ * UsageSummary
+ */
+export type UsageSummary = {
+    /**
+     * Rows
+     */
+    rows: Array<UsageRow>;
+    /**
+     * Total Count
+     */
+    total_count: number;
+    /**
+     * Total Bytes
+     */
+    total_bytes: number;
+};
+
+/**
  * UserOut
  */
 export type UserOut = {
@@ -1856,6 +1900,84 @@ export type SettingsUpdateResponses = {
 
 export type SettingsUpdateResponse = SettingsUpdateResponses[keyof SettingsUpdateResponses];
 
+export type FilesUsageData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/files/usage';
+};
+
+export type FilesUsageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FilesUsageError = FilesUsageErrors[keyof FilesUsageErrors];
+
+export type FilesUsageResponses = {
+    /**
+     * Successful Response
+     */
+    200: UsageSummary;
+};
+
+export type FilesUsageResponse = FilesUsageResponses[keyof FilesUsageResponses];
+
+export type FilesGetData = {
+    body?: never;
+    headers?: {
+        /**
+         * If-None-Match
+         */
+        'if-none-match'?: string | null;
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Asset Id
+         */
+        asset_id: string;
+    };
+    query?: {
+        /**
+         * Exp
+         */
+        exp?: number | null;
+        /**
+         * Sig
+         */
+        sig?: string | null;
+    };
+    url: '/api/files/{asset_id}';
+};
+
+export type FilesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FilesGetError = FilesGetErrors[keyof FilesGetErrors];
+
+export type FilesGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type NotesListData = {
     body?: never;
     headers?: {
@@ -2465,13 +2587,6 @@ export type PlantsGetImageErrors = {
 
 export type PlantsGetImageError = PlantsGetImageErrors[keyof PlantsGetImageErrors];
 
-export type PlantsGetImageResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type PlantsSetImageData = {
     body: BodyPlantsSetImage;
     headers?: {
@@ -2504,7 +2619,7 @@ export type PlantsSetImageErrors = {
      */
     413: unknown;
     /**
-     * File is not a JPEG, PNG, WebP or GIF
+     * File is not a supported image type (core.files.unsupported_type)
      */
     415: unknown;
     /**

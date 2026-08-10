@@ -93,6 +93,18 @@ with psycopg.connect(url) as conn, conn.cursor() as cur:
             --cov=disp --cov-report=term-missing \
             --cov-fail-under=85 \
             "$@"
+        # Per-directory gates (PLATFORM-SPEC §22.2). coverage.py has no
+        # per-path threshold setting -- unlike vitest.config.ts's glob-keyed
+        # coverage.thresholds, which is a Vitest feature and does not port --
+        # so each gated directory is a separate report over the .coverage file
+        # pytest just wrote. Add a line here per gated directory; see
+        # milestones/server/M18-files.md §14.
+        uv run coverage report --include='src/disp/core/auth/*' --fail-under=95 >/dev/null \
+            || { echo "FAIL: src/disp/core/auth/ below 95% coverage"; \
+                 uv run coverage report --include='src/disp/core/auth/*'; exit 1; }
+        uv run coverage report --include='src/disp/core/files/*' --fail-under=95 >/dev/null \
+            || { echo "FAIL: src/disp/core/files/ below 95% coverage"; \
+                 uv run coverage report --include='src/disp/core/files/*'; exit 1; }
         ;;
     lint)
         uv run ruff check .

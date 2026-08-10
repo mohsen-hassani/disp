@@ -318,6 +318,20 @@ class Settings(BaseSettings):
 | `DISP_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
 | `DISP_RATE_LIMIT_ENABLED` | bool | no | `true` | |
 | `DISP_ENV` | str | no | `production` | `production` \| `development` \| `test` |
+| `DISP_FILES_BACKEND` | str | no | `local` | `local` \| `s3` |
+| `DISP_FILES_ROOT` | str | no | `var/media` | local backend only |
+| `DISP_FILES_MAX_BYTES` | int | no | `26214400` (25 MiB) | > 0; hard ceiling, an `AcceptSpec` may be stricter, never looser |
+| `DISP_FILES_URL_TTL_SECONDS` | int | no | `3600` | 60–86400 |
+| `DISP_FILES_SWEEP_GRACE_SECONDS` | int | no | `86400` | > 0 |
+| `DISP_FILES_SWEEP_CRON` | str | no | `30 4 * * *` | 5-field cron |
+| `DISP_FILES_S3_BUCKET` | str | no | `""` | required if `DISP_FILES_BACKEND=s3` |
+| `DISP_FILES_S3_ENDPOINT_URL` | str \| None | no | `None` | unset for AWS; set for R2/B2/MinIO |
+| `DISP_FILES_S3_REGION` | str | no | `auto` | |
+| `DISP_FILES_S3_ACCESS_KEY_ID` | SecretStr | no | `""` | required if `DISP_FILES_BACKEND=s3` |
+| `DISP_FILES_S3_SECRET_ACCESS_KEY` | SecretStr | no | `""` | required if `DISP_FILES_BACKEND=s3` |
+| `DISP_FILES_S3_PREFIX` | str | no | `""` | key prefix inside the bucket |
+| `DISP_FILES_S3_FORCE_PATH_STYLE` | bool | no | `true` | MinIO requires it; R2/B2 tolerate it |
+| `DISP_FILES_S3_NATIVE_PRESIGN` | bool | no | `false` | off by default — breaks same-origin `img-src` CSP if enabled |
 
 `get_settings()` MUST be `@lru_cache`-decorated and MUST be the only way settings are obtained.
 
@@ -328,6 +342,7 @@ On boot the application MUST fail fast (log a fatal error, exit code 1) if:
 - `JWT_SECRET` is shorter than 32 characters;
 - `SETTINGS_KEY` is not a valid Fernet key;
 - `DISP_ENV == "production"` and `COOKIE_SECURE` is false;
+- `DISP_FILES_BACKEND == "s3"` and the bucket or credentials are empty;
 - the database is unreachable after 5 retries with 2-second backoff.
 
 ### 5.4 `.env.example`
@@ -756,6 +771,7 @@ class Platform:
     scheduler: SchedulerFacade  # .task(name), .defer(name, **kwargs)
     notifier: NotifierFacade  # .send(...)
     store: SettingsStore
+    files: FileStore  # .put(...), .get(...), .open(...), .delete(...), .signed_url(...)
     registry: "Registry"  # read-only accessors only
 ```
 
@@ -1308,6 +1324,8 @@ Renders one tile. `404 core.dashboard.tile_not_found` for an unknown key. Errors
 | `200` | Successful read or update returning a body |
 | `201` | Resource created; `Location` header set |
 | `204` | Success with no body (delete, logout) |
+| `302` | Redirect to a freshly minted resource (a module's own image route redirecting to a signed `/api/files/{id}` URL) |
+| `304` | `If-None-Match` matched; no body |
 | `400` | Semantically invalid request that is not a schema violation |
 | `401` | Missing or invalid authentication |
 | `403` | Authenticated but not permitted |
@@ -1375,6 +1393,7 @@ Response envelope for every list endpoint:
 | `POST /api/auth/accept-invite` | 10/hour per IP |
 | `POST /api/auth/tokens` | 20/hour per user |
 | `POST /api/auth/password` | 5/hour per user |
+| `GET /api/files/{asset_id}` | 300/minute per IP — stated explicitly, not just inherited: this is the platform's first unauthenticated route (the signed-URL path), shared by every thumbnail on a page |
 | all other routes | 300/minute per IP |
 
 Exceeding a limit returns `429` with `Retry-After`.
@@ -1382,7 +1401,7 @@ Exceeding a limit returns `429` with `Retry-After`.
 ### 17.7 OpenAPI
 
 - Every route MUST declare `response_model`, `status_code`, `summary`, and a `responses` dict documenting each non-2xx status it can return.
-- Every route MUST carry exactly one tag: its domain, or `auth`, `dashboard`, `settings`, `health`.
+- Every route MUST carry exactly one tag: its domain, or `auth`, `dashboard`, `settings`, `health`, `files`.
 - `operation_id` MUST be set explicitly as `{tag}_{action}` (e.g. `notes_list`, `auth_login`) so generated clients have stable method names.
 
 ---
@@ -1668,6 +1687,9 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 | S14 | `docs_url` and `redoc_url` are disabled when `DISP_ENV=production`. |
 | S15 | The container runs as a non-root user (`uid 10001`). |
 | S16 | Dependencies are pinned via a committed lock file. |
+| S17 | Signed file URLs are HMAC-SHA256 capabilities over `(asset id, bucketed expiry)`, verified with `hmac.compare_digest`; the signature does not bind a user id (M18-files.md §9). |
+| S18 | No component of a storage key derives from client input (M18-files.md I4). |
+| S19 | Only a positively sniffed type may be served `Content-Disposition: inline`; everything else, including the unsniffable text family, is `attachment` (M18-files.md I6). |
 
 ---
 
@@ -1680,15 +1702,22 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 - Per-test isolation: each test runs in a transaction that is rolled back at teardown. Tests that need committed data use a dedicated fixture that truncates afterwards.
 - `httpx.ASGITransport` against the real app; no mocking of FastAPI internals.
 - Apprise is mocked at the `apprise.Apprise.notify` boundary. No test performs outbound network I/O.
-- Time-dependent tests use `freezegun` or explicit injected `now` parameters — never `sleep`.
+- Time-dependent tests use `freezegun` or explicit injected `now` parameters — never `sleep`. The
+  `core.files` sweeper and its signing layer thread `now` explicitly through every call rather than
+  mocking wall-clock time, so no `freezegun` dependency was needed for that suite.
+- The `core.files` backend conformance suite (`tests/core/files/test_backends.py`) currently runs
+  against the local backend only — the S3 backend (M18-files.md §6.2) is deferred, so there is no
+  MinIO testcontainer yet. When S3 lands, its conformance run is still localhost (a testcontainer),
+  not outbound network I/O.
 
 ### 22.2 Coverage
 
-Overall line coverage ≥ 85 %. `src/disp/core/auth/` ≥ 95 %. The build fails below either threshold.
+Overall line coverage ≥ 85 %. `src/disp/core/auth/` ≥ 95 %. `src/disp/core/files/` ≥ 95 %. The build
+fails below any of these thresholds.
 
-The overall gate is `pytest --cov-fail-under=85`. The per-directory gate is a separate
+The overall gate is `pytest --cov-fail-under=85`. Each per-directory gate is a separate
 `coverage report --include=… --fail-under=95` over the same `.coverage` file, because `coverage.py`
-has no per-path threshold setting. Both live in `./dev test`; add a line there per gated directory.
+has no per-path threshold setting. All three live in `./dev test`; add a line there per gated directory.
 
 ### 22.3 Required test cases
 
@@ -2040,6 +2069,13 @@ the backbone registry.
 | `core.platform.validation_error` | 422 | Request schema violation |
 | `core.platform.http_error` | 4xx/5xx | A bare `HTTPException` reached the handler (§17.4) |
 | `core.platform.internal_error` | 500 | Unhandled exception |
+| `core.files.empty_upload` | 400 | Upload contained no bytes |
+| `core.files.too_large` | 413 | Over the effective `AcceptSpec`/`DISP_FILES_MAX_BYTES` ceiling |
+| `core.files.unsupported_type` | 415 | Bytes are not a type the caller's `AcceptSpec` allows |
+| `core.files.not_found` | 404 | No such asset, or it was soft-deleted |
+| `core.files.missing_object` | 404 | Row exists but the backend has no matching object (§15.3) |
+| `core.files.url_expired` | 403 | Signed URL's signature is invalid, or its bucketed expiry has passed |
+| `core.files.forbidden` | 403 | Bearer-authenticated caller is neither the asset's owner nor an admin |
 | `modules.notes.not_found` | 404 | Note absent or not readable |
 | `modules.notes.user_not_found` | 404 | Share target email unknown |
 | `modules.notes.cannot_share_with_self` | 400 | Share target is the caller |

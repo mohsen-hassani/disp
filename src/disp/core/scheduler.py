@@ -46,6 +46,9 @@ class SchedulerFacade:
     def __init__(self, procrastinate_app: procrastinate.App) -> None:
         self._app = procrastinate_app
 
+    def has_task(self, name: str) -> bool:
+        return name in self._app.tasks
+
     def task(self, name: str, *, queue: str = "default", retry: int = 3) -> Callable[[F], F]:
         if not _KEY_PATTERN.match(name):
             raise ValueError(f"scheduler task name {name!r} must match {KEY_RE!r}")

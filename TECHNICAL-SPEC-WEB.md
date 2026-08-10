@@ -367,6 +367,7 @@ export function isProblem(value: unknown): value is ProblemDetail
 | `404` | Route-level: 404 screen. Item-level: toast + invalidate the containing list query |
 | `409` | Inline field error where a field is implicated (`core.auth.user_exists` → email field); otherwise toast |
 | `410 core.auth.invite_expired` | Dedicated screen state on `/accept-invite` with copy from Appendix D |
+| `403 core.files.url_expired` | Invalidate the parent query (which re-mints the signed URL on refetch) and retry once before falling back to a placeholder — not a toast; the failing element is an `<img>`, not a form or mutation (M18-files.md §13) |
 | `422` | Map `errors[].loc` to form fields via §19.3; unmapped entries become a form-level error |
 | `429` | Toast with the `Retry-After` value rendered as "Try again in N seconds"; disable the submit button for that duration |
 | `5xx` | Toast "Something went wrong on the server." plus the `request_id` in small text, copyable |

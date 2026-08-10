@@ -46,8 +46,15 @@ function invalidatePlantsTile(queryClient: ReturnType<typeof useQueryClient>): v
  * mutation (everything in this file) has no such help and must do it
  * explicitly, or the dashboard count contradicts the screen the user just
  * acted on.
+ *
+ * Exported (M18-files.md §13) so `PlantThumbnail` can re-mint a signed
+ * `image_url` on an `onError` — the detail/list queries it invalidates are
+ * exactly the ones carrying that URL.
  */
-function invalidateAffected(queryClient: ReturnType<typeof useQueryClient>, plantId: string): void {
+export function invalidateAffected(
+  queryClient: ReturnType<typeof useQueryClient>,
+  plantId: string,
+): void {
   invalidatePlantsList(queryClient);
   void queryClient.invalidateQueries({ queryKey: qk.plants.detail(plantId) });
   invalidatePlantsTile(queryClient);
@@ -299,6 +306,13 @@ export function describePlantError(problem: ProblemDetail): string {
   }
   if (problem.code === 'modules.plants.no_image') {
     return "This plant's photo is missing.";
+  }
+  // WEB-SPEC §7.3: an `<img>` load never reaches this function (image
+  // fetches don't go through the mutation/query error path at all) — this
+  // branch is defensive, for the case a plants mutation itself somehow
+  // surfaces an expired signed URL.
+  if (problem.code === 'core.files.url_expired') {
+    return 'This link has expired. Refreshing…';
   }
   if (problem.status >= 500) {
     return `Something went wrong on the server. Reference: ${problem.request_id}`;

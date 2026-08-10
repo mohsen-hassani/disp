@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -300,10 +301,96 @@ class NotificationLog(Base):
     )
 
 
+class Asset(Base):
+    """M18: core file/asset service. Assets are immutable — there is no update,
+    only soft-delete (`deleted_at`) followed by the sweeper reaping the object
+    and the row once past the grace period. See src/disp/core/files/ and
+    milestones/server/M18-files.md §4.
+    """
+
+    __tablename__ = "assets"
+    __table_args__ = (
+        CheckConstraint(
+            "domain ~ '^[a-z][a-z0-9_]{1,31}$'",
+            name="ck_assets_domain",
+        ),
+        CheckConstraint(
+            "purpose ~ '^[a-z][a-z0-9_]{1,63}$'",
+            name="ck_assets_purpose",
+        ),
+        CheckConstraint(
+            "byte_size > 0",
+            name="ck_assets_byte_size",
+        ),
+        CheckConstraint(
+            "sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_assets_sha256",
+        ),
+        Index(
+            "uq_assets_backend_storage_key",
+            "backend",
+            "storage_key",
+            unique=True,
+        ),
+        Index(
+            "ix_assets_owner",
+            "owner_user_id",
+            text("created_at DESC"),
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_assets_lookup",
+            "domain",
+            "purpose",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_assets_sweep",
+            "deleted_at",
+            postgresql_where=text("deleted_at IS NOT NULL"),
+        ),
+        {"schema": SCHEMA},
+    )
+
+    # Both a Python-side default and a server_default, unlike every other
+    # table here: §5 requires the id be known *before* the row is even
+    # constructed, because it's baked into the storage key the backend writes
+    # bytes to first (I1). server_default stays for hand-written SQL.
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey(f"{SCHEMA}.users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(Text, nullable=False)
+    byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    original_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    backend: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    # none_as_null=False, unlike Setting.value_json (:255-260): attributes is
+    # NOT NULL with a '{}' default and never needs to represent SQL NULL.
+    attributes: Mapped[dict[str, object]] = mapped_column(
+        JSONB(none_as_null=False), nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 __all__ = [
     "SCHEMA",
     "Acl",
     "ApiToken",
+    "Asset",
     "Invite",
     "NotificationLog",
     "Session",

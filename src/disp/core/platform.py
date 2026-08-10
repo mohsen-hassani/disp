@@ -8,6 +8,7 @@ from disp.core.scheduler import SchedulerFacade
 from disp.core.settings_store import SettingsStore
 
 if TYPE_CHECKING:
+    from disp.core.files import FileStore
     from disp.core.registry import Registry
 
 
@@ -18,4 +19,5 @@ class Platform:
     scheduler: SchedulerFacade  # .task(name), .defer(name, **kwargs)
     notifier: NotifierFacade  # .send(...)
     store: SettingsStore
+    files: "FileStore"
     registry: "Registry"  # read-only accessors only

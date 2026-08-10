@@ -57,14 +57,17 @@ comparison goes through `service.today()`.
 
 ## Photos
 
-Stored on a filesystem volume (`DISP_PLANTS_MEDIA_ROOT`, mounted at `/data/media/plants` in
-`docker-compose.yml`), not in Postgres — `pg_dump` stays small and text-only, but **the volume
-needs backing up separately**. Filenames are `<plant-uuid>.<ext>`, derived entirely from the UUID
-and a sniffed content type; no part comes from client input.
+Stored through the core file/asset service (`src/disp/core/files/`, see `milestones/server/
+M18-files.md`), not this module — `plant.image_asset_id` is a bare `core.assets` id, no cross-schema
+FK. `GET /api/plants/{id}/image` authorizes against the plant's ACL, then `302`-redirects to a
+signed `/api/files/{asset_id}` URL that works in a plain `<img src>` with no session (`DISP_PLANTS_
+MAX_IMAGE_BYTES` still tightens the platform's default upload cap for this module's uploads only).
 
 The declared `Content-Type` is ignored — the type is sniffed from the leading bytes and rejected
-unless it is JPEG, PNG, WebP or GIF. Serving goes through `GET /api/plants/{id}/image` rather than
-a static mount so the same ACL applies to the photo as to the plant.
+unless it is JPEG, PNG, WebP or GIF (core's sniffable-type table). Uploaded bytes are not in
+Postgres — `pg_dump` stays small and text-only, but **the files volume needs backing up
+separately**, and it's shared by every module that uses `core.files`, not plants-specific — see
+`docs/operations.md`.
 
 ## Access control
 

@@ -29,6 +29,22 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     env: Literal["production", "development", "test"] = "production"
 
+    # M18: core file/asset service (src/disp/core/files/).
+    files_backend: Literal["local", "s3"] = "local"
+    files_root: str = "var/media"
+    files_max_bytes: int = Field(default=26_214_400, gt=0)
+    files_url_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
+    files_sweep_grace_seconds: int = Field(default=86400, gt=0)
+    files_sweep_cron: str = "30 4 * * *"
+    files_s3_bucket: str = ""
+    files_s3_endpoint_url: str | None = None
+    files_s3_region: str = "auto"
+    files_s3_access_key_id: SecretStr = SecretStr("")
+    files_s3_secret_access_key: SecretStr = SecretStr("")
+    files_s3_prefix: str = ""
+    files_s3_force_path_style: bool = True
+    files_s3_native_presign: bool = False
+
     @field_validator("database_url")
     @classmethod
     def _validate_database_url(cls, v: str) -> str:
@@ -57,9 +73,7 @@ class Settings(BaseSettings):
         try:
             decoded = urlsafe_b64decode(raw.encode("ascii"))
         except Exception as exc:
-            raise ValueError(
-                "DISP_SETTINGS_KEY must be a valid urlsafe-base64 Fernet key"
-            ) from exc
+            raise ValueError("DISP_SETTINGS_KEY must be a valid urlsafe-base64 Fernet key") from exc
         if len(decoded) != 32:
             raise ValueError("DISP_SETTINGS_KEY must decode to exactly 32 bytes")
         return v
@@ -76,6 +90,19 @@ class Settings(BaseSettings):
     def _validate_production_cookie_secure(self) -> "Settings":
         if self.env == "production" and not self.cookie_secure:
             raise ValueError("DISP_COOKIE_SECURE must be true when DISP_ENV=production")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_files_s3_configured(self) -> "Settings":
+        if self.files_backend == "s3" and (
+            not self.files_s3_bucket
+            or not self.files_s3_access_key_id.get_secret_value()
+            or not self.files_s3_secret_access_key.get_secret_value()
+        ):
+            raise ValueError(
+                "DISP_FILES_S3_BUCKET, DISP_FILES_S3_ACCESS_KEY_ID and "
+                "DISP_FILES_S3_SECRET_ACCESS_KEY are required when DISP_FILES_BACKEND=s3"
+            )
         return self
 
     @property

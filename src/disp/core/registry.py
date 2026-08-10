@@ -22,6 +22,11 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+# Domains no module may claim, because core already mounts a router there —
+# a module with domain="files" would mount at /api/files and collide with
+# the core file/asset service (M18-files.md §10).
+RESERVED_DOMAINS = frozenset({"files"})
+
 
 class ModuleRegistrationError(Exception):
     pass
@@ -95,6 +100,9 @@ class Registry:
                 f"module {name!r} has manifest.domain={manifest.domain!r}, "
                 f"which must match its package name"
             )
+
+        if manifest.domain in RESERVED_DOMAINS:
+            _fatal(f"module domain {manifest.domain!r} is reserved by core")
 
         return DiscoveredModule(manifest=manifest, instance=instance)
 

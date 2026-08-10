@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { authAcceptInvite, authChangePassword, authCreateInvite, authCreateToken, authDeleteInvite, authListInvites, authListTokens, authLogin, authLogout, authMe, authRefresh, authRevokeToken, dashboardManifest, dashboardTile, dashboardTiles, healthCheck, healthLive, notesCreate, notesDelete, notesGet, notesList, notesShare, notesUpdate, type Options, plantsAddInterval, plantsCalendar, plantsCompleteInterval, plantsCreate, plantsDelete, plantsDeleteImage, plantsDeleteInterval, plantsDue, plantsGet, plantsGetImage, plantsHistory, plantsList, plantsSetImage, plantsUpdate, plantsUpdateInterval, settingsGet, settingsUpdate } from '../sdk.gen';
-import type { AuthAcceptInviteData, AuthAcceptInviteResponse, AuthChangePasswordData, AuthChangePasswordResponse, AuthCreateInviteData, AuthCreateInviteError, AuthCreateInviteResponse, AuthCreateTokenData, AuthCreateTokenError, AuthCreateTokenResponse, AuthDeleteInviteData, AuthDeleteInviteError, AuthDeleteInviteResponse, AuthListInvitesData, AuthListInvitesError, AuthListInvitesResponse, AuthListTokensData, AuthListTokensError, AuthListTokensResponse, AuthLoginData, AuthLoginResponse, AuthLogoutData, AuthLogoutError, AuthLogoutResponse, AuthMeData, AuthMeError, AuthMeResponse, AuthRefreshData, AuthRefreshError, AuthRefreshResponse, AuthRevokeTokenData, AuthRevokeTokenError, AuthRevokeTokenResponse, DashboardManifestData, DashboardManifestError, DashboardManifestResponse2, DashboardTileData, DashboardTileError, DashboardTileResponse, DashboardTilesData, DashboardTilesError, DashboardTilesResponse, HealthCheckData, HealthCheckResponse, HealthLiveData, HealthLiveResponse, NotesCreateData, NotesCreateError, NotesCreateResponse, NotesDeleteData, NotesDeleteError, NotesDeleteResponse, NotesGetData, NotesGetError, NotesGetResponse, NotesListData, NotesListError, NotesListResponse, NotesShareData, NotesShareError, NotesShareResponse, NotesUpdateData, NotesUpdateError, NotesUpdateResponse, PlantsAddIntervalData, PlantsAddIntervalError, PlantsAddIntervalResponse, PlantsCalendarData, PlantsCalendarError, PlantsCalendarResponse, PlantsCompleteIntervalData, PlantsCompleteIntervalError, PlantsCompleteIntervalResponse, PlantsCreateData, PlantsCreateError, PlantsCreateResponse, PlantsDeleteData, PlantsDeleteError, PlantsDeleteImageData, PlantsDeleteImageError, PlantsDeleteImageResponse, PlantsDeleteIntervalData, PlantsDeleteIntervalError, PlantsDeleteIntervalResponse, PlantsDeleteResponse, PlantsDueData, PlantsDueError, PlantsDueResponse, PlantsGetData, PlantsGetError, PlantsGetImageData, PlantsGetImageError, PlantsGetResponse, PlantsHistoryData, PlantsHistoryError, PlantsHistoryResponse, PlantsListData, PlantsListError, PlantsListResponse, PlantsSetImageData, PlantsSetImageError, PlantsSetImageResponse, PlantsUpdateData, PlantsUpdateError, PlantsUpdateIntervalData, PlantsUpdateIntervalError, PlantsUpdateIntervalResponse, PlantsUpdateResponse, SettingsGetData, SettingsGetError, SettingsGetResponse, SettingsUpdateData, SettingsUpdateResponse } from '../types.gen';
+import { authAcceptInvite, authChangePassword, authCreateInvite, authCreateToken, authDeleteInvite, authListInvites, authListTokens, authLogin, authLogout, authMe, authRefresh, authRevokeToken, dashboardManifest, dashboardTile, dashboardTiles, filesGet, filesUsage, healthCheck, healthLive, notesCreate, notesDelete, notesGet, notesList, notesShare, notesUpdate, type Options, plantsAddInterval, plantsCalendar, plantsCompleteInterval, plantsCreate, plantsDelete, plantsDeleteImage, plantsDeleteInterval, plantsDue, plantsGet, plantsGetImage, plantsHistory, plantsList, plantsSetImage, plantsUpdate, plantsUpdateInterval, settingsGet, settingsUpdate } from '../sdk.gen';
+import type { AuthAcceptInviteData, AuthAcceptInviteResponse, AuthChangePasswordData, AuthChangePasswordResponse, AuthCreateInviteData, AuthCreateInviteError, AuthCreateInviteResponse, AuthCreateTokenData, AuthCreateTokenError, AuthCreateTokenResponse, AuthDeleteInviteData, AuthDeleteInviteError, AuthDeleteInviteResponse, AuthListInvitesData, AuthListInvitesError, AuthListInvitesResponse, AuthListTokensData, AuthListTokensError, AuthListTokensResponse, AuthLoginData, AuthLoginResponse, AuthLogoutData, AuthLogoutError, AuthLogoutResponse, AuthMeData, AuthMeError, AuthMeResponse, AuthRefreshData, AuthRefreshError, AuthRefreshResponse, AuthRevokeTokenData, AuthRevokeTokenError, AuthRevokeTokenResponse, DashboardManifestData, DashboardManifestError, DashboardManifestResponse2, DashboardTileData, DashboardTileError, DashboardTileResponse, DashboardTilesData, DashboardTilesError, DashboardTilesResponse, FilesGetData, FilesGetError, FilesUsageData, FilesUsageError, FilesUsageResponse, HealthCheckData, HealthCheckResponse, HealthLiveData, HealthLiveResponse, NotesCreateData, NotesCreateError, NotesCreateResponse, NotesDeleteData, NotesDeleteError, NotesDeleteResponse, NotesGetData, NotesGetError, NotesGetResponse, NotesListData, NotesListError, NotesListResponse, NotesShareData, NotesShareError, NotesShareResponse, NotesUpdateData, NotesUpdateError, NotesUpdateResponse, PlantsAddIntervalData, PlantsAddIntervalError, PlantsAddIntervalResponse, PlantsCalendarData, PlantsCalendarError, PlantsCalendarResponse, PlantsCompleteIntervalData, PlantsCompleteIntervalError, PlantsCompleteIntervalResponse, PlantsCreateData, PlantsCreateError, PlantsCreateResponse, PlantsDeleteData, PlantsDeleteError, PlantsDeleteImageData, PlantsDeleteImageError, PlantsDeleteImageResponse, PlantsDeleteIntervalData, PlantsDeleteIntervalError, PlantsDeleteIntervalResponse, PlantsDeleteResponse, PlantsDueData, PlantsDueError, PlantsDueResponse, PlantsGetData, PlantsGetError, PlantsGetImageData, PlantsGetImageError, PlantsGetResponse, PlantsHistoryData, PlantsHistoryError, PlantsHistoryResponse, PlantsListData, PlantsListError, PlantsListResponse, PlantsSetImageData, PlantsSetImageError, PlantsSetImageResponse, PlantsUpdateData, PlantsUpdateError, PlantsUpdateIntervalData, PlantsUpdateIntervalError, PlantsUpdateIntervalResponse, PlantsUpdateResponse, SettingsGetData, SettingsGetError, SettingsGetResponse, SettingsUpdateData, SettingsUpdateResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -370,6 +370,42 @@ export const settingsUpdateMutation = (options?: Partial<Options<SettingsUpdateD
     };
     return mutationOptions;
 };
+
+export const filesUsageQueryKey = (options?: Options<FilesUsageData>) => createQueryKey('filesUsage', options);
+
+/**
+ * Get Usage
+ */
+export const filesUsageOptions = (options?: Options<FilesUsageData>) => queryOptions<FilesUsageResponse, FilesUsageError, FilesUsageResponse, ReturnType<typeof filesUsageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await filesUsage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: filesUsageQueryKey(options)
+});
+
+export const filesGetQueryKey = (options: Options<FilesGetData>) => createQueryKey('filesGet', options);
+
+/**
+ * Get Asset
+ */
+export const filesGetOptions = (options: Options<FilesGetData>) => queryOptions<unknown, FilesGetError, unknown, ReturnType<typeof filesGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await filesGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: filesGetQueryKey(options)
+});
 
 export const notesListQueryKey = (options?: Options<NotesListData>) => createQueryKey('notesList', options);
 

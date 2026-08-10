@@ -18,12 +18,13 @@ services:
     build: .
     env_file: .env
     environment:
-      # Plant photos live on a volume, not in Postgres, so `pg_dump` stays
+      # Uploaded files (plant photos and anything else routed through
+      # core.files) live on a volume, not in Postgres, so `pg_dump` stays
       # small and text-only. Back this volume up alongside the database —
       # see docs/operations.md.
-      DISP_PLANTS_MEDIA_ROOT: /data/media/plants
+      DISP_FILES_ROOT: /data/files
     volumes:
-      - media:/data/media
+      - media:/data/files
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:
@@ -75,6 +76,13 @@ services:
     build: .
     command: ["python", "-m", "disp.worker"]
     env_file: .env
+    environment:
+      # core.sweep_files (M18-files.md §8.3) runs in this process and must
+      # see the same volume as `api`, or it can never find the objects it's
+      # meant to reap — mount it here too, not just on `api`.
+      DISP_FILES_ROOT: /data/files
+    volumes:
+      - media:/data/files
     depends_on:
       postgres: {condition: service_healthy}
     restart: unless-stopped

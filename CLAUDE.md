@@ -152,20 +152,35 @@ shipping a `migrations/versions/` directory. **A new module needs only its `alem
 plus one line each in `tests/conftest.py` and `docker-compose.e2e.yml` (both still enumerate
 branches explicitly). Don't reintroduce a hardcoded module list in either derived spot.
 
+## `core.files` gotchas (full reasoning in `milestones/server/M18-files.md`)
+
+- **Uploaded files are objects on a volume plus a `core.assets` row, never both stored in Postgres.**
+  `DISP_FILES_ROOT`, mounted as `media:/data/files` in `docker-compose.yml` — on **both** `api` and
+  `worker`, not just `api`: `core.sweep_files` runs in the worker process and needs to see the same
+  files the API wrote, which the pre-M18 `plants`-only setup never had to account for (nothing ran in
+  the worker that touched images). `pg_dump` does **not** contain object bytes, and a database-only
+  restore fails *visibly* (`404 core.files.missing_object`, distinct from `core.files.not_found`) —
+  `docs/operations.md` has the volume backup cron and the `disp-admin files verify` restore step.
+- **`files_root`'s default is a *relative* path** (`var/media`). Anything comparing paths under it
+  must compare resolved-to-resolved: a bug where a write deleted the file it had just written
+  (originally found in `plants`' own pre-M18 storage code, `_variant_paths`) survived a whole unit
+  suite because pytest's `tmp_path` is absolute and already resolved, and only showed up running the
+  real server. `tests/core/files/test_local_backend_relative_root.py` pins it. More generally: when
+  behaviour depends on a config's *shape*, test the shipped default's shape, not just a convenient
+  one.
+- **A row with a missing object must never be swept (I3).** The sweeper's two passes are asymmetric
+  on purpose: it deletes objects with no row, and rows that were soft-deleted past grace — but never
+  a row because its *object* is missing. Getting this backwards turns a recoverable "volume didn't
+  mount" into permanent, silent metadata loss across every asset on a database-only restore.
+- **`GET /api/files/usage` must stay declared above `GET /api/files/{asset_id}`** in `routes.py`,
+  same reasoning as the plants gotcha below.
+
 ## `plants` gotchas (full reasoning in that module's `TECHNICAL-SPEC.md`)
 
-- **Plant photos are files on a volume, not rows.** `DISP_PLANTS_MEDIA_ROOT`, mounted as
-  `media:/data/media` in `docker-compose.yml`. `pg_dump` therefore does **not** contain them, and a
-  database-only restore fails *gracefully* (`404 modules.plants.no_image`) which makes the gap easy to miss
-  — `docs/operations.md` has the volume backup cron.
-- **The media root default is a *relative* path** (`var/media/plants`). Anything comparing paths
-  under it must compare resolved-to-resolved: a bug where `write_image` deleted the file it had just
-  written survived the whole unit suite because pytest's `tmp_path` is absolute and already
-  resolved, and only showed up running the real server. `test_image_survives_a_relative_media_root`
-  pins it. More generally: when behaviour depends on a config's *shape*, test the shipped default's
-  shape, not just a convenient one.
 - **`/due` and `/calendar` must stay declared above `/{plant_id}` in `router.py`.** FastAPI matches
   in declaration order; reordering makes `GET /api/plants/due` try to parse `"due"` as a UUID (422).
+- **Plant photos are no longer this module's own storage concern** — `plant.image_asset_id` points
+  into `core.assets`; see the `core.files` gotchas above for what actually backs it.
 
 ## Testing
 

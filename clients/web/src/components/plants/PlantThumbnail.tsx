@@ -1,7 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Sprout } from 'lucide-react';
-import { type ReactElement, useState } from 'react';
+import { type ReactElement, useEffect, useState } from 'react';
+
+import { invalidateAffected } from './usePlantMutations';
 
 interface PlantThumbnailProps {
+  plantId: string;
   imageUrl: string | null;
   hasImage: boolean;
   name: string;
@@ -9,21 +13,47 @@ interface PlantThumbnailProps {
 }
 
 /**
- * M14 §5: "Plant photos are files on a volume, not rows" — a database-only
- * restore leaves `has_image: true` with the file gone, so `<img src>`
- * 404s. That must render as a placeholder, never a broken image icon. State
- * (not a `key`-based remount) tracks the failure, because `imageUrl` itself
- * doesn't change when the request fails — only the `error` event does.
+ * M18-files.md §13: `imageUrl` is a bucketed-expiry signed URL now, not a
+ * bearer-only route — a stale cached URL can fail with
+ * `core.files.url_expired` even though the photo itself still exists.
+ * `onError` can't see the HTTP status (an `<img>` tag never exposes it), so
+ * a genuine 404/403 and a merely-expired signature are indistinguishable:
+ * the fix is the same either way — invalidate the query that owns
+ * `imageUrl` so it re-mints on refetch, retry once, then fall back to the
+ * placeholder. State (not a `key`-based remount) tracks both, because
+ * `imageUrl` itself only changes once the invalidated query actually
+ * refetches — the `error` event fires well before that.
  */
 export function PlantThumbnail({
+  plantId,
   imageUrl,
   hasImage,
   name,
   className,
 }: PlantThumbnailProps): ReactElement {
+  const queryClient = useQueryClient();
   const [broken, setBroken] = useState(false);
+  const [retried, setRetried] = useState(false);
   const baseClass =
     'bg-surface-sunken text-text-muted flex shrink-0 items-center justify-center overflow-hidden rounded-md';
+
+  // A fresh `imageUrl` (the invalidated query refetched with a re-minted
+  // signature) means the next failure is a new problem, not the one that was
+  // just retried — give it its own single retry rather than going straight
+  // to the fallback forever.
+  useEffect(() => {
+    setRetried(false);
+    setBroken(false);
+  }, [imageUrl]);
+
+  function handleError(): void {
+    if (retried) {
+      setBroken(true);
+      return;
+    }
+    setRetried(true);
+    invalidateAffected(queryClient, plantId);
+  }
 
   if (!hasImage || !imageUrl || broken) {
     return (
@@ -35,12 +65,7 @@ export function PlantThumbnail({
 
   return (
     <div className={`${baseClass} ${className ?? 'h-12 w-12'}`}>
-      <img
-        src={imageUrl}
-        alt={name}
-        className="h-full w-full object-cover"
-        onError={() => setBroken(true)}
-      />
+      <img src={imageUrl} alt={name} className="h-full w-full object-cover" onError={handleError} />
     </div>
   );
 }

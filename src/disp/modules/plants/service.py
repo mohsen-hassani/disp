@@ -1,9 +1,9 @@
 import calendar as calendar_module
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from fastapi import UploadFile
 from sqlalchemy import literal, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
@@ -12,8 +12,9 @@ from disp.core.auth import CurrentUser, Permission, can, grant, readable_ids
 from disp.core.config import get_settings
 from disp.core.errors import AppError
 from disp.core.events import publish_after_commit
+from disp.core.files import ACCEPT_IMAGES, AcceptSpec, FileStore
 from disp.core.pagination import Page, decode_cursor, encode_cursor
-from disp.modules.plants.config import get_plants_settings, sniff_image_type
+from disp.modules.plants.config import get_plants_settings
 from disp.modules.plants.events import CareCompleted, PlantCreated, PlantDeleted
 from disp.modules.plants.models import CareInterval, CareLog, Plant
 from disp.modules.plants.schemas import (
@@ -32,7 +33,6 @@ from disp.modules.plants.schemas import (
     PlantOut,
     PlantUpdate,
 )
-from disp.modules.plants.storage import absolute_path, remove_image, write_image
 
 RESOURCE_TYPE = "plants.plant"
 
@@ -144,7 +144,9 @@ def _to_log_out(log: CareLog) -> CareLogOut:
     )
 
 
-def _to_plant_out(plant: Plant, intervals: list[CareInterval], on_day: date) -> PlantOut:
+def _to_plant_out(
+    plant: Plant, intervals: list[CareInterval], on_day: date, files: FileStore
+) -> PlantOut:
     active = [i for i in intervals if i.active]
     overdue = [_days_overdue(i.next_due_on, on_day) for i in active]
     due = [d for d in overdue if d >= 0]
@@ -153,8 +155,8 @@ def _to_plant_out(plant: Plant, intervals: list[CareInterval], on_day: date) -> 
         name=plant.name,
         description=plant.description,
         care_notes=plant.care_notes,
-        has_image=plant.image_path is not None,
-        image_url=f"/api/plants/{plant.id}/image" if plant.image_path else None,
+        has_image=plant.image_asset_id is not None,
+        image_url=files.signed_url(plant.image_asset_id) if plant.image_asset_id else None,
         due_count=len(due),
         max_days_overdue=max(due) if due else 0,
         next_due_on=min((i.next_due_on for i in active), default=None),
@@ -191,6 +193,7 @@ async def list_plants(
     limit: int,
     cursor: str | None,
     q: str | None,
+    files: FileStore,
 ) -> Page[PlantOut]:
     ids = await readable_ids(session, user_id=user.id, resource_type=RESOURCE_TYPE)
     if not ids:
@@ -236,26 +239,30 @@ async def list_plants(
     on_day = today()
     intervals = await _intervals_for(session, [row.id for row in rows])
     return Page[PlantOut](
-        items=[_to_plant_out(row, intervals.get(row.id, []), on_day) for row in rows],
+        items=[_to_plant_out(row, intervals.get(row.id, []), on_day, files) for row in rows],
         next_cursor=next_cursor,
         has_more=has_more,
     )
 
 
-async def get_plant(session: AsyncSession, user: CurrentUser, plant_id: UUID) -> PlantDetailOut:
+async def get_plant(
+    session: AsyncSession, user: CurrentUser, plant_id: UUID, *, files: FileStore
+) -> PlantDetailOut:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "read")
 
     on_day = today()
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    base = _to_plant_out(plant, intervals, on_day)
+    base = _to_plant_out(plant, intervals, on_day, files)
     return PlantDetailOut(
         **base.model_dump(),
         intervals=[_to_interval_out(interval, on_day) for interval in intervals],
     )
 
 
-async def create_plant(session: AsyncSession, user: CurrentUser, payload: PlantCreate) -> PlantOut:
+async def create_plant(
+    session: AsyncSession, user: CurrentUser, payload: PlantCreate, *, files: FileStore
+) -> PlantOut:
     plant = Plant(
         user_id=user.id,
         name=payload.name,
@@ -274,11 +281,16 @@ async def create_plant(session: AsyncSession, user: CurrentUser, payload: PlantC
         granted_by=user.id,
     )
     publish_after_commit(session, PlantCreated(plant_id=plant.id, user_id=user.id, name=plant.name))
-    return _to_plant_out(plant, [], today())
+    return _to_plant_out(plant, [], today(), files)
 
 
 async def update_plant(
-    session: AsyncSession, user: CurrentUser, plant_id: UUID, payload: PlantUpdate
+    session: AsyncSession,
+    user: CurrentUser,
+    plant_id: UUID,
+    payload: PlantUpdate,
+    *,
+    files: FileStore,
 ) -> PlantOut:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "update")
@@ -288,7 +300,7 @@ async def update_plant(
     plant.updated_at = datetime.now(UTC)
 
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    return _to_plant_out(plant, intervals, today())
+    return _to_plant_out(plant, intervals, today(), files)
 
 
 async def delete_plant(session: AsyncSession, user: CurrentUser, plant_id: UUID) -> None:
@@ -634,74 +646,64 @@ def _project(
 
 
 async def set_plant_image(
-    session: AsyncSession, user: CurrentUser, plant_id: UUID, *, data: bytes
+    session: AsyncSession,
+    user: CurrentUser,
+    plant_id: UUID,
+    *,
+    source: UploadFile,
+    filename: str | None,
+    files: FileStore,
 ) -> PlantOut:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "update")
 
-    max_bytes = get_plants_settings().max_image_bytes
-    if not data:
-        raise AppError(
-            status_code=400,
-            code="modules.plants.empty_image",
-            title="Empty upload",
-            detail="The uploaded file contained no data.",
-        )
-    if len(data) > max_bytes:
-        raise AppError(
-            status_code=413,
-            code="modules.plants.image_too_large",
-            title="Image too large",
-            detail=f"Images must be at most {max_bytes // 1024} KiB.",
-        )
-
-    # The declared Content-Type is ignored: what gets served back later is
-    # decided by what the bytes actually are.
-    content_type = sniff_image_type(data[:16])
-    if content_type is None:
-        raise AppError(
-            status_code=415,
-            code="modules.plants.unsupported_image",
-            title="Unsupported image type",
-            detail="Images must be JPEG, PNG, WebP or GIF.",
-        )
-
-    plant.image_path = write_image(plant_id, data, content_type)
-    plant.image_content_type = content_type
-    now = datetime.now(UTC)
-    plant.image_updated_at = now
-    plant.updated_at = now
+    old_asset_id = plant.image_asset_id
+    accept = AcceptSpec(ACCEPT_IMAGES.content_types, get_plants_settings().max_image_bytes)
+    stored = await files.put(
+        session,
+        owner=user,
+        domain="plants",
+        purpose="plant_photo",
+        source=source,
+        filename=filename,
+        accept=accept,
+    )
+    if old_asset_id is not None:
+        await files.delete(session, old_asset_id)
+    plant.image_asset_id = stored.id
+    plant.updated_at = datetime.now(UTC)
 
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    return _to_plant_out(plant, intervals, today())
+    return _to_plant_out(plant, intervals, today(), files)
 
 
-async def clear_plant_image(session: AsyncSession, user: CurrentUser, plant_id: UUID) -> None:
+async def clear_plant_image(
+    session: AsyncSession, user: CurrentUser, plant_id: UUID, *, files: FileStore
+) -> None:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "update")
 
-    remove_image(plant_id)
-    plant.image_path = None
-    plant.image_content_type = None
-    plant.image_updated_at = None
+    old_asset_id = plant.image_asset_id
+    plant.image_asset_id = None
     plant.updated_at = datetime.now(UTC)
+    if old_asset_id is not None:
+        await files.delete(session, old_asset_id)
 
 
-async def get_plant_image(
-    session: AsyncSession, user: CurrentUser, plant_id: UUID
-) -> tuple[Path, str]:
+async def plant_image_redirect_url(
+    session: AsyncSession, user: CurrentUser, plant_id: UUID, *, files: FileStore
+) -> str:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "read")
 
-    path = absolute_path(plant.image_path) if plant.image_path else None
-    if path is None or not path.is_file():
+    if plant.image_asset_id is None:
         raise AppError(
             status_code=404,
             code="modules.plants.no_image",
             title="No image",
             detail="This plant has no image.",
         )
-    return path, plant.image_content_type or "application/octet-stream"
+    return files.signed_url(plant.image_asset_id)
 
 
 async def list_history(

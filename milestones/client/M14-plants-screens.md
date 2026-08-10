@@ -156,10 +156,13 @@ because completing early or late moves it. Month navigation writes `?month=YYYY-
 `image/jpeg`, `image/png`, `image/webp`, `image/gif`; max 2 MiB (`max_image_bytes`) — check size
 client-side before upload for a fast error, but still handle the server's rejection.
 
-> **Plant photos are files on a volume, not rows** (`DISP_PLANTS_MEDIA_ROOT`). `pg_dump` does not
-> contain them, so a database-only restore leaves `has_image: true` with the file gone and
-> `plantsGetImage` returning `404 plants.no_image`. **Render that as a graceful placeholder, never a
-> broken `<img>`.** This is a real operational state, not a hypothetical.
+> **Plant photos are files on a volume, not rows**, via the core file/asset service
+> (`DISP_FILES_ROOT`, `milestones/server/M18-files.md`) as of M18 — this milestone predates that
+> port and originally cited `DISP_PLANTS_MEDIA_ROOT`, a plants-owned setting that no longer exists.
+> `pg_dump` does not contain object bytes, so a database-only restore leaves `has_image: true` with
+> the file gone; the fetch now 404s with `core.files.missing_object`, not `plants.no_image`.
+> **Render that as a graceful placeholder, never a broken `<img>`.** This is a real operational
+> state, not a hypothetical.
 
 ## 6. Patterns to reuse, not reinvent
 

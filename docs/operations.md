@@ -19,6 +19,23 @@ docker compose run --rm api disp-admin seed-admin --email you@example.com --disp
 branch, as modules are added — see `docs/adding-a-module.md`.) All three console scripts were
 verified against a real Postgres 16 as part of writing this document.
 
+### Upgrading an existing deployment to M18 (core file/asset service)
+
+An existing deployment with plant photos already on disk must run the backfill **before** applying
+`plants`' `0002_plants_image_asset` migration — that migration drops the columns the backfill reads
+from, and after it runs there is no way to recover which asset belongs to which plant:
+
+```
+docker compose run --rm api disp-admin files adopt \
+  --domain plants --purpose plant_photo --root /data/media/plants
+docker compose run --rm api alembic --name=plants upgrade head
+```
+
+`adopt` is idempotent and re-runnable — safe to run again if interrupted. It walks the given root,
+matches each `<uuid>.<ext>` filename against a `plants.plant` row, creates a `core.assets` row per
+photo, and sets `plant.image_asset_id`; files with no matching plant are reported, not deleted. A
+fresh deployment with no existing photos can skip straight to the migration.
+
 ## SSH deploy
 
 Every push to `prod` (`.github/workflows/deploy.yml`) builds the image, pushes it to GHCR under
@@ -90,14 +107,20 @@ Every HTTP request log line includes `request_id`, which also appears in every `
 - Retention: the 7 most recent daily dumps, plus one dump per week for 4 further weeks. Everything older is pruned.
 - If `BACKUP_REMOTE` is set (an `s3://...` URI or an `rsync`-style `user@host:/path`), the fresh dump is copied off-host immediately after the local dump completes.
 
-### Plant photos are not in the database dump
+### Uploaded files are not in the database dump
 
-`scripts/backup.sh` covers Postgres only. The `plants` module stores photos as files on the
-`media` volume (`/data/media/plants` in `docker-compose.yml`, `DISP_PLANTS_MEDIA_ROOT`), which
-keeps `pg_dump` small and text-only but puts them outside every backup above. Restoring only the
-database gives you every plant, schedule and care log back with its photo pointer intact and the
-image itself missing (`GET /api/plants/{id}/image` then returns `404 modules.plants.no_image` — it degrades
-rather than erroring, but the photo is gone).
+`scripts/backup.sh` covers Postgres only. The core file/asset service
+(`milestones/server/M18-files.md`) stores uploaded bytes — currently plant photos, and any future
+module that adopts it — as files on the `media` volume (`/data/files` in `docker-compose.yml`,
+`DISP_FILES_ROOT`), which keeps `pg_dump` small and text-only but puts them outside every backup
+above. Restoring only the database gives you every plant, schedule and care log back with its
+`image_asset_id` pointer intact and the object bytes missing — the fetch then returns
+`404 core.files.missing_object`, a **visible** failure distinct from "no photo"
+(`core.files.not_found`), rather than degrading silently.
+
+**On the `s3` backend** (once `DISP_FILES_BACKEND=s3` is available — see M18-files.md §6.2, not yet
+shipped), rely on the provider's own versioning/lifecycle policy instead of this cron; drop it
+entirely in that configuration.
 
 Back the volume up alongside the dump, e.g.:
 
@@ -183,11 +206,18 @@ This procedure was executed against a real dump of the dev database as part of w
    psql -U disp_user -d postgres -c "DROP DATABASE disp_restore_test;"
    ```
 
+7. **If the media volume was restored separately from the database** (or not restored at all —
+   §"Uploaded files are not in the database dump" above), run `disp-admin files verify` before
+   anything else touches `core.assets`. It reports rows with no backing object and objects with no
+   row, and **deletes nothing** — running the sweeper (`core.sweep_files`) against a mismatched
+   restore before verifying would misread a mount failure as garbage and permanently destroy the
+   affected rows' metadata (I3 in M18-files.md §2).
+
 ## Key rotation
 
 | Key | Rotation impact | Procedure |
 |---|---|---|
-| `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call. |
+| `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Also invalidates every outstanding **signed file URL** (`/api/files/...?exp=&sig=`, M18-files.md §9.2 — the signing key is derived from this secret), exactly like sessions. Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call; any page holding a stale image URL re-mints one on its next query refetch. |
 | `DISP_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 core.settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
 | Postgres credentials (`POSTGRES_PASSWORD`) | None to application data; only affects new connections. | Update the password in Postgres and in `.env`'s `DISP_DATABASE_URL`(`_SYNC`)/`POSTGRES_PASSWORD`, then restart `api` and `worker`. |
 

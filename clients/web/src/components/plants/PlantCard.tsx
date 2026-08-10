@@ -17,7 +17,12 @@ export function PlantCard({ plant }: PlantCardProps): ReactElement {
       params={{ plantId: plant.id }}
       className="border-border bg-surface focus-visible:outline-accent flex items-center gap-3 rounded-md border p-3 focus-visible:outline focus-visible:outline-2"
     >
-      <PlantThumbnail imageUrl={plant.image_url} hasImage={plant.has_image} name={plant.name} />
+      <PlantThumbnail
+        plantId={plant.id}
+        imageUrl={plant.image_url}
+        hasImage={plant.has_image}
+        name={plant.name}
+      />
       <div className="min-w-0 flex-1">
         <p className="text-text truncate text-sm font-medium">{plant.name}</p>
         <div className="mt-1">

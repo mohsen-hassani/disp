@@ -21,6 +21,9 @@ from disp.core.contract import ScheduledJobSpec
 from disp.core.db import create_engine, create_session_maker
 from disp.core.errors import limiter, register_exception_handlers
 from disp.core.events import EventBus, set_event_bus
+from disp.core.files import routes as files_routes
+from disp.core.files.store import FileStore
+from disp.core.files.sweep import register_task as register_sweep_task
 from disp.core.logging import RequestIdMiddleware, configure_logging
 from disp.core.notifier import NOTIFIER_SETTINGS_PANEL, NotifierFacade
 from disp.core.notifier import configure as configure_notifier
@@ -78,6 +81,7 @@ def create_app() -> FastAPI:
     scheduler_facade = SchedulerFacade(procrastinate_app)
     notifier_facade = NotifierFacade(scheduler_facade)
     configure_notifier(store=store, session_maker=session_maker, registry=registry)
+    files_store = FileStore.from_settings(settings)
 
     platform = Platform(
         settings=settings,
@@ -85,6 +89,7 @@ def create_app() -> FastAPI:
         scheduler=scheduler_facade,
         notifier=notifier_facade,
         store=store,
+        files=files_store,
         registry=registry,
     )
 
@@ -136,6 +141,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router, prefix="/api/auth")
     app.include_router(dashboard_module.router, prefix="/api/dashboard")
     app.include_router(settings_store_module.router, prefix="/api/settings")
+    app.include_router(files_routes.router, prefix="/api/files")
 
     registry.discover()
     registry.wire(app, platform)
@@ -148,5 +154,23 @@ def create_app() -> FastAPI:
         )
     )
     registry.register_core_settings_panel(NOTIFIER_SETTINGS_PANEL)
+
+    # core.sweep_files' cron is bound explicitly and late, against this live
+    # `settings` instance — deliberately NOT core.daily_planner's pattern
+    # (a raw @app.periodic(cron=get_settings()...) decorator evaluated at
+    # scheduler.py's import time, which is awkward to override in tests).
+    # This is the same register_periodic mechanism Registry.wire() already
+    # uses for every module-owned job.
+    freshly_registered = register_sweep_task(scheduler_facade)
+    registry.register_core_scheduled_job(
+        ScheduledJobSpec(
+            name="core.sweep_files",
+            cron=settings.files_sweep_cron,
+            description="Reaps soft-deleted assets past their grace period and orphaned "
+            "storage objects.",
+        )
+    )
+    if freshly_registered:
+        scheduler_facade.register_periodic("core.sweep_files", settings.files_sweep_cron)
 
     return app

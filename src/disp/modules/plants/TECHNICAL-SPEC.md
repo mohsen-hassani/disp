@@ -209,8 +209,10 @@ Module-owned, in `config.py`. A separate `BaseSettings` with its own prefix — 
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DISP_PLANTS_MEDIA_ROOT` | `var/media/plants` | Directory for photos. Relative paths resolve against the process CWD. |
-| `DISP_PLANTS_MAX_IMAGE_BYTES` | `2097152` (2 MiB) | Upload size ceiling. |
+| `DISP_PLANTS_MAX_IMAGE_BYTES` | `2097152` (2 MiB) | Upload size ceiling, tightens core's `ACCEPT_IMAGES.max_bytes` for this module only. |
+
+Photo storage location (`DISP_FILES_ROOT`) is core configuration now — see
+`milestones/server/M18-files.md` §3. It moved out of this table when photo storage did (§11).
 
 Rationale: a module MUST NOT require an edit to `core/` to be installable (§8 of the platform spec).
 Adding fields to the core `Settings` would break that.
@@ -226,8 +228,9 @@ ignored. This was confirmed empirically before the design was committed to, not 
 
 ## 5. Schema `plants` — DDL
 
-Authoritative target state. `0001_plants_initial` produces exactly this, and
-`alembic --name=plants check` reports no drift against `models.py`.
+Authoritative target state, after `0001_plants_initial` **and** `0002_plants_image_asset` (M18 —
+replaces the three ad-hoc image columns with a single `core.assets` pointer). `alembic --name=plants
+check` reports no drift against `models.py`.
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS plants;
@@ -238,9 +241,7 @@ CREATE TABLE plants.plant (
     name               TEXT        NOT NULL,
     description        TEXT,
     care_notes         TEXT,
-    image_path         TEXT,                          -- relative to media root, never absolute
-    image_content_type TEXT,
-    image_updated_at   TIMESTAMPTZ,
+    image_asset_id     UUID,                          -- core.assets id; no FK, same convention as user_id
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at         TIMESTAMPTZ,
@@ -554,64 +555,26 @@ regression.
 
 ## 11. Photo storage
 
-### 11.1 Decision: filesystem volume
+**Superseded by `disp.core.files` (`milestones/server/M18-files.md`).** Everything this section used
+to describe — filesystem layout, magic-byte sniffing, atomic writes, the `.tmp`-then-`replace()`
+dance, and the `_variant_paths` resolved-path regression it took a real-server run to catch — moved
+to core and now backs any module, not just plants. Read `milestones/server/M18-files.md` and
+`src/disp/core/files/` for the mechanism; this module only does three things with it:
 
-Photos are files on a mounted volume (`media:/data/media` in `docker-compose.yml`), with only a
-relative path in Postgres.
+- `plant.image_asset_id` is a bare `core.assets` id (no cross-schema FK, same convention as
+  `user_id`). Assets are immutable — replacing a photo creates a new asset and drops the reference
+  to the old one (soft-deleted, reaped by the sweeper after a grace period), never overwrites bytes.
+- `PUT /api/plants/{id}/image` streams the upload straight into `platform.files.put(...)` — no
+  buffer-then-check, no manual sniffing here; `413`/`415` are `core.files.too_large` /
+  `core.files.unsupported_type`, raised by `FileStore.put` itself.
+- `GET /api/plants/{id}/image` authorizes for `read`, then `302`-redirects to a signed
+  `/api/files/{asset_id}` URL (`FileStore.signed_url`) — the redirect target streams the bytes, sets
+  its own cache headers, and needs no session, which is what makes the photo actually render in an
+  `<img src>` (§17.4 below).
 
-Rationale: `pg_dump` stays small and text-only, and image bytes never pass through the WAL. The cost
-is that photos fall outside the database backup, which §20 addresses explicitly.
-
-### 11.2 Layout
-
-Filename is `<plant-uuid>.<ext>`, flat under the media root. **No component of a filename derives
-from client input** — the UUID is server-generated and the extension comes from a fixed allow-list —
-so there is no traversal surface. `_ensure_inside()` re-checks containment anyway.
-
-### 11.3 Path resolution (a bug worth recording)
-
-`_ensure_inside()` returns a **resolved** path. `_variant_paths()` MUST therefore also return
-resolved paths.
-
-> **Regression, fixed.** It originally returned unresolved paths. Because the default media root is
-> *relative* (`var/media/plants`), the just-written target (resolved, absolute) never compared equal
-> to its own entry in the variant list, so the cleanup loop in `write_image` **deleted the file it
-> had just written**. The API returned `has_image: true` and the photo 404'd.
->
-> Every unit test passed through this bug, because pytest's `tmp_path` is already absolute and
-> resolved. It was caught only by running the real server against the real default config, and is
-> now pinned by `test_image_survives_a_relative_media_root`, which explicitly uses a relative root.
-
-### 11.4 Upload
-
-- `PUT /api/plants/{id}/image`, `multipart/form-data`, field `file`. Requires `python-multipart`.
-- Empty body → `400 modules.plants.empty_image`. Over the limit → `413 modules.plants.image_too_large`.
-- **The declared `Content-Type` is ignored.** The type is sniffed from the leading bytes
-  (`sniff_image_type`, checking JPEG/PNG/GIF magic and RIFF-framed WebP). Unrecognised →
-  `415 modules.plants.unsupported_image`.
-  Rationale: what is stored and later served back is decided by what the bytes actually are, not by
-  what the client claimed they were.
-- Written to a `.tmp` sibling then `replace()`d — atomic, so a failed write can never leave a
-  half-written image being served.
-- Previous variants with other extensions are removed, so replacing a PNG with a JPEG leaves exactly
-  one file.
-
-### 11.5 Serving
-
-`GET /api/plants/{id}/image` streams via `FileResponse` with the stored content type and
-`Cache-Control: private, max-age=300`.
-
-Served through an authenticated route rather than a static mount, so the **same ACL protects the
-photo as the plant**. `private` is required: the response is user-specific and MUST NOT enter a
-shared cache.
-
-A pointer to a missing file degrades to `404 modules.plants.no_image` rather than erroring.
-
-### 11.6 Known non-atomicity
-
-File writes are not part of the database transaction. A commit failure after a successful write
-leaves an orphan file, which is harmless (unreferenced, and overwritten on the next upload since the
-path is deterministic per plant). Accepted rather than engineered around, at this scale.
+`DISP_PLANTS_MAX_IMAGE_BYTES` still tightens `ACCEPT_IMAGES.max_bytes` for this module's uploads
+specifically; the type allow-list (JPEG/PNG/WebP/GIF) and the sniffing logic are core's, not this
+module's own.
 
 ---
 
@@ -779,35 +742,22 @@ would call today.
 No date library and no calendar library was added — a month grid is a small amount of arithmetic,
 and `Intl` covers the formatting.
 
-### 17.4 Photos cannot be `<img src>`-linked, and currently are — so they do not render
+### 17.4 Photos render via a signed URL, not a bearer-only route
 
-> **Known bug.** This section documented a working solution that was subsequently deleted. It now
-> documents the defect instead. The fix is `milestones/server/M18-files.md` (signed URLs); do not
-> re-solve it here.
+**Fixed by `milestones/server/M18-files.md`.** `plant.image_url` (`PlantOut`/`PlantDetailOut`) is now
+`platform.files.signed_url(plant.image_asset_id)` — a relative `/api/files/{asset_id}?exp=&sig=` URL
+verified by HMAC, not by session — so a plain `<img src={imageUrl}>` (`components/plants/
+PlantThumbnail.tsx`) works unauthenticated, which is the whole reason this mechanism exists: a
+browser attaches neither cookies (`Path=/api/auth`) nor a JS-held bearer token to an image load.
+`GET /api/plants/{id}/image` itself now authorizes for `read` and `302`-redirects to that same signed
+URL, so the old bearer-only route keeps working through one extra hop.
 
-`GET /{plant_id}/image` sits behind the same bearer-only `current_user` dependency as every other
-route (§12), and the platform has no cookie-session fallback — `core/auth/dependencies.py:156-167`
-reads the `Authorization` header and nothing else, and the refresh cookie is `Path=/api/auth` so it
-is never sent here anyway. A plain `<img src="/api/plants/{id}/image">` can therefore never
-authenticate: a browser attaches cookies and address-bar navigation to an image load, never a
-JS-held bearer token.
-
-**The shipped client does exactly that.** `components/plants/PlantThumbnail.tsx:38` renders
-`<img src={imageUrl}>` straight from `plant.image_url`, so every photo 401s. The failure is silent:
-`PlantThumbnail`'s `onError` handler (`:42`) falls back to the `Sprout` placeholder that
-`milestones/client/M14` §5 added for the database-only-restore case (see the component's own
-docstring), and a 401 is indistinguishable from "this plant has no photo".
-The unit tests (`tests/unit/plants/PlantThumbnail.test.tsx`) assert the `<img>` element renders, never
-that it loads, which is why this survived.
-
-An earlier client solved it with a `usePlantImageUrl` hook that fetched bytes through the
-authenticated SDK client and exposed them via `URL.createObjectURL`. That hook was removed in
-`33d2b0f` and the plants client rebuilt without it in `1f64607`. The approach is recorded here only
-because `M18` cited it as existing code for some time after it stopped existing.
-
-The real fix is a URL a browser can load unauthenticated and the server can still verify: a signed
-URL, minted after the module's own `_authorize` check. That is `M18` §9, and it deletes this whole
-problem for every module at once rather than reintroducing a per-module blob workaround.
+`PlantThumbnail`'s `onError` handler still exists, but its job changed: a signed URL's bucketed
+expiry (M18 §9.1) means the same URL can go stale in cache without the underlying photo being gone,
+so `onError` now invalidates the parent query (re-minting a fresh URL) and retries once before
+falling back to the `Sprout` placeholder — see `milestones/client` for the exact sequence. A genuine
+401/403 and a merely-expired signature are otherwise indistinguishable to an `<img>` tag, which is
+why this is a retry-then-fallback, not an immediate one.
 
 ---
 
@@ -817,13 +767,15 @@ problem for every module at once rather than reintroducing a per-module blob wor
 |---|---|---|
 | `modules.plants.not_found` | 404 | Plant absent, soft-deleted, or not readable by the caller |
 | `modules.plants.interval_not_found` | 404 | Interval absent, or belongs to a different plant |
-| `modules.plants.no_image` | 404 | Plant has no photo, or the file is missing on disk |
+| `modules.plants.no_image` | 404 | Plant has no photo (`image_asset_id IS NULL`) |
 | `modules.plants.future_date` | 400 | `last_done_on` / `completed_on` in the future |
 | `modules.plants.date_too_old` | 400 | `completed_on` more than 365 days ago |
 | `modules.plants.invalid_month` | 400 | `month` not parseable as `YYYY-MM` |
-| `modules.plants.empty_image` | 400 | Upload contained no bytes |
-| `modules.plants.image_too_large` | 413 | Over `DISP_PLANTS_MAX_IMAGE_BYTES` |
-| `modules.plants.unsupported_image` | 415 | Bytes are not JPEG/PNG/WebP/GIF |
+
+Upload-time errors (empty upload, oversized, unsupported type) are raised by `FileStore.put` itself
+as `core.files.empty_upload` / `core.files.too_large` / `core.files.unsupported_type` — see M18's
+Appendix A amendment. This module no longer re-codes them into its own namespace (a module MUST NOT
+do that; a client handles "file too large" once, not once per domain).
 | `core.acl.forbidden` | 403 | Caller can read the plant but lacks the permission |
 | `core.pagination.invalid_cursor` | 400 | Undecodable cursor (platform-shared) |
 
@@ -866,19 +818,24 @@ default's shape.**
 ### 20.1 Photos are not in the database backup
 
 > `scripts/backup.sh` covers Postgres only. **Restoring only the database returns every plant,
-> schedule and log with its photo pointer intact and the image gone.**
+> schedule and log with its `image_asset_id` intact and the image bytes gone.**
 
-The failure is graceful (`404 modules.plants.no_image`), not an error, which makes it easy to miss. The
-`media` volume MUST be backed up alongside the dump; `docs/operations.md` carries a worked cron
-example.
+The failure is now `404 core.files.missing_object` — visibly distinct from "no photo"
+(`modules.plants.no_image`, raised only when `image_asset_id IS NULL`), which is an improvement over
+this module's pre-M18 behaviour where both cases collapsed onto the same silent 404. The `media`
+volume MUST be backed up alongside the dump; `docs/operations.md` carries a worked cron example and
+the `disp-admin files verify` restore-first-step. This is core's concern now, not plants'
+specifically — the volume backs every module that uses `core.files`.
 
 ### 20.2 Deployment checklist
 
-- `docker-compose.yml` mounts `media:/data/media` on `api` and sets
-  `DISP_PLANTS_MEDIA_ROOT=/data/media/plants`. The **worker does not need the volume** — the
-  daily job never touches images.
-- Migration: `docker compose run --rm api alembic --name=plants upgrade head`.
-- The worker process must be running for reminders to be delivered.
+- `docker-compose.yml` mounts `media:/data/files` on **both** `api` and `worker`, and sets
+  `DISP_FILES_ROOT=/data/files` on both. Unlike the pre-M18 setup, **the worker now needs the
+  volume** — `core.sweep_files` runs there and must see the same files `api` writes.
+- Migration: `docker compose run --rm api alembic --name=plants upgrade head`, but only **after**
+  running `disp-admin files adopt --domain plants --purpose plant_photo --root <old media root>`
+  against the pre-upgrade media root — the migration drops the columns `adopt` reads from.
+- The worker process must be running for reminders to be delivered, and now also for the sweeper.
 
 ---
 

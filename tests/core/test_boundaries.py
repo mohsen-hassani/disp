@@ -40,6 +40,24 @@ ALLOWED_AUTH_NAMES = {
 # nothing needs to introspect the whole shared MetaData object directly.
 ALLOWED_DB_NAMES = {"get_session", "session_scope", "Base"}
 
+# disp.core.files.__init__'s public surface (M18-files.md §11): FileStore,
+# StoredFile, AcceptSpec, ACCEPT_IMAGES, ACCEPT_DOCUMENTS, UsageSummary, plus
+# get_file_store — §7 defines get_file_store(request) as the request-scoped
+# access pattern explicitly, even though §11's own table omits it; treated
+# as an incomplete enumeration, not a deliberate exclusion, same as
+# ALLOWED_AUTH_NAMES above. UsageRow is exported for core-internal use
+# (routes.py, the admin CLI) but isn't part of the module-facing surface —
+# modules only ever see UsageSummary as a whole.
+ALLOWED_FILES_NAMES = {
+    "FileStore",
+    "StoredFile",
+    "AcceptSpec",
+    "ACCEPT_IMAGES",
+    "ACCEPT_DOCUMENTS",
+    "UsageSummary",
+    "get_file_store",
+}
+
 
 def _iter_module_files() -> list[Path]:
     return sorted(MODULES_ROOT.rglob("*.py"))
@@ -83,6 +101,38 @@ def test_modules_only_import_public_auth_surface() -> None:
                         violations.append(
                             f"{_relative(path)}:{node.lineno}: 'import {alias.name}' is "
                             f"forbidden; only 'from disp.core.auth import ...' is allowed"
+                        )
+
+    assert not violations, "\n".join(violations)
+
+
+def test_modules_only_import_public_files_surface() -> None:
+    violations: list[str] = []
+
+    for path in _iter_module_files():
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.module == "disp.core.files":
+                    for alias in node.names:
+                        if alias.name not in ALLOWED_FILES_NAMES:
+                            violations.append(
+                                f"{_relative(path)}:{node.lineno}: "
+                                f"disp.core.files.{alias.name} is not part of the public surface "
+                                f"(allowed: {sorted(ALLOWED_FILES_NAMES)})"
+                            )
+                elif node.module is not None and node.module.startswith("disp.core.files."):
+                    violations.append(
+                        f"{_relative(path)}:{node.lineno}: importing submodule "
+                        f"{node.module!r} is forbidden; only "
+                        f"'from disp.core.files import ...' is allowed"
+                    )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "disp.core.files" or alias.name.startswith("disp.core.files."):
+                        violations.append(
+                            f"{_relative(path)}:{node.lineno}: 'import {alias.name}' is "
+                            f"forbidden; only 'from disp.core.files import ...' is allowed"
                         )
 
     assert not violations, "\n".join(violations)

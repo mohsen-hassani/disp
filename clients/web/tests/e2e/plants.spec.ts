@@ -1,5 +1,13 @@
 import { deletePlant, expect, test, uniqueMarker } from './fixtures';
 
+// Smallest valid PNG — for the photo-upload e2e test below.
+const PNG_1PX = Buffer.from(
+  '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489' +
+    '0000000a49444154789c6300010000050001' +
+    '0d0a2db40000000049454e44ae426082',
+  'hex',
+);
+
 // M14 §7: create → add interval → mark done → verify the reschedule →
 // delete, driven end to end through the real UI against the real backend.
 // The reschedule assertion is the actual point of the test (M14 §1): a
@@ -82,6 +90,53 @@ test.describe('plants', () => {
       await expect(authedPage).toHaveURL(/\/plants$/);
       await expect(authedPage.getByText(name)).toHaveCount(0);
       plantId = undefined;
+    } finally {
+      if (plantId) {
+        await deletePlant(context, accessToken, plantId);
+      }
+    }
+  });
+
+  // M18-files.md's own acceptance test for its user-visible half: a photo
+  // must render on a *fresh* page load (not just already-loaded client
+  // state) via a signed /api/files URL, with no JS blob involvement. There
+  // were previously zero image assertions anywhere in the e2e suite.
+  test('uploads a photo and it renders on a fresh page load via a signed URL', async ({
+    authedPage,
+    context,
+    accessToken,
+  }) => {
+    const name = uniqueMarker('e2e-plant-photo');
+    let plantId: string | undefined;
+
+    try {
+      await authedPage.goto('/plants/new');
+      await authedPage.getByLabel(/^name/i).fill(name);
+      await authedPage.getByRole('button', { name: 'Create plant' }).click();
+      await expect(authedPage.getByRole('heading', { name, exact: true })).toBeVisible();
+      plantId = authedPage.url().split('/plants/')[1];
+      expect(plantId).toBeTruthy();
+
+      await authedPage.locator('input[type="file"]').setInputFiles({
+        name: 'photo.png',
+        mimeType: 'image/png',
+        buffer: PNG_1PX,
+      });
+      await expect(authedPage.getByRole('img', { name })).toBeVisible();
+
+      // A fresh load, not just the already-loaded upload response.
+      await authedPage.reload();
+
+      const img = authedPage.getByRole('img', { name });
+      await expect(img).toBeVisible();
+      const src = await img.getAttribute('src');
+      expect(src).toBeTruthy();
+      expect(src).not.toMatch(/^blob:/);
+      expect(src).toMatch(/^\/api\/files\//);
+
+      const bytesResponse = await context.request.get(src!);
+      expect(bytesResponse.ok()).toBe(true);
+      expect(bytesResponse.headers()['content-type']).toBe('image/png');
     } finally {
       if (plantId) {
         await deletePlant(context, accessToken, plantId);

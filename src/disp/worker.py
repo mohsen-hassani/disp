@@ -7,6 +7,8 @@ from disp.core.config import get_settings
 from disp.core.contract import ScheduledJobSpec
 from disp.core.db import create_engine, create_session_maker
 from disp.core.events import EventBus, set_event_bus
+from disp.core.files.store import FileStore
+from disp.core.files.sweep import register_task as register_sweep_task
 from disp.core.logging import configure_logging
 from disp.core.notifier import NOTIFIER_SETTINGS_PANEL, NotifierFacade
 from disp.core.notifier import configure as configure_notifier
@@ -40,6 +42,7 @@ def _build_platform() -> Platform:
     scheduler_facade = SchedulerFacade(procrastinate_app)
     notifier_facade = NotifierFacade(scheduler_facade)
     configure_notifier(store=store, session_maker=session_maker, registry=registry)
+    files_store = FileStore.from_settings(settings)
 
     platform = Platform(
         settings=settings,
@@ -47,6 +50,7 @@ def _build_platform() -> Platform:
         scheduler=scheduler_facade,
         notifier=notifier_facade,
         store=store,
+        files=files_store,
         registry=registry,
     )
 
@@ -61,6 +65,21 @@ def _build_platform() -> Platform:
         )
     )
     registry.register_core_settings_panel(NOTIFIER_SETTINGS_PANEL)
+
+    # See app.py's identical block for why core.sweep_files' cron is bound
+    # explicitly and late here rather than via core.daily_planner's
+    # import-time @app.periodic pattern.
+    freshly_registered = register_sweep_task(scheduler_facade)
+    registry.register_core_scheduled_job(
+        ScheduledJobSpec(
+            name="core.sweep_files",
+            cron=settings.files_sweep_cron,
+            description="Reaps soft-deleted assets past their grace period and orphaned "
+            "storage objects.",
+        )
+    )
+    if freshly_registered:
+        scheduler_facade.register_periodic("core.sweep_files", settings.files_sweep_cron)
 
     return platform
 
