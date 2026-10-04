@@ -145,8 +145,8 @@ All versions are **minimum** versions. The implementer MUST pin exact versions i
 
 | Concern | Package | Constraint |
 |---|---|---|
-| Runtime | Node.js | `>=22.11 <23` (LTS) |
-| Package manager | `pnpm` | `>=9.12` |
+| Runtime | Node.js | `>=22.13 <23` (LTS) — raised from `22.11`: pnpm 11 requires `>=22.13` |
+| Package manager | `pnpm` | exactly `11.17.0`, pinned via `package.json`'s `"packageManager"` field |
 | Framework | `react`, `react-dom` | `>=19.0` |
 | Build tool | `vite` | `>=6.0` |
 | Language | `typescript` | `>=5.6` |

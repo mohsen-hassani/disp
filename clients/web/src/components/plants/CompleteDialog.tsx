@@ -90,7 +90,10 @@ export function CompleteDialog({
       );
     } catch (thrown) {
       const problem = thrown as ProblemDetail;
-      if (problem.code === 'modules.plants.future_date' || problem.code === 'modules.plants.date_too_old') {
+      if (
+        problem.code === 'modules.plants.future_date' ||
+        problem.code === 'modules.plants.date_too_old'
+      ) {
         setError('completed_on', { message: problem.detail || 'Enter a valid completion date.' });
         setFocus('completed_on');
         return;

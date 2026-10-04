@@ -28,10 +28,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `defaults.run.working-directory` doesn't apply to `uses:` steps, so
+      # point the action at the package.json whose "packageManager" pins pnpm.
       - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: clients/web/package.json
+      # Same Node line as the Dockerfile's node:22-alpine; pnpm 11 needs >=22.13.
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.11'
+          node-version: '22'
           cache: pnpm
           cache-dependency-path: clients/web/pnpm-lock.yaml
 

@@ -43,13 +43,11 @@ it('renders "No care intervals yet." when the plant has none', async () => {
 });
 
 it('adds a new interval with the entered name and cadence', async () => {
-  fetchSpy = vi
-    .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(
-      jsonResponse(interval({ id: 'interval-2', name: 'Fertilize', interval_days: 30 }), {
-        status: 201,
-      }),
-    );
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+    jsonResponse(interval({ id: 'interval-2', name: 'Fertilize', interval_days: 30 }), {
+      status: 201,
+    }),
+  );
   const user = userEvent.setup();
   await renderPlants(<IntervalList plantId="plant-1" intervals={[]} />);
 
@@ -69,13 +67,11 @@ it('adds a new interval with the entered name and cadence', async () => {
 });
 
 it('surfaces a future last_done_on rejection inline on that field', async () => {
-  fetchSpy = vi
-    .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(
-      problemResponse(400, 'modules.plants.future_date', {
-        detail: 'last_done_on cannot be in the future.',
-      }),
-    );
+  fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+    problemResponse(400, 'modules.plants.future_date', {
+      detail: 'last_done_on cannot be in the future.',
+    }),
+  );
   const user = userEvent.setup();
   await renderPlants(<IntervalList plantId="plant-1" intervals={[]} />);
 

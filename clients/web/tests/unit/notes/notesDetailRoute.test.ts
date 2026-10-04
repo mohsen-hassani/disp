@@ -19,7 +19,9 @@ type LoaderArgs = { params: { noteId: string }; context: { queryClient: QueryCli
 // router `notFound()`, which is what makes `notFoundComponent` render
 // instead of the component ever mounting against a note that doesn't exist.
 it('turns a 404 notes.not_found into a router notFound()', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(problemResponse(404, 'modules.notes.not_found'));
+  vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+    problemResponse(404, 'modules.notes.not_found'),
+  );
   const queryClient = new QueryClient();
   const loader = Route.options.loader as (args: LoaderArgs) => Promise<void>;
 
@@ -34,7 +36,9 @@ it('turns a 404 notes.not_found into a router notFound()', async () => {
 });
 
 it('re-throws a non-404 error rather than treating it as not-found', async () => {
-  vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(problemResponse(500, 'core.platform.internal_error'));
+  vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+    problemResponse(500, 'core.platform.internal_error'),
+  );
   const queryClient = new QueryClient();
   const loader = Route.options.loader as (args: LoaderArgs) => Promise<void>;
 

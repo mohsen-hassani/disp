@@ -69,7 +69,8 @@ translating into this repo's actual Tailwind/Radix conventions.
 
 ### Local development
 
-Requires Node.js `>=22.11 <23` and `pnpm >=9.12`.
+Requires Node.js `>=22.13 <23` and pnpm `11.17.0`, the version pinned by `clients/web/package.json`'s
+`"packageManager"` field (`corepack enable` picks it up automatically).
 
 ```sh
 cd clients/web
