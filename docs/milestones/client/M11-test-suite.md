@@ -7,7 +7,7 @@ settings,pwa}.spec.ts}`, `clients/web/vitest.config.ts` and `clients/web/playwri
 coverage/CI wiring (files created in M01, configured for real here).
 
 Covers TECHNICAL-SPEC-WEB.md §23 (Testing requirements) in full — the complete enumerated test list
-(cases 1–49) and coverage gates. Mirrors `milestones/server/M15-test-suite.md`'s role for the backend: the
+(cases 1–49) and coverage gates. Mirrors `docs/milestones/server/M15-test-suite.md`'s role for the backend: the
 milestone that proves everything built so far actually holds together, rather than introducing new
 product surface.
 

@@ -106,7 +106,7 @@ codebase, and it makes the core/module boundary visible at the point of use — 
 there is no independently-deployed consumer to keep compatible. A transition window would have meant
 emitting both shapes, or a translation layer, for a consumer that does not exist.
 
-**Frozen build logs left alone.** `milestones/server/M00`–`M17` and `milestones/client/M00`–`M14` record
+**Frozen build logs left alone.** `docs/milestones/server/M00`–`M17` and `docs/milestones/client/M00`–`M14` record
 what was built at the time and still quote the old shape. Rewriting them would falsify the record;
 leaving them silently is how `M18` came to cite a deleted file. The compromise is a pointer in
 `CLAUDE.md` (loaded every session) saying those logs are historical and Appendix A is current. The live
@@ -146,7 +146,7 @@ Three, all pre-existing, all surfaced by having to enumerate the codes exhaustiv
 - `TECHNICAL-SPEC.md` (§17.4, Appendix A rewritten with a normative naming section),
   `TECHNICAL-SPEC-WEB.md` (§7.2/§7.3/§8.4/§8.6/§21), `docs/auth.md`, `docs/operations.md`, `CLAUDE.md`
   (new "Error codes are three segments" section), `src/disp/modules/{notes,plants,learning}` docs,
-  `milestones/server/{M19,M20}`.
+  `docs/milestones/server/{M19,M20}`.
 
 ## Verification
 

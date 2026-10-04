@@ -212,7 +212,7 @@ Module-owned, in `config.py`. A separate `BaseSettings` with its own prefix — 
 | `DISP_PLANTS_MAX_IMAGE_BYTES` | `2097152` (2 MiB) | Upload size ceiling, tightens core's `ACCEPT_IMAGES.max_bytes` for this module only. |
 
 Photo storage location (`DISP_FILES_ROOT`) is core configuration now — see
-`milestones/server/M18-files.md` §3. It moved out of this table when photo storage did (§11).
+`docs/milestones/server/M18-files.md` §3. It moved out of this table when photo storage did (§11).
 
 Rationale: a module MUST NOT require an edit to `core/` to be installable (§8 of the platform spec).
 Adding fields to the core `Settings` would break that.
@@ -555,10 +555,10 @@ regression.
 
 ## 11. Photo storage
 
-**Superseded by `disp.core.files` (`milestones/server/M18-files.md`).** Everything this section used
+**Superseded by `disp.core.files` (`docs/milestones/server/M18-files.md`).** Everything this section used
 to describe — filesystem layout, magic-byte sniffing, atomic writes, the `.tmp`-then-`replace()`
 dance, and the `_variant_paths` resolved-path regression it took a real-server run to catch — moved
-to core and now backs any module, not just plants. Read `milestones/server/M18-files.md` and
+to core and now backs any module, not just plants. Read `docs/milestones/server/M18-files.md` and
 `src/disp/core/files/` for the mechanism; this module only does three things with it:
 
 - `plant.image_asset_id` is a bare `core.assets` id (no cross-schema FK, same convention as
@@ -744,7 +744,7 @@ and `Intl` covers the formatting.
 
 ### 17.4 Photos render via a signed URL, not a bearer-only route
 
-**Fixed by `milestones/server/M18-files.md`.** `plant.image_url` (`PlantOut`/`PlantDetailOut`) is now
+**Fixed by `docs/milestones/server/M18-files.md`.** `plant.image_url` (`PlantOut`/`PlantDetailOut`) is now
 `platform.files.signed_url(plant.image_asset_id)` — a relative `/api/files/{asset_id}?exp=&sig=` URL
 verified by HMAC, not by session — so a plain `<img src={imageUrl}>` (`components/plants/
 PlantThumbnail.tsx`) works unauthenticated, which is the whole reason this mechanism exists: a
@@ -755,7 +755,7 @@ URL, so the old bearer-only route keeps working through one extra hop.
 `PlantThumbnail`'s `onError` handler still exists, but its job changed: a signed URL's bucketed
 expiry (M18 §9.1) means the same URL can go stale in cache without the underlying photo being gone,
 so `onError` now invalidates the parent query (re-minting a fresh URL) and retries once before
-falling back to the `Sprout` placeholder — see `milestones/client` for the exact sequence. A genuine
+falling back to the `Sprout` placeholder — see `docs/milestones/client` for the exact sequence. A genuine
 401/403 and a merely-expired signature are otherwise indistinguishable to an `<img>` tag, which is
 why this is a retry-then-fallback, not an immediate one.
 

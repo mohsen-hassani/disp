@@ -114,7 +114,7 @@ for (const [label, actual, budget] of results) {
 
 if (failed) {
   console.error(
-    '\nBundle budget exceeded — see §22 of milestones/client/M12-pwa-deploy-acceptance.md.',
+    '\nBundle budget exceeded — see §22 of docs/milestones/client/M12-pwa-deploy-acceptance.md.',
   );
   process.exit(1);
 }

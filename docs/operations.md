@@ -110,7 +110,7 @@ Every HTTP request log line includes `request_id`, which also appears in every `
 ### Uploaded files are not in the database dump
 
 `scripts/backup.sh` covers Postgres only. The core file/asset service
-(`milestones/server/M18-files.md`) stores uploaded bytes — currently plant photos, and any future
+(`docs/milestones/server/M18-files.md`) stores uploaded bytes — currently plant photos, and any future
 module that adopts it — as files on the `media` volume (`/data/files` in `docker-compose.yml`,
 `DISP_FILES_ROOT`), which keeps `pg_dump` small and text-only but puts them outside every backup
 above. Restoring only the database gives you every plant, schedule and care log back with its

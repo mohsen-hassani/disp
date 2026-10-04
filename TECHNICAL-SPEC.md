@@ -2027,7 +2027,7 @@ Enforced at construction by `ERROR_CODE_RE` in `src/disp/core/errors.py`:
 This is deliberately **not** `KEY_RE` (§8.1), the platform's other dotted namespace — tile keys, job
 names, notification types — which has exactly two segments. The two were indistinguishable on sight
 until the segment count separated them: `modules.notes.not_found` was an error code and `notes.latest` a tile
-key, and nothing but context said which. See `milestones/server/M21-error-code-namespace.md`.
+key, and nothing but context said which. See `docs/milestones/server/M21-error-code-namespace.md`.
 
 ### Registry
 

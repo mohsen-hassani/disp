@@ -1,6 +1,6 @@
 """FileStore — the module-facing facade for core's file/asset service.
 
-Public surface (re-exported from disp.core.files, see milestones/server/
+Public surface (re-exported from disp.core.files, see docs/milestones/server/
 M18-files.md §11): FileStore, StoredFile, AcceptSpec, ACCEPT_IMAGES,
 ACCEPT_DOCUMENTS, UsageSummary, get_file_store.
 """

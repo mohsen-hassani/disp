@@ -7,13 +7,13 @@ Guidance for Claude Code when working in this repository.
 DISP: a self-hosted personal platform (FastAPI backbone + plug-in module contract + built-in auth
 + a Typer CLI). Built end-to-end from `TECHNICAL-SPEC.md`, a normative spec — if you're asked to
 extend this project, that spec (and `docs/`) is the source of truth, not assumptions from other
-FastAPI projects. See `README.md` for the architecture overview and `milestones/server/M00-M21` for
+FastAPI projects. See `README.md` for the architecture overview and `docs/milestones/server/M00-M21` for
 the full build history, including every resolved spec ambiguity and bug found along the way.
 
 A web client (React PWA) is specified in `TECHNICAL-SPEC-WEB.md` and broken into an implementation
-sequence at `milestones/client/M00-M14` — unlike the backend's `milestones/server/M00-M21`, those
+sequence at `docs/milestones/client/M00-M14` — unlike the backend's `docs/milestones/server/M00-M21`, those
 started as prospective (not-yet-built) briefs, not retrospective build logs.
-`milestones/client/M00-M14` are all implemented (see `README.md`'s "Web client" section for what
+`docs/milestones/client/M00-M14` are all implemented (see `README.md`'s "Web client" section for what
 each covers, and "Web client" below for testing/dev notes specific to it). `M12`'s own
 `**Status:**` line has the exact split of
 what's automated and verified versus what still needs a human with real infrastructure (a live TLS
@@ -26,7 +26,7 @@ schedules). `plants` was built after the spec rather than from it, so it documen
 scheduling invariants, API, photo storage, rationale for every decision) and is the source of truth
 before changing anything under `src/disp/modules/plants/`. Its `README.md` is the short
 orientation. The web client's `plants` screens (full CRUD: list, create/edit, detail with care
-intervals and history, photo upload, calendar) are implemented per `milestones/client/M14-plants-
+intervals and history, photo upload, calendar) are implemented per `docs/milestones/client/M14-plants-
 screens.md`, registered in `MODULE_SCREENS` alongside `notes`. **The load-bearing rule:
 completing a care action reschedules from the completion date, not the due date** (done on the 3rd
 for a 15-day cycle → next due the 18th, not the 16th), and due/overdue state is *derived* at read
@@ -64,7 +64,7 @@ A module under `src/disp/modules/<domain>/` may **not**:
 - import `disp.core.db` beyond `get_session`, `session_scope`, `Base`
 - import `disp.core.auth` beyond its `__init__.py`'s public surface: `CurrentUser`, `Permission`,
   `can`, `current_user`, `grant`, `list_grants`, `readable_ids`, `require`, `require_admin`,
-  `revoke` (wider than the spec's original 5-name list — see `milestones/server/M06-auth.md`)
+  `revoke` (wider than the spec's original 5-name list — see `docs/milestones/server/M06-auth.md`)
 
 Violating any of these fails the build, not a lint warning. See `docs/adding-a-module.md` for the
 four-step recipe to add a new one.
@@ -72,7 +72,7 @@ four-step recipe to add a new one.
 ## Error codes are three segments; manifest keys are two
 
 Two dotted namespaces exist and they used to be indistinguishable on sight. Since
-`milestones/server/M21-error-code-namespace.md` the segment count tells them apart:
+`docs/milestones/server/M21-error-code-namespace.md` the segment count tells them apart:
 
 | | Shape | Validated by | Examples |
 |---|---|---|---|
@@ -85,9 +85,9 @@ its own namespace — a client should handle "rate limited" once, not once per d
 
 Two things to know before trusting a code you read somewhere:
 
-- **`milestones/server/M00`–`M17` and `milestones/client/M00`–`M14` are frozen build logs** and still
+- **`docs/milestones/server/M00`–`M17` and `docs/milestones/client/M00`–`M14` are frozen build logs** and still
   quote the pre-M21 two-segment shape (`auth.token_expired`). They record what was built at the time;
-  they are not current reference. `TECHNICAL-SPEC.md` Appendix A is. (`milestones/server/M18`–`M21` are
+  they are not current reference. `TECHNICAL-SPEC.md` Appendix A is. (`docs/milestones/server/M18`–`M21` are
   live specs and do use the current shape.)
 - **Appendix A registers `core.*` only.** Module-owned codes live in the module's own spec —
   `src/disp/modules/plants/TECHNICAL-SPEC.md` §18. `modules.notes.*` is in Appendix A only because
@@ -119,7 +119,7 @@ two tests hit this (`tests/cli/test_cli_commands.py`, `tests/core/test_plugin_pr
 A module declares whether it has web-client screens, and how they present, in its own manifest —
 `ModuleManifest.client_nav` (`label`, `icon` as a kebab-case *lucide name*, `order`, advisory
 `routes`) and `TileSpec.nav` (a navigation button in that tile's footer). See
-`milestones/server/M17-client-surface-contract.md` and `milestones/client/M13-module-nav-contract.md`.
+`docs/milestones/server/M17-client-surface-contract.md` and `docs/milestones/client/M13-module-nav-contract.md`.
 
 Two rules that are easy to get wrong:
 
@@ -131,7 +131,7 @@ Two rules that are easy to get wrong:
   renders only when the manifest declares `client_nav` **and** the domain is in `MODULE_SCREENS`
   (`clients/web/src/modules/registry.ts`) — server = policy, client = capability. A module ahead of
   the client is dashboard-only, never a link to a 404. `plants` was in exactly that state before
-  `milestones/client/M14-plants-screens.md` was implemented — its screens now exist and it's
+  `docs/milestones/client/M14-plants-screens.md` was implemented — its screens now exist and it's
   registered in `MODULE_SCREENS` alongside `notes`. A *future* module ahead of the client repeats
   this same pattern: declaring `client_nav` with no matching `MODULE_SCREENS` entry, dashboard-only
   until its screens land — one line in `MODULE_SCREENS` plus the route files, no shell edits.
@@ -152,7 +152,7 @@ shipping a `migrations/versions/` directory. **A new module needs only its `alem
 plus one line each in `tests/conftest.py` and `docker-compose.e2e.yml` (both still enumerate
 branches explicitly). Don't reintroduce a hardcoded module list in either derived spot.
 
-## `core.files` gotchas (full reasoning in `milestones/server/M18-files.md`)
+## `core.files` gotchas (full reasoning in `docs/milestones/server/M18-files.md`)
 
 - **Uploaded files are objects on a volume plus a `core.assets` row, never both stored in Postgres.**
   `DISP_FILES_ROOT`, mounted as `media:/data/files` in `docker-compose.yml` — on **both** `api` and

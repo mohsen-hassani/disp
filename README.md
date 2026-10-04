@@ -38,7 +38,7 @@ Run `./dev test` (full suite, needs Docker for testcontainers) and `./dev lint` 
 
 A React PWA at `clients/web/` consumes this API — see
 [`TECHNICAL-SPEC-WEB.md`](TECHNICAL-SPEC-WEB.md) for the full spec and
-[`milestones/client/`](milestones/client/) for its build sequence. **All of `M00`–`M12` are
+[`docs/milestones/client/`](docs/milestones/client/) for its build sequence. **All of `M00`–`M12` are
 implemented** (backend amendments, the generated API client, browser auth, routing/shell, the
 dashboard's generic tile rendering, generic settings rendering, the account/API-tokens/admin-invites
 screens, the bespoke notes screens with global keyboard shortcuts, PWA/offline support —
@@ -56,7 +56,7 @@ keyboard-traversal/focus-trap checks — against a real backend brought up by
 `docker-compose.e2e.yml`; and `M12`'s deploy/performance/acceptance sweep: `clients/web/Dockerfile`
 + `nginx.conf`, a `web` Docker Compose service routed by Traefik, §22's bundle-size budgets enforced
 in a `check:budget` script against the real build manifest, and route-level lazy-loading for the
-tile action dialog. `milestones/client/M12-pwa-deploy-acceptance.md`'s own `**Status:**` line has
+tile action dialog. `docs/milestones/client/M12-pwa-deploy-acceptance.md`'s own `**Status:**` line has
 the exact split between what's automated/verified and what still needs a human with real
 infrastructure (a live TLS deploy, iOS/Android home-screen install) — not everything in §25's
 acceptance list is independently confirmable without both.
@@ -125,7 +125,7 @@ created once.
 
 `clients/web/Dockerfile` builds a two-stage image (`pnpm build` → static `dist/`, served by
 `nginx:1.27-alpine`, non-root) and `docker-compose.yml` has a `web` service for it, routed by
-Traefik exactly as `milestones/client/M12-pwa-deploy-acceptance.md` specifies: path-priority split
+Traefik exactly as `docs/milestones/client/M12-pwa-deploy-acceptance.md` specifies: path-priority split
 with `api` so `/api`, `/health`, and `/openapi.json` reach the backend container and everything else
 reaches `web`. Traefik itself lives outside this repo now (see "Deployment" below) — `web` joins its
 shared `edge` network and carries the routing labels, the same pattern `api` already uses. `web` is
@@ -181,11 +181,11 @@ infrastructure a CI/local check can't provide).
 | `./dev` (run with no args) | Every local dev command: `up`, `migrate`, `test`, `lint`, `seed`, `openapi`, … |
 
 See "Web client" above for how to run what exists of `clients/web/` today, and
-[`milestones/client/`](milestones/client/) for its build sequence.
+[`docs/milestones/client/`](docs/milestones/client/) for its build sequence.
 
 `GET /api/dashboard/manifest` serializes each settings panel's schema as JSON Schema (with a secret
 field marked `"x-secret": true`), including panels registered directly on the core platform (e.g.
-`core.notifier`) under a synthetic `"core"` module entry — see `milestones/client/M00-backbone-amendments.md`.
+`core.notifier`) under a synthetic `"core"` module entry — see `docs/milestones/client/M00-backbone-amendments.md`.
 
 ## Deployment
 

@@ -8,7 +8,7 @@
 `clients/web/src/components/tiles/{tileLinks.ts,TileCard.tsx,TileItemRow.tsx,TileActionButton.tsx,tileButton.ts}`.
 
 Implements WEB-SPEC amendment A3 (§1.2, §12.2, §13.3, §13.6, §13.7). The backend half is
-`milestones/server/M17`.
+`docs/milestones/server/M17`.
 
 ---
 

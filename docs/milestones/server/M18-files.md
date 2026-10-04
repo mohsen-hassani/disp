@@ -713,7 +713,7 @@ already done in `33d2b0f` (§1.3).
   `PhotoUpload.test.tsx`) and assert the `<img>` element renders, never that it loads — which is why
   the 401 went unnoticed.
 
-`milestones/client/M12`'s §26 out-of-scope list names "file/image attachments" as forbidden for the
+`docs/milestones/client/M12`'s §26 out-of-scope list names "file/image attachments" as forbidden for the
 *notes* screens; this does not change that.
 
 ## §14. Testing
@@ -779,7 +779,7 @@ upgrade, before the new layout starts writing `plants/plant_photo/…` beside it
 
 `DISP_PLANTS_MEDIA_ROOT` and `DISP_PLANTS_MAX_IMAGE_BYTES` appear in five places that all need
 updating: `.env.example:35-36`, `docker-compose.yml:24`, `src/disp/modules/plants/README.md`,
-`CLAUDE.md` (plants gotchas), and `milestones/client/M14-plants-screens.md:159`.
+`CLAUDE.md` (plants gotchas), and `docs/milestones/client/M14-plants-screens.md:159`.
 
 ### §15.2 Backup
 

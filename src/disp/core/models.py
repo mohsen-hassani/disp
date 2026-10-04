@@ -305,7 +305,7 @@ class Asset(Base):
     """M18: core file/asset service. Assets are immutable — there is no update,
     only soft-delete (`deleted_at`) followed by the sweeper reaping the object
     and the row once past the grace period. See src/disp/core/files/ and
-    milestones/server/M18-files.md §4.
+    docs/milestones/server/M18-files.md §4.
     """
 
     __tablename__ = "assets"

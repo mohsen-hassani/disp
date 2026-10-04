@@ -1,6 +1,6 @@
 """HMAC-signed, bucketed-expiry URLs for the core file/asset service.
 
-See milestones/server/M18-files.md §9. A signed URL is a capability, not a
+See docs/milestones/server/M18-files.md §9. A signed URL is a capability, not a
 session — anyone holding it gets the bytes until `exp`. The signature does
 NOT bind a user id (§9.3): there is no cookie on an `<img>` request to check
 it against, which is the entire reason this mechanism exists.

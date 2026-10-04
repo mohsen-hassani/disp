@@ -71,7 +71,7 @@ Section 3 lists three small amendments this client requires from the backend. Th
 
 Do **not** implement: web push notifications; background sync or an offline mutation queue; a service-worker-based offline write cache; screens for habits or shopping lists; internationalisation beyond locale-aware date/number formatting; theming beyond light/dark; server-side rendering; native app packaging (Capacitor, Tauri); analytics or telemetry of any kind.
 
-> **Amended (A3).** "Screens for plants" was originally a non-goal here, on the reasoning that `plants` renders adequately through the generic dashboard. In practice the tile is read-only with no way to reach the module at all, so `plants` screens are now in scope — specified in `milestones/client/M14-plants-screens.md` and reachable through the manifest-declared navigation of §12.2. Habits and shopping lists remain out of scope; they have no backend module.
+> **Amended (A3).** "Screens for plants" was originally a non-goal here, on the reasoning that `plants` renders adequately through the generic dashboard. In practice the tile is read-only with no way to reach the module at all, so `plants` screens are now in scope — specified in `docs/milestones/client/M14-plants-screens.md` and reachable through the manifest-declared navigation of §12.2. Habits and shopping lists remain out of scope; they have no backend module.
 
 ### 1.3 Operating assumptions
 

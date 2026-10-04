@@ -37,7 +37,7 @@ root `docker-compose.yml` (new `web` service + `api` service's router-priority a
 CI config.
 
 Covers TECHNICAL-SPEC-WEB.md §22 (Performance budgets), §24.3–24.4 (Container, Compose and routing),
-§25 (Acceptance criteria) — the closing milestone, mirroring `milestones/server/M16-deployment-docs.md`'s
+§25 (Acceptance criteria) — the closing milestone, mirroring `docs/milestones/server/M16-deployment-docs.md`'s
 role for the backend.
 
 ---

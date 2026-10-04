@@ -4,7 +4,7 @@ Ported from plants/config.py's image-sniffing table, extended with PDF and a
 text-family list for formats that write no signature at all — there is no
 byte sequence illegal in a `.txt` file, so text can only be *validated* as
 UTF-8 by FileStore.put, never *identified* by content (I5/I6 in
-milestones/server/M18-files.md §2 — only a positively sniffed type may ever
+docs/milestones/server/M18-files.md §2 — only a positively sniffed type may ever
 be served inline).
 """
 

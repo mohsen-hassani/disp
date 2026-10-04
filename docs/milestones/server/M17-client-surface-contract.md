@@ -7,7 +7,7 @@
 `tests/core/test_dashboard.py`, `tests/core/test_plugin_proof.py`.
 
 Amends TECHNICAL-SPEC.md §8.1/§8.2 and TECHNICAL-SPEC-WEB.md §12.2/§13.6/§13.7 (amendment A3).
-The client half is `milestones/client/M13`.
+The client half is `docs/milestones/client/M13`.
 
 ---
 

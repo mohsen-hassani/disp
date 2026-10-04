@@ -57,7 +57,7 @@ comparison goes through `service.today()`.
 
 ## Photos
 
-Stored through the core file/asset service (`src/disp/core/files/`, see `milestones/server/
+Stored through the core file/asset service (`src/disp/core/files/`, see `docs/milestones/server/
 M18-files.md`), not this module — `plant.image_asset_id` is a bare `core.assets` id, no cross-schema
 FK. `GET /api/plants/{id}/image` authorizes against the plant's ACL, then `302`-redirects to a
 signed `/api/files/{asset_id}` URL that works in a plain `<img src>` with no session (`DISP_PLANTS_
