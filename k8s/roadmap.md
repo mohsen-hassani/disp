@@ -16,7 +16,7 @@ board.
 |---|------|--------|
 | T0 | Directory layout & naming convention | Done |
 | T1 | Namespace | Done |
-| T2 | Registry pull credentials | Not started |
+| T2 | Registry pull credentials | Skipped — images are publicly pullable, see T2 |
 | T3 | Postgres via CloudNativePG (CNPG) | Not started — CNPG operator not yet installed on cluster |
 | T4 | `api`/`worker` ConfigMap + Secret | Not started |
 | T5 | Migration Job | Not started |
@@ -92,7 +92,15 @@ task finds inconsistent; this is a snapshot, not a guarantee.
   `Ingress` `registry-ingress` (class `traefik`, host
   `registry.mohsen-hassani.com`). Auth for `docker login`/`imagePullSecrets` is a
   **Gitea username + access token**, not a separate registry-specific credential
-  system — generate the token from the Gitea user settings when T2 is implemented.
+  system. CI pushes with a token that has `write:package` scope (GitHub secrets
+  `REGISTRY_USERNAME`/`REGISTRY_PASSWORD`).
+- **`disp` and `disp-web` are publicly pullable** (verified 2026-10-04 against
+  `:713cd73ac93b`, the first images CI pushed): anonymous pull tokens are issued,
+  manifest GETs with them return 200, and a `docker pull` with an empty Docker config
+  succeeds. Nobody set this per package. Gitea packages **inherit their owner's
+  visibility**, and the Gitea user `mohsen_hassani` is `public` (Gitea 1.27.3). Images
+  are single-arch `linux/amd64`, matching the only node (`falken`, amd64). This is why
+  T2 is skipped.
 - **A `mohsen-hassani-logging` namespace also exists** (some logging stack, likely
   Loki/Grafana-shaped) — unrelated to `disp`, noted only so it isn't mistaken for
   something this migration owns.
@@ -278,9 +286,9 @@ k8s/
   secrets/
     api.secret.example.yaml       # committed template — see T4
     api.secret.yaml                # gitignored — real values
-    registry-credentials.secret.example.yaml   # see T2
-    registry-credentials.secret.yaml            # gitignored
 ```
+(`registry-credentials.secret{,.example}.yaml` were planned here for T2. Dropped
+2026-10-04 when T2 was skipped because the images are public.)
 
 **What we're changing from the source, and why:** dropping sourcegraph's
 `examples/<target>/`-as-resource-sizing-and-cloud-target-matrix (its overlay layer
@@ -288,9 +296,8 @@ does far more than this project needs — storage class per cloud provider, t-sh
 resource sizing) down to a single, mostly-empty `overlays/prod/`; and dropping its
 `base/monitoring/`, per-service RBAC, and legacy-migration directories entirely
 (disproportionate for a solo deploy). Also flattening `secrets/` to the top level
-rather than nesting per-component, since only two components (`api`+`worker` share
-one, `registry-credentials` is cluster-wide) currently need real secret material —
-revisit if that count grows.
+rather than nesting per-component, since only `api`+`worker` (sharing one Secret)
+currently need real secret material. Revisit if that count grows.
 
 **Files to create/modify:** the directory skeleton above (empty `kustomization.yaml`
 stubs are fine at this stage); update `.gitignore`'s existing
@@ -333,7 +340,30 @@ metadata:
 
 ---
 
-### T2 — Registry pull credentials
+### T2 — Registry pull credentials — **Skipped**
+
+**Resolution (2026-10-04): skipped, because the images are publicly pullable.**
+Once CI had pushed real images, an anonymous pull succeeded (see the registry
+bullets in Cluster facts). No `Secret` is created, and no manifest from T5 onward
+carries `imagePullSecrets`. Why public is acceptable here:
+- **No new exposure.** The GitHub repo `mohsen-hassani/disp` is itself public, so the
+  `disp` image holds no code that isn't already readable there. `disp-web` is the PWA
+  the site serves to every visitor anyway.
+- **No secrets in either image.** Both Dockerfiles `COPY` explicit paths only (`src`,
+  `pyproject.toml`/`uv.lock`, `alembic.ini`; the built `dist/` + nginx config), and
+  every credential reaches the containers as an env var at runtime (T4).
+
+**The catch, and when to revisit:** public access is not a per-package setting. It
+**follows the Gitea user's visibility.** If the `mohsen_hassani` profile is ever set
+to *limited* or *private*, every pod pulling these images fails with
+`ImagePullBackOff`, and nothing in this repo will have changed. If that happens, or
+the GitHub repo goes private, implement the plan below. The quickest way to keep
+the images private without hiding the whole profile is a private Gitea organization,
+which changes the image paths to `registry.mohsen-hassani.com/<org>/…`, so
+`deploy.yml` changes too. Use a `read:package`-only token for the cluster, never
+CI's write token.
+
+The original plan follows unchanged, for that case.
 
 **Where this stands today:** Not created. This is a **new requirement that didn't
 exist before** — the `docker compose pull` path only needed the *host* logged in
@@ -552,7 +582,7 @@ everything" command).
 **What "done" looks like:** a `Deployment` running the `disp` image
 (`command`/default `CMD` from the root `Dockerfile`: `uvicorn disp.main:app ...`),
 env from T4's `ConfigMap`+`Secret` (which now includes the R2 file-storage vars —
-no volume mount needed, see T8), T2's `imagePullSecrets`, correct probes, resource
+no volume mount needed, see T8), no `imagePullSecrets` (T2 skipped, images are public), correct probes, resource
 requests/limits, and a hardened `securityContext`; plus a `ClusterIP` `Service` in
 front of it for T10's `Ingress` to target.
 
@@ -595,7 +625,7 @@ same `disp` image with `command: ["python", "-m", "disp.worker"]`, no exposed po
 
 **What "done" looks like:** a `Deployment` (no `Service` needed — nothing calls this
 process over the network) with the same env (`api-configs`/`api-secrets`, including
-T8's R2 vars) and T2's `imagePullSecrets`. No liveness/readiness probe, matching
+T8's R2 vars), and no `imagePullSecrets` (T2 skipped). No liveness/readiness probe, matching
 current `docker-compose.yml` behavior (see locked-in decisions). No volume mount —
 R2 access is over the network, identical from any pod, so `api` and `worker` no
 longer need to be scheduled with access to the same filesystem the way a shared PVC
