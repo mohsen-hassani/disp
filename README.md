@@ -129,7 +129,7 @@ Traefik exactly as `docs/milestones/client/M12-pwa-deploy-acceptance.md` specifi
 with `api` so `/api`, `/health`, and `/openapi.json` reach the backend container and everything else
 reaches `web`. Traefik itself lives outside this repo now (see "Deployment" below) — `web` joins its
 shared `edge` network and carries the routing labels, the same pattern `api` already uses. `web` is
-also wired into the same GHCR + SSH auto-deploy pipeline the backend uses (`docs/operations.md`'s
+also wired into the same registry + SSH auto-deploy pipeline the backend uses (`docs/operations.md`'s
 "SSH deploy" section). See that milestone doc's `**Status:**` line for exactly what has and
 hasn't been independently verified yet (a live TLS deploy and mobile home-screen installs need real
 infrastructure a CI/local check can't provide).
@@ -196,6 +196,6 @@ separate `infra` project shared across every app on the host (not disp-specific)
 `docker-compose.yml` only joins its `edge` network and carries the routing labels.
 `docker-compose.test.yml` is unrelated: a Postgres-only override `./dev up`/`./dev down` use for
 local development (the automated test suite uses its own ephemeral testcontainers Postgres
-instead, per `TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes an image via
-GitHub Actions, then triggers a pull-and-redeploy on the production host by running a single
-command over SSH — see `docs/operations.md`'s "SSH deploy" section.
+instead, per `TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes both images via
+GitHub Actions. The pull-and-redeploy step over SSH is currently disabled during the Kubernetes
+migration (`k8s/roadmap.md`) — see `docs/operations.md`'s "SSH deploy" section.

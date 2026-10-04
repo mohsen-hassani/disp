@@ -1,0 +1,12 @@
+# Entry point — apply this, not k8s/base/ directly:
+#   kubectl apply -k k8s/overlays/prod
+# The only overlay this project has or plans to have (single-environment
+# scope — see roadmap.md's "Locked-in decisions"). It exists so the base/
+# vs overlays/ split means something, per the 2026-09-01 discussion: a
+# hypothetical second environment gets a sibling overlays/<name>/ directory
+# referencing the same ../../base, not a reason to restructure this one.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base

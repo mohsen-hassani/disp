@@ -14,3 +14,8 @@ build/
 openapi.json
 .DS_Store
 var/
+
+# Real k8s Secret manifests — keep only the *.example.yaml templates in git,
+# same rule as .env vs .env.example above.
+k8s/secrets/*
+!k8s/secrets/*.example.yaml

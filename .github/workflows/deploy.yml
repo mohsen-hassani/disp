@@ -5,12 +5,11 @@ on:
     branches: [prod]
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/disp
-  IMAGE_WEB: ghcr.io/${{ github.repository_owner }}/disp-web
+  IMAGE: registry.mohsen-hassani.com/mohsen_hassani/disp
+  IMAGE_WEB: registry.mohsen-hassani.com/mohsen_hassani/disp-web
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
@@ -25,9 +24,9 @@ jobs:
 
       - uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: registry.mohsen-hassani.com
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - uses: docker/build-push-action@v6
         with:
@@ -45,7 +44,10 @@ jobs:
             ${{ env.IMAGE_WEB }}:${{ steps.meta.outputs.tag }}
             ${{ env.IMAGE_WEB }}:latest
 
+  # Disabled during the Kubernetes migration: pushes to prod only publish
+  # images. See docs/operations.md's "SSH deploy" and k8s/roadmap.md T12/T14.
   deploy:
+    if: false
     needs: build
     runs-on: ubuntu-latest
     steps:

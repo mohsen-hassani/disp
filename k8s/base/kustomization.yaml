@@ -1,0 +1,11 @@
+# Base aggregator — references one entry per component directory here in
+# k8s/base/. Not applied directly; k8s/overlays/prod/ references this and is
+# the actual `kubectl apply -k` entry point. Extended as each roadmap.md task
+# lands; see roadmap.md for the full plan and task order. migration-job/ (T5)
+# is deliberately NOT listed here even once it exists — it's applied manually
+# and on purpose, never as part of a blanket `kubectl apply -k`.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace

@@ -38,8 +38,17 @@ fresh deployment with no existing photos can skip straight to the migration.
 
 ## SSH deploy
 
-Every push to `prod` (`.github/workflows/deploy.yml`) builds the image, pushes it to GHCR under
-two tags (`ghcr.io/<owner>/disp:<12-char-sha>` and `:latest`), then SSHes into the production host
+> **Currently disabled.** While `disp` moves to Kubernetes (`k8s/roadmap.md`), the workflow's
+> `deploy` job is switched off with `if: false`: a push to `prod` only builds and pushes both
+> images (`disp`, `disp-web`) to the registry, and nothing SSHes into the host. The rest of this
+> section describes the compose deploy path as it works when that job is enabled, and stays
+> accurate for re-enabling it. Roadmap T12 replaces it with GitOps, and T14 decides whether to
+> keep it as a fallback or remove it.
+
+Every push to `prod` (`.github/workflows/deploy.yml`) builds the image, pushes it to
+`registry.mohsen-hassani.com` under two tags
+(`registry.mohsen-hassani.com/mohsen_hassani/disp:<12-char-sha>` and `:latest`), then SSHes into
+the production host
 and runs a single command: `./scripts/deploy.sh <sha-tag>`. The script starts with `git pull
 --ff-only` so the host's compose files (and the script itself) stay in sync with what was pushed,
 then never runs migrations — those stay the explicit, manual step above, on purpose, so a deploy
@@ -53,7 +62,7 @@ with `network edge declared as external, but could not be found`.
 
 **One-time host setup**, assuming `/opt/disp` already holds a `git clone` of this repo checked out
 on `prod` (so `git pull --ff-only` in the script has a remote to pull from) with a real `.env` (with
-`GHCR_OWNER`/`IMAGE_TAG` set per
+`IMAGE_REGISTRY`/`IMAGE_TAG` set per
 `.env.example`), and the `infra` project (see above) is already up:
 
 1. Create a dedicated deploy user on the host (or reuse an existing one) that can run `docker
@@ -63,10 +72,14 @@ on `prod` (so `git pull --ff-only` in the script has a remote to pull from) with
 3. Run `ssh-keyscan -t ed25519 <host>` from any machine to capture the host's public key.
 4. In the GitHub repo's Settings → Secrets, set `SSH_HOST` (the droplet's address), `SSH_USER`
    (the deploy user from step 1), `SSH_PRIVATE_KEY` (the private half from step 1, full
-   `-----BEGIN OPENSSH PRIVATE KEY-----` block), and `SSH_KNOWN_HOSTS` (the output of step 3) —
+   `-----BEGIN OPENSSH PRIVATE KEY-----` block), `SSH_KNOWN_HOSTS` (the output of step 3) —
    the last one pins the host key so the workflow's SSH step can't be MITM'd by silently trusting
-   whatever key it's offered.
-5. In the `infra` project, confirm `traefik-dynamic.yml`'s `Host()` rule matches the real
+   whatever key it's offered — and `REGISTRY_USERNAME`/`REGISTRY_PASSWORD` (credentials for
+   `registry.mohsen-hassani.com`, used by `docker/login-action` in the build job).
+5. On the host, also `docker login registry.mohsen-hassani.com` as whatever user runs
+   `docker compose pull` in `scripts/deploy.sh` — pulling a private image needs the host
+   authenticated too, not just the GitHub Actions build job that pushes it.
+6. In the `infra` project, confirm `traefik-dynamic.yml`'s `Host()` rule matches the real
    `PUBLIC_HOST` from this repo's `.env` (Traefik's file provider does not expand `${PUBLIC_HOST}`
    the way Compose does — this has to be edited by hand and kept in sync manually), then restart
    Traefik there to pick it up: `docker compose up -d traefik` (run from `infra`, not from here).
