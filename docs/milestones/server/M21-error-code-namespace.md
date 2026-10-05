@@ -77,6 +77,7 @@ split on `.` unconditionally and a regex can enforce it.
 # src/disp/core/errors.py
 ERROR_CODE_RE = re.compile(r"^(core|modules)\.[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,63}$")
 
+
 def validate_error_code(code: str) -> str: ...
 ```
 
