@@ -18,11 +18,11 @@ board.
 | T1 | Namespace | Done |
 | T2 | Registry pull credentials | Skipped — images are publicly pullable, see T2 |
 | T3 | Postgres via CloudNativePG (CNPG) | Done — applied and Ready 2026-10-05; backups deferred to T13 |
-| T4 | `api`/`worker` ConfigMap + Secret | Files written and validated 2026-10-05 (server dry-run + real `Settings`); **not yet applied**; R2 vars deferred to T8 |
-| T5 | Migration Job | Not started — apply only after T8 (Procrastinate step needs full `Settings`, see T4 resolution) |
-| T6 | `api` Deployment + Service | Files written 2026-10-05; **not applied, and blocked on a new image build**: the only registry image (v1) can't run with S3 (see Cluster facts, "images are OLDER"). Also needs T8 + T5 first |
+| T4 | `api`/`worker` ConfigMap + Secret | Done — applied 2026-10-05 (`api-configs`, `api-secrets`; R2 values added via T8) |
+| T5 | Migrations (initContainer on `api`) | Files written and verified locally 2026-10-05 (changed from a manual Job to an automatic initContainer, see T5); **not yet run on the cluster** — happens on the next `kubectl apply -k k8s/overlays/prod` |
+| T6 | `api` Deployment + Service | Files written; overlay pins `aba85dd9ef79` (v2). Applied once with the old tag (crash-looped, expected). Re-applying it now also runs T5's migrations (initContainer) |
 | T7 | `worker` Deployment | Not started |
-| T8 | File storage — Cloudflare R2 | Templates added 2026-10-05; waiting on the operator: create the R2 bucket + token, fill `k8s/secrets/api.secret.yaml` (outside kubectl/Claude) |
+| T8 | File storage — Cloudflare R2 | Done as config — bucket + token created, `api-secrets` filled and applied (2026-10-05); **not yet exercised** against R2 (first upload / sweep) |
 | T9 | `web` Deployment + Service | Not started |
 | T10 | Ingress + TLS | Not started |
 | T11 | pgweb | Dropped — see D4 resolution below |
@@ -100,8 +100,17 @@ task finds inconsistent; this is a snapshot, not a guarantee.
   visibility**, and the Gitea user `mohsen_hassani` is `public` (Gitea 1.27.3). Images
   are single-arch `linux/amd64`, matching the only node (`falken`, amd64). This is why
   T2 is skipped.
-- **⚠️ The images in the registry are OLDER than the code this roadmap describes
-  (found 2026-10-05).** The registry holds only `22d471b1e6ff` and `713cd73ac93b`
+- **✅ Resolved 2026-10-05: the v2 images now exist.** The operator committed and pushed
+  the working tree (`c1e53bf`..`aba85dd`); CI succeeded and pushed **`aba85dd9ef79`**
+  (`disp` and `disp-web`; same sha tag for both). Verified by inspecting the image:
+  `files_backend: Literal["s3"]`, only `backends/s3.py`, core migrations `0001`–`0005`,
+  `learning` (0001–0002), `notes` (0001) and `plants` (0001–0003) migrations, and all four
+  Alembic branches registered in `alembic.ini`. The prod overlay pins this tag. **The
+  rest of this bullet describes the OLD images (`22d471b1e6ff`, `713cd73ac93b`) and is
+  kept as history.** Observed consequence: the `api` Deployment, applied once while the
+  overlay still pinned `713cd73ac93b`, crash-looped (18 restarts) exactly as predicted.
+- **(History) ⚠️ The images in the registry were OLDER than the code this roadmap
+  describes (found 2026-10-05).** The registry holds only `22d471b1e6ff` and `713cd73ac93b`
   (plus `latest`, same content), both built from commits **before** "M18 v2" and the
   `learning` module. In git, those are **uncommitted/untracked** as of 2026-10-05: core
   migrations `0003_core_llm_call`, `0004_core_translation_call`, `0005_core_files`;
@@ -206,12 +215,14 @@ re-litigation inside a task unless something below turns out to be wrong.
   without either process needing a mounted volume at all. `DISP_FILES_ROOT` and any
   volume mount are **not** part of `api`/`worker`'s manifests — see T8 for the R2
   config vars that replace them.
-- **Migrations stay a manual, explicit step — not an automatic pre-deploy hook.**
-  `docs/operations.md`'s "SSH deploy" section and `CLAUDE.md` are explicit that
-  `scripts/deploy.sh` "never runs migrations... so a deploy can never silently apply
-  one." T5 builds a migration `Job` manifest, but it is applied by hand
-  (`kubectl apply -f` / `kubectl create -f`), never wired into the same rollout as
-  T6/T7. Preserving this is a deliberate carry-over, not an oversight.
+- **Migrations run automatically, as an initContainer of `api` (T5). Reversed 2026-10-05.**
+  This file originally carried over the compose path's rule that migrations stay a manual,
+  explicit step (`docs/operations.md`'s "SSH deploy" section and a comment in
+  `scripts/deploy.sh`: "never runs migrations... so a deploy can never silently apply one").
+  The operator reversed it for k8s: schema changes are frequent, and there is no production
+  data while architectures are being tried. See T5 for the mechanism, its limits
+  (`replicas: 1`, rollout overlap) and **when to revisit** (before T14 / once real data
+  exists). The compose path is unchanged.
 - **Health endpoints, from existing `docker-compose.yml` healthchecks** (reuse
   exactly, don't invent new ones): `api` liveness → `GET /health/live`, `api`
   readiness → `GET /health` (this is the endpoint `scripts/deploy.sh` already polls
@@ -299,14 +310,12 @@ k8s/
       kustomization.yaml          # own Service/Secret, nothing else lives here
     api/                          # see T4, T6 — api-configs/api-secrets live here,
       api.ConfigMap.yaml          # worker (T7) references the same two objects
-      api.Deployment.yaml         # rather than duplicating them
-      api.Service.yaml
+      api.Deployment.yaml         # rather than duplicating them; T5's migrate
+      api.Service.yaml            # initContainer is part of this Deployment
+      migrate.sh                  # see T5 — becomes a generated ConfigMap
       kustomization.yaml
     worker/                       # see T7
       worker.Deployment.yaml
-      kustomization.yaml
-    migration-job/                # see T5
-      migration.Job.yaml
       kustomization.yaml
     web/                          # see T9
       web.Deployment.yaml
@@ -318,6 +327,7 @@ k8s/
   overlays/
     prod/
       kustomization.yaml          # THE apply entry point: kubectl apply -k k8s/overlays/prod
+                                  # (also the one place image tags are pinned — `images:`)
   secrets/
     api.secret.example.yaml       # committed template — see T4
     api.secret.yaml                # gitignored — real values
@@ -644,9 +654,92 @@ generate each secret across both the compose and k8s deploy paths.
 
 ---
 
-### T5 — Migration Job
+### T5 — Migrations: an initContainer on `api` (was planned as a manual Job)
 
-**Where this stands today:** Not created. Today, migrations run manually via
+**Resolution (2026-10-05) — supersedes the Job-based plan below; where they differ, this wins:**
+- **Decision (operator, 2026-10-05): migrations run automatically, as an initContainer of
+  `api`.** This reverses the "migrations stay a manual step" carry-over from the compose path
+  (see Locked-in decisions). Why: schema changes are frequent, and a separate manual step per
+  change was the main friction. The project is in an experimentation phase with **no production
+  data**, so the safety the manual gate bought is knowingly traded away for now. A first design
+  (a manual `Job` rendered through its own overlay, with a shared image-tag Component) was built
+  and verified the same day, then removed unmerged in favour of this.
+  - The rule being reversed is stated in `docs/operations.md` and a comment in
+    `scripts/deploy.sh`, **without a rationale** ("on purpose, so a deploy can never silently
+    apply one"; `CLAUDE.md` does *not* say it, despite an earlier version of this file claiming
+    so). The usual reasoning (a migration can't be undone by rolling back the image, and there
+    are no backups yet, T13) is inference, not documented intent.
+  - **Revisit before T14, or as soon as the database holds data worth keeping.** Options then:
+    a GitOps pre-sync hook Job (T12; automatic but ordered and visible), a manual Job again, or
+    keep the initContainer once T13's backups exist. The compose path is unaffected: it stays
+    manual per `docs/operations.md` until T14.
+- **How it works.** `api.Deployment.yaml` gets an initContainer `migrate`: same image, same
+  `envFrom`, same hardening as `api`, running `sh /scripts/migrate.sh`. The script lives in the
+  repo as `k8s/base/api/migrate.sh` and reaches the pod through a kustomize `configMapGenerator`
+  (`migrate-script`), whose content hash in the name means editing the script rolls the pod.
+  Because it is the same image as `api`, the single `images:` entry in the prod overlay covers
+  it: no second place to bump, so no Component and no second overlay.
+- **What the script does** (unchanged from the verified Job version): `alembic --name=core
+  upgrade head`, then every `/app/src/disp/modules/*/` that has `migrations/versions/`,
+  discovered at run time exactly like `./dev migrate` (never a hardcoded list; four branches in
+  the image today), then the Procrastinate schema. The schema guard is stricter than `./dev`'s:
+  the probe exits 0 (tables exist, skip), 1 (absent, apply) or 2 (couldn't connect, **abort**),
+  so a dead database can't fall through into a misleading `schema --apply` failure. Needs full
+  `Settings` (the Procrastinate step imports `disp.core.scheduler`), hence T8 first.
+- **It runs on every `api` pod start,** not only on deploys. It is idempotent (an up-to-date
+  database is a no-op: 0 migrations, schema step skipped), so a restart costs a few seconds.
+- **Failure mode:** if it fails, the new `api` pod never starts (`Init:Error`/`Init:CrashLoopBackOff`)
+  and, with the default RollingUpdate, the previous pod keeps serving. Fail closed, nothing
+  half-started. A database that isn't ready yet is covered by the init container's own restart
+  backoff, so no `pg_isready` loop.
+- **Limits to know about (all consequences of automatic migration):**
+  - **`api` must stay at `replicas: 1`.** Alembic takes no lock, so two pods migrating at once
+    would race. Scaling out needs a lock first (e.g. a Postgres advisory lock in the script).
+  - **Rollout overlap:** while the new pod migrates, the old pod is still serving, so a
+    migration must tolerate the *previous* release's code for that window (add before you drop),
+    or accept a few errors.
+  - **A rollback of the image does not roll back the schema.**
+  - **`worker` has no init step** (T7). If it starts before `api` has migrated an empty database
+    it crash-loops (no Procrastinate tables) and recovers by restart once `api`'s init has run.
+    Decide in T7 whether to add a wait.
+- **Generated-ConfigMap gotcha (found 2026-10-05):** the `configMapGenerator` entry must set
+  `namespace: mohsen-hassani-disp`. Kustomize only rewrites the Deployment's volume reference to
+  the hashed name when referrer and generated object share a namespace. Without it the render
+  looked fine, the server-side dry-run accepted it, and the volume still pointed at the unhashed
+  name: a pod stuck in `ContainerCreating` on a missing ConfigMap. Check
+  `volumes[].configMap.name == <generated name>` after any change here.
+- **Verified 2026-10-05 (locally, not yet on the cluster):** the real `:aba85dd9ef79` image under
+  the pod's constraints (`--user 10001:10001 --read-only --tmpfs /tmp --cap-drop ALL`), with
+  `k8s/base/api/migrate.sh` mounted read-only at `/scripts` (as in the pod), against a throwaway
+  pgvector Postgres set up like CNPG's (`disp_user` a non-superuser owning `disp_db`, `vector`
+  pre-created by a superuser):
+  - **Init #1, empty database:** all four branches in the order core (0001–0005), learning
+    (0001–0002), notes (0001), plants (0001–0003), then the Procrastinate schema; exit 0. The
+    `learning` migration's `CREATE EXTENSION IF NOT EXISTS vector` was a no-op, so T3's bootstrap
+    hook is what makes it work for a non-superuser.
+  - **Init #2 (a pod restart):** exit 0, no migrations applied, Procrastinate step skipped.
+  - **Then the `api` container** on the migrated database: `/health/live` 200 after ~10s,
+    `/health` `{"status":"ok","database":"ok", modules: learning, notes, plants}`.
+  - **Abort guard** (checked on the earlier Job form of the same script): an unreachable host
+    exits 2 with `aborting: could not determine procrastinate schema state`, with no fall-through
+    to `--apply`.
+  - Server-side dry-run of the whole overlay passes. **Not verified:** a real pod on the cluster,
+    and TLS to CNPG (psycopg's default `sslmode=prefer` should negotiate it). The first real
+    rollout will show both.
+- **Out of scope here, but you will hit them:**
+  - `disp-admin seed-admin` (creates the first admin, `docs/operations.md`) is a separate
+    manual step; a migrated database has no users.
+  - **T14 data transfer:** this builds the schema in an *empty* database. Moving real data from
+    the compose production database needs a restore into this one; decide the order (restore then
+    let the initContainer apply anything newer, vs. fresh schema then data-only restore) when T14
+    is reached, not before.
+
+> **Everything below this line in T5 is the original, Job-based plan, kept for history.**
+> Where it says "manual", "`batch/v1 Job`" or `k8s/base/migration-job/`, the resolution above
+> wins. What still carries over unchanged: the four branches (discover, don't hardcode) and the
+> non-idempotent Procrastinate schema step with its guard.
+
+**Where this stands today (original text):** Not created. Today, migrations run manually via
 `./dev migrate [branch]` (wraps `alembic upgrade head`) against whatever
 `DISP_DATABASE_URL` the operator's shell has — no k8s equivalent exists yet.
 
@@ -707,9 +800,10 @@ everything" command).
 ### T6 — `api` Deployment + Service
 
 **Resolution (2026-10-05) — decisions that refine the plan below:**
-- **The image tag lives in the overlay, not in the Deployment.** `api.Deployment.yaml`
+- **The image tag lives outside the Deployment.** `api.Deployment.yaml`
   names the image with no tag; `k8s/overlays/prod/kustomization.yaml` pins it with an
-  `images:` transformer (`newTag: 713cd73ac93b`). One line then sets the tag for `api` and
+  `images:` transformer (`newTag: aba85dd9ef79`). It also covers T5's `migrate`
+  initContainer, which is the same image. One line there then sets the tag for `api` and
   `worker` (T7), so they cannot drift apart, and T12 only has to edit that one spot. (`web`
   is a different image name, so T9 adds its own entry.) Base is never applied directly (T0),
   so the tag-less name can't resolve to `:latest` in practice. **`713cd73ac93b` is the
@@ -1033,9 +1127,9 @@ credentials at all.
 **What "done" looks like:** a GitOps controller (Argo CD or Flux — pick one when
 this task is actually reached, evaluate current docs for each rather than assuming
 today's feature set) installed in-cluster, watching this repo's `k8s/` directory
-(or a subset of it — `migration-job/` should almost certainly stay excluded from
-whatever the controller auto-syncs, per the locked-in "migrations stay manual"
-decision), and some mechanism for the image tag to update on each build — most
+(the whole of `overlays/prod`: migrations are now T5's initContainer inside the `api`
+Deployment, so nothing needs excluding — but this is where a pre-sync-hook migration Job
+would plug in if T5's decision is revisited), and some mechanism for the image tag to update on each build — most
 GitOps setups pair with either the controller's own image-update automation (Argo
 CD Image Updater / Flux's image-automation controller) or a CI step that commits
 the new sha tag into the manifests, which the controller then picks up and applies.

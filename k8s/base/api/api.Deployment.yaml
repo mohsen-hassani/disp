@@ -30,6 +30,37 @@ spec:
         runAsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # Database migrations, on every pod start (roadmap.md T5). Idempotent. If it
+        # fails the pod never starts and the previous one keeps serving. Assumes
+        # replicas: 1 (Alembic takes no lock, so concurrent pods would race).
+        - name: migrate
+          image: registry.mohsen-hassani.com/mohsen_hassani/disp # same image/tag as api
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "/scripts/migrate.sh"]
+          envFrom:
+            - configMapRef:
+                name: api-configs
+            - secretRef:
+                name: api-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: migrate-script
+              mountPath: /scripts
+              readOnly: true
       containers:
         - name: api
           image: registry.mohsen-hassani.com/mohsen_hassani/disp
@@ -75,3 +106,6 @@ spec:
       volumes:
         - name: tmp
           emptyDir: {}
+        - name: migrate-script
+          configMap:
+            name: migrate-script # generated from migrate.sh; kustomize adds the hash suffix

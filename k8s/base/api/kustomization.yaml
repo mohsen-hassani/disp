@@ -5,3 +5,16 @@ resources:
   - api.ConfigMap.yaml
   - api.Deployment.yaml
   - api.Service.yaml
+
+# The migrate initContainer's script (roadmap.md T5). Generated rather than a plain
+# ConfigMap so the name carries a content hash: editing migrate.sh changes the name,
+# kustomize rewrites the Deployment's reference, and the pod rolls on its own.
+# `namespace` is required, not cosmetic: kustomize only rewrites a reference when the
+# referrer and the generated object share a namespace, and every manifest here sets one.
+# Without it the volume silently kept the unhashed name and the pod would hang in
+# ContainerCreating on a ConfigMap that doesn't exist.
+configMapGenerator:
+  - name: migrate-script
+    namespace: mohsen-hassani-disp
+    files:
+      - migrate.sh
