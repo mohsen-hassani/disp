@@ -3,11 +3,13 @@
 Point several books, transcripts and articles at one subject; get back a merged topic index, a
 tiered learning path, and quizzes and exercises that know what you're bad at.
 
-> **Status: Phase 1 implemented, Phases 2–9 not started.** `TECHNICAL-SPEC.md` in this directory is
-> the complete reference; `docs/milestones/server/M20-learning.md` sequences the work and its own Status
-> line has the current phase-by-phase detail. Course CRUD (this directory's skeleton, schema, and
-> ACL) is built and tested; everything generative — ingestion, indexing, path generation, quiz,
-> exercise, chat, mastery, the tile, and the web client — is specified but not yet built.
+> **Status: Phases 1–9 implemented; manual verification pending.** `TECHNICAL-SPEC.md` in this
+> directory is the complete reference; `docs/milestones/server/M20-learning.md` sequences the work and
+> its own Status line has the detail. Built and tested: course CRUD, source ingestion, indexing and
+> path generation (background jobs), quiz and exercise sessions, chat and notes, mastery, the
+> dashboard tile, settings and the daily reminder, plus the eight web-client screens. Not yet done:
+> the end-to-end checks in the milestone's "Verification" section (built-image run against a real
+> book, e2e against the composed stack).
 
 ## Model
 

@@ -1,11 +1,21 @@
 # M20 — learning module
 
-**Status:** Phase 1 (§3, skeleton and schema) implemented — `src/disp/modules/learning/` exists with
-all 22 tables migrated, the `[learning]` alembic branch registered, and course CRUD (router, service,
-ACL) green under `./dev lint`/`./dev test`. `tests/core/test_plugin_proof.py` still passes: zero
-files under `src/disp/core/` changed to add this module. **Phases 2–9 (ingestion, indexing/jobs,
-path generation, quiz, exercise, chat/explain/notes, mastery/tile/settings, web client) are not yet
-started.**
+**Status:** Phases 1–9 implemented in code; the manual verification pass is not done.
+`src/disp/modules/learning/` has the schema (migrations `0001`, `0002`, the `[learning]` alembic
+branch), course CRUD, source ingestion (`service/ingest.py`), indexing and path generation as the
+`learning.index_course` / `learning.generate_path` tasks on the `learning` queue (`service/jobs.py`,
+`service/path.py`), quiz and exercise sessions (`service/sessions.py`), explain/chat and notes
+(`service/chat.py`, `service/notes.py`), mastery (`service/mastery.py`), the dashboard tile
+(`tiles.py`), the settings panel and the `learning.daily_nudge` reminder (`manifest.py`,
+`reminders.py`) — about 47 routes in `router.py`, covered by the `tests/modules/test_learning*.py`
+files. The web client (Phase 9) has all eight screens (`clients/web/src/routes/_app.learning.*`,
+`clients/web/src/components/learning/`, `useLearningJob`), with `learning` registered in
+`MODULE_SCREENS`, unit tests and `tests/e2e/learning.spec.ts`. `./dev lint`, `./dev test` (541
+passed) and `pnpm test` (316 passed) were green when this was committed.
+**Not yet done:** the checks in "Verification" below (running the built image against a real book,
+the `DISP_LLM_ENABLED=false` boot, re-index with mastery history, concurrent indexes, the
+`internal_rubric` leak grep), and `pnpm test:e2e` has not been run against the composed stack. The
+`media` volume in §13 no longer applies: uploads go through `core.files` (S3), per M18 v2.
 
 **Scope:** new module `src/disp/modules/learning/` (manifest, config, models, schemas, LLM schemas,
 prompts, a four-file service package, router, tiles, events, Alembic branch), two Procrastinate
