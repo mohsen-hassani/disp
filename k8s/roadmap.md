@@ -17,7 +17,7 @@ board.
 | T0 | Directory layout & naming convention | Done |
 | T1 | Namespace | Done |
 | T2 | Registry pull credentials | Skipped — images are publicly pullable, see T2 |
-| T3 | Postgres via CloudNativePG (CNPG) | Not started — CNPG operator not yet installed on cluster |
+| T3 | Postgres via CloudNativePG (CNPG) | Done — applied and Ready 2026-10-05; backups deferred to T13 |
 | T4 | `api`/`worker` ConfigMap + Secret | Not started |
 | T5 | Migration Job | Not started |
 | T6 | `api` Deployment + Service | Not started |
@@ -66,10 +66,9 @@ task finds inconsistent; this is a snapshot, not a guarantee.
   server, entirely separate from the droplet currently running `docker-compose` in
   production. No shared ports/resources to worry about; T14's cutover is a DNS
   repoint between two independent hosts, not an in-place migration.
-- **Namespace `mohsen-hassani-disp` does not exist on the cluster yet** — it's only
-  set as the kubeconfig context's *default* namespace (so `kubectl get ns` without
-  `-n` implicitly targets it), which is why T1's `Namespace` object still needs to
-  actually be applied.
+- **Namespace `mohsen-hassani-disp` exists** (T1 applied; re-verified 2026-10-05,
+  label `domain=mohsen-hassani.com`, empty at that point). It is also the kubeconfig
+  context's *default* namespace.
 - **Ingress:** k3s's bundled Traefik, `IngressClass` named `traefik` (cluster
   default). This is a **different, in-cluster Traefik** from the one in the
   separate `infra` project the current `docker-compose` deploy uses on the other
@@ -107,10 +106,16 @@ task finds inconsistent; this is a snapshot, not a guarantee.
 - **Neither Argo CD nor Flux is installed yet** (checked: no matching namespace or
   CRDs) — whichever this migration picks for T12, it starts from a clean slate on
   this cluster.
-- **CNPG (CloudNativePG) operator is not installed yet** either (checked: no
-  `cnpg.io` CRDs, no matching `Deployment` in any namespace) — T3 now has to install
-  it, not just define a `Cluster` custom resource against an already-present
-  operator.
+- **CNPG (CloudNativePG) operator is already installed** (re-verified 2026-10-05;
+  the 2026-09-01 snapshot that said otherwise was wrong or has since changed).
+  `Deployment` `cnpg-controller-manager` in namespace `cnpg-system`, image
+  `ghcr.io/cloudnative-pg/cloudnative-pg:1.24.0`, CRDs dated 2026-09-01. It is
+  **shared cluster infrastructure installed for another app**: `site-my-website`
+  runs a 1-instance `Cluster` (`my-website-db`, stock `postgresql:16.4` image) on
+  it. T3 therefore only defines a `Cluster` against it. Don't upgrade or reconfigure
+  the operator from this project. Being 1.24, it predates the `Database` CRD (1.25)
+  and extension image volumes (1.27), which constrains how pgvector is provided,
+  see T3.
 
 ---
 
@@ -402,7 +407,64 @@ Every Deployment/Job manifest from T5 onward needs
 
 ### T3 — Postgres via CloudNativePG (CNPG)
 
-**Where this stands today:** `docker-compose.yml` runs Postgres as
+**Resolution (2026-10-05) — read this first; it supersedes parts of the original
+plan below:**
+- **Part 1 (install the operator) is moot.** It is already installed and shared with
+  `site-my-website` (see Cluster facts). T3 is only the `Cluster` resource.
+- **pgvector image: third-party, pinned by digest.** The stock CNPG image does not
+  include pgvector and the `learning` migration needs it (M19 §7). The operator (1.24)
+  is too old for extension image volumes, and upgrading it would touch another app's
+  infrastructure, so the options were "build our own image in CI" or "use someone
+  else's". Decision: **`ghcr.io/tensorchord/cloudnative-vectorchord:16.15-1.1.1`**,
+  pinned as `@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236`
+  (multi-arch index digest). TensorChord builds it on CNPG's own `postgres-containers`
+  base, for CNPG. Verified 2026-10-05 by running the image locally: PG 16, **pgvector
+  0.8.6**, runs as uid 26 (CNPG's default, so no `postgresUID` override), has
+  `linux/amd64` (the node is amd64). The image also ships VectorChord (`vchord`),
+  which we **do not** enable: no `shared_preload_libraries`, no `CREATE EXTENSION
+  vchord`. Tradeoff accepted: the database image depends on a third party's tag
+  cadence and supply chain. The digest pin stops silent tag moves, and the escape
+  hatch is the rejected alternative (our own `FROM ghcr.io/cloudnative-pg/postgresql:16`
+  + `apt install postgresql-16-pgvector`, a third build step in `deploy.yml`). Because
+  it is the same Postgres 16 data format, switching the `imageName` later is a rolling
+  image update, not a dump/restore (cf. `docs/operations.md`, the M19 image swap).
+- **`vector` must be created by the superuser at bootstrap.** `vector` is *not* a
+  trusted extension (verified: no `trusted = true` in `vector.control`), so the
+  `learning` migration's `CREATE EXTENSION IF NOT EXISTS vector`, run as the
+  unprivileged `disp_user`, would fail. The `Cluster` therefore runs
+  `bootstrap.initdb.postInitApplicationSQL: [CREATE EXTENSION IF NOT EXISTS vector]`
+  (runs as the superuser in the app database), after which the migration's statement
+  is a no-op. (`pgcrypto`, which core's migration creates, is trusted, so it needs
+  nothing.) **This hook only runs when the cluster is first initialised.** On an
+  already-initialised cluster, changing it does nothing.
+- **`Cluster` shape:** name `postgres`, namespace `mohsen-hassani-disp`; `instances:
+  1`; database `disp_db`, owner `disp_user` (same names as `docker-compose.yml`);
+  `storage` 10Gi on `local-path` (which has `ALLOWVOLUMEEXPANSION: false`, so the size
+  is fixed at creation); `enableSuperuserAccess: false`; `resources` requests/limits
+  set (T13 checklist).
+- **What T4 inherits.** CNPG generates Secret **`postgres-app`**
+  (`kubernetes.io/basic-auth`: `username`, `password`, `host`, `port`, `dbname`,
+  `uri`, `jdbc-uri`, ...) and Services `postgres-rw` / `-ro` / `-r`. Use
+  **`postgres-rw`** (the primary). Its `uri` key is `postgresql://…`, but
+  `DISP_DATABASE_URL` needs the `postgresql+asyncpg://` scheme, so T4 composes the URL
+  from `username`/`password`/`host`/`dbname` rather than copying `uri`. CNPG's TLS is
+  on server-side by default. Confirm in T4 whether asyncpg connects without extra
+  `ssl` parameters (CNPG doesn't force it).
+- **Verified live (2026-10-05, after the operator applied it):** `Cluster` "in healthy
+  state", pod `postgres-1` running the digest-pinned image, PVC `postgres-1` 10Gi
+  `Bound` on `local-path`; Services `postgres-rw`/`-ro`/`-r` and Secrets
+  `postgres-app`/`-ca`/`-replication`/`-server` exist. `postgres-app` keys are exactly:
+  `dbname` (`disp_db`), `host` (`postgres-rw`), `port` (`5432`), `username`
+  (`disp_user`), `user`, `password`, `uri`, `jdbc-uri`, `pgpass`. In `disp_db`:
+  PostgreSQL 16.15, extensions `plpgsql` + `vector` 0.8.6 (so the bootstrap hook ran),
+  and `disp_user` is not a superuser. Not yet exercised: an actual `learning`
+  migration against it (T5).
+- **Not done here, flagged for T13:** no backups. CNPG's scheduled backups to an
+  object store (R2 would fit, see T8) are the main thing the operator buys over a
+  `StatefulSet`, and nothing is configured. Until then, the only copy of the data is
+  one `local-path` volume on one node.
+
+**Where this stands today (original text, partly superseded above):** `docker-compose.yml` runs Postgres as
 `pgvector/pgvector:pg16` with a named volume (`pgdata:/var/lib/postgresql/data`) and
 a `pg_isready` healthcheck. On the target k3s cluster, **no Postgres and no CNPG
 operator exist yet at all** (verified directly — see Cluster facts). This task

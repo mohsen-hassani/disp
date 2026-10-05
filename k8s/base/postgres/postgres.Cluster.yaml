@@ -1,0 +1,40 @@
+# CloudNativePG Cluster for disp. The operator itself is shared cluster
+# infrastructure (cnpg-system, installed for another app) and is NOT managed
+# from this repo — see k8s/roadmap.md T3 for why this image, why this
+# bootstrap, and what T4 reads back from the objects CNPG generates
+# (Secret `postgres-app`, Service `postgres-rw`).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres
+  namespace: mohsen-hassani-disp
+spec:
+  instances: 1
+
+  # Third-party CNPG + pgvector image, pinned by digest (roadmap T3). Tag shown
+  # for humans; with a digest present the tag is ignored by the runtime.
+  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16.15-1.1.1@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236
+
+  bootstrap:
+    initdb:
+      database: disp_db
+      owner: disp_user
+      # `vector` is not a trusted extension, so the learning migration's own
+      # CREATE EXTENSION would fail as disp_user. Runs once, as superuser, at
+      # first initialisation only — editing this later does not re-run it.
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vector
+
+  enableSuperuserAccess: false
+
+  storage:
+    storageClass: local-path
+    size: 10Gi # local-path cannot expand volumes; size is fixed at creation
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
