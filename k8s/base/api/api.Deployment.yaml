@@ -1,0 +1,77 @@
+# The disp API. Same image as `worker` (T7), different command. The image has
+# no tag on purpose: k8s/overlays/prod/kustomization.yaml pins it (`images:`),
+# one line for api/worker/web. Never apply base/ directly. See roadmap.md T6.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: mohsen-hassani-disp
+  labels:
+    app.kubernetes.io/name: api
+    app.kubernetes.io/part-of: disp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+        app.kubernetes.io/part-of: disp
+    spec:
+      automountServiceAccountToken: false # never talks to the Kubernetes API
+      securityContext:
+        runAsNonRoot: true
+        # Numeric on purpose: the image's `USER app` is a name, which Kubernetes
+        # can't verify as non-root (CreateContainerConfigError). uid/gid match
+        # the Dockerfile's useradd.
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: registry.mohsen-hassani.com/mohsen_hassani/disp
+          imagePullPolicy: IfNotPresent
+          # No `command`: the image's CMD runs uvicorn on 0.0.0.0:8000.
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: api-configs
+            - secretRef:
+                name: api-secrets
+          startupProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 2
+            failureThreshold: 30 # up to 60s to boot before liveness takes over
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp # scratch space under the read-only root filesystem
+      volumes:
+        - name: tmp
+          emptyDir: {}

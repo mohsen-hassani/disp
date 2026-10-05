@@ -4,9 +4,10 @@
 #
 # Every value must be a string: quote booleans, or `kubectl apply` rejects it.
 #
-# The DISP_FILES_S3_* (Cloudflare R2) settings are deliberately absent: T8 owns
-# them and adds them here. Settings refuses to boot without a bucket and keys,
-# so pods using this ConfigMap fail loudly until T8 lands.
+# File storage is Cloudflare R2 (roadmap.md T8). Only the non-sensitive,
+# operator-independent settings live here. The bucket, endpoint (it embeds the
+# Cloudflare account id; this repo is public) and keys are in the Secret.
+# Without them Settings refuses to boot, so an unfilled Secret fails loudly.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,3 +18,8 @@ data:
   DISP_ENV: production
   DISP_COOKIE_SECURE: "true" # must stay true while DISP_ENV=production (validated)
   DISP_RATE_LIMIT_ENABLED: "true"
+  # The intended end state; a no-op on builds where s3 is the only backend.
+  # (The older images in the registry have no working S3 backend at all, so
+  # none of them can run this. See roadmap.md Cluster facts.)
+  DISP_FILES_BACKEND: s3
+  DISP_FILES_S3_REGION: auto # R2's region name

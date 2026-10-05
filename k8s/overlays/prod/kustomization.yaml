@@ -10,3 +10,15 @@ kind: Kustomization
 
 resources:
   - ../../base
+
+# The ONE place image tags are pinned (roadmap.md T6; never :latest). Bump
+# newTag to deploy a new build: api and worker (T7) move together (web, T9,
+# is a different image and gets its own entry).
+# !! 713cd73ac93b is a PLACEHOLDER, the newest image that exists, and it
+# !! CANNOT run this design: it predates M18 v2 and has no S3 backend (it dies
+# !! with "S3 backend not yet implemented"). Replace it with a build of the
+# !! current code before applying T6. See roadmap.md Cluster facts, "images
+# !! are OLDER".
+images:
+  - name: registry.mohsen-hassani.com/mohsen_hassani/disp
+    newTag: 713cd73ac93b

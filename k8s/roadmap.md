@@ -20,9 +20,9 @@ board.
 | T3 | Postgres via CloudNativePG (CNPG) | Done — applied and Ready 2026-10-05; backups deferred to T13 |
 | T4 | `api`/`worker` ConfigMap + Secret | Files written and validated 2026-10-05 (server dry-run + real `Settings`); **not yet applied**; R2 vars deferred to T8 |
 | T5 | Migration Job | Not started — apply only after T8 (Procrastinate step needs full `Settings`, see T4 resolution) |
-| T6 | `api` Deployment + Service | Not started |
+| T6 | `api` Deployment + Service | Files written 2026-10-05; **not applied, and blocked on a new image build**: the only registry image (v1) can't run with S3 (see Cluster facts, "images are OLDER"). Also needs T8 + T5 first |
 | T7 | `worker` Deployment | Not started |
-| T8 | File storage — Cloudflare R2 | Not started — needs an R2 bucket + API token created (outside kubectl) |
+| T8 | File storage — Cloudflare R2 | Templates added 2026-10-05; waiting on the operator: create the R2 bucket + token, fill `k8s/secrets/api.secret.yaml` (outside kubectl/Claude) |
 | T9 | `web` Deployment + Service | Not started |
 | T10 | Ingress + TLS | Not started |
 | T11 | pgweb | Dropped — see D4 resolution below |
@@ -100,6 +100,36 @@ task finds inconsistent; this is a snapshot, not a guarantee.
   visibility**, and the Gitea user `mohsen_hassani` is `public` (Gitea 1.27.3). Images
   are single-arch `linux/amd64`, matching the only node (`falken`, amd64). This is why
   T2 is skipped.
+- **⚠️ The images in the registry are OLDER than the code this roadmap describes
+  (found 2026-10-05).** The registry holds only `22d471b1e6ff` and `713cd73ac93b`
+  (plus `latest`, same content), both built from commits **before** "M18 v2" and the
+  `learning` module. In git, those are **uncommitted/untracked** as of 2026-10-05: core
+  migrations `0003_core_llm_call`, `0004_core_translation_call`, `0005_core_files`;
+  plants migration `0003_plants_image_file`; the whole `learning` module (models +
+  migrations); and the S3-only rewrite of `config.py`/`core/files/`. What differs for
+  this migration:
+  - **Settings in the images (v1, = `HEAD`):** `files_backend: Literal["local","s3"]`
+    defaulting to **`local`**, plus `files_root` and `files_s3_native_presign`. **v1 cannot
+    run this design at all** (verified 2026-10-05 by running `:713cd73ac93b` locally with
+    the real ConfigMap values): with `DISP_FILES_BACKEND=s3` the process dies in
+    `FileStore.from_settings` with `RuntimeError: S3 backend not yet implemented — see
+    M18-files.md §6.2` (the S3 backend only exists in the uncommitted v2 work), and with
+    the default `local` it boots onto a root filesystem it cannot write. **So no image in
+    the registry is deployable here; T6/T7 need a new build.** `api-configs` still sets
+    `DISP_FILES_BACKEND: s3`: it is the intended end state, and a no-op on v2
+    (`Literal["s3"]`).
+  - **Schema in the images:** no learning branch, no core 0003–0005, no plants 0003.
+    Anything in T5 that says "four branches" or discovers `learning` describes a build of
+    the working tree, not these images.
+  - **To deploy v2:** commit the work, push to `prod`, let CI push the new sha tag, then
+    bump the tag in `k8s/overlays/prod/kustomization.yaml` (T6). Until then the overlay
+    pins `713cd73ac93b` only because it is the one tag that exists; it is a **known-broken
+    placeholder** for `api`/`worker` (see above), fine for `web` (T9: the PWA is unaffected
+    by the backend rewrite, but note `disp-web` is pinned by the same `newTag`, which is why
+    T9 will want its own `images:` entry). Don't apply T5 and T6/T7 from different images.
+  - Statements elsewhere in this file marked "verified 2026-10-04" for the S3-only /
+    four-branch behaviour were checked against a **local build of the working tree**, not
+    these registry images.
 - **A `mohsen-hassani-logging` namespace also exists** (some logging stack, likely
   Loki/Grafana-shaped) — unrelated to `disp`, noted only so it isn't mistaken for
   something this migration owns.
@@ -527,9 +557,10 @@ see above, CNPG generates its own.
   `k8s/secrets/` (outside the kustomize root, so `kubectl apply -k` never touches it).
 - **R2 vars are NOT in T4's files; T8 adds them.** T8 owns that decision (bucket and account
   id don't exist yet) and committing placeholders risks a pod that boots against a fake
-  endpoint. `Settings` refuses to boot without a bucket and both keys, so until T8 lands any
-  pod loading `api-configs`/`api-secrets` fails loudly at startup, which is the designed
-  behaviour (M18 §3), not a T4 bug.
+  endpoint. On a v2 build, `Settings` refuses to boot without a bucket and both keys, so
+  until T8 lands any pod loading `api-configs`/`api-secrets` fails loudly at startup, which
+  is the designed behaviour (M18 §3), not a T4 bug. (The registry's v1 images fail
+  differently and earlier: see "images are OLDER" in Cluster facts.)
 - **Ordering consequence for T5, found while writing this:** Alembic itself only reads
   `DISP_DATABASE_URL` (`migrations/env.py`), but the Job's second step,
   `procrastinate --app=disp.core.scheduler.app schema --apply`, imports
@@ -675,7 +706,41 @@ everything" command).
 
 ### T6 — `api` Deployment + Service
 
-**Where this stands today:** Not created.
+**Resolution (2026-10-05) — decisions that refine the plan below:**
+- **The image tag lives in the overlay, not in the Deployment.** `api.Deployment.yaml`
+  names the image with no tag; `k8s/overlays/prod/kustomization.yaml` pins it with an
+  `images:` transformer (`newTag: 713cd73ac93b`). One line then sets the tag for `api` and
+  `worker` (T7), so they cannot drift apart, and T12 only has to edit that one spot. (`web`
+  is a different image name, so T9 adds its own entry.) Base is never applied directly (T0),
+  so the tag-less name can't resolve to `:latest` in practice. **`713cd73ac93b` is the
+  newest image that exists, and it cannot run this design** (v1 has no S3 backend, see
+  "images are OLDER" in Cluster facts). It is a placeholder until a build of the current
+  code is pushed. **Do not apply T6 before that bump.**
+- **`runAsUser: 10001` is set explicitly.** The Dockerfile ends with `USER app` (a *name*).
+  Kubernetes cannot verify a named user is non-root, so `runAsNonRoot: true` alone makes
+  the pod fail with `CreateContainerConfigError`. The numeric uid/gid come from the
+  Dockerfile's `useradd --uid 10001`.
+- **Probes:** `GET /health/live` for liveness and `GET /health` for readiness, port 8000
+  (the locked-in endpoints), plus a `startupProbe` on `/health/live` so a slow boot is not
+  killed by liveness (compose's `start_period: 20s`, expressed as 30 tries × 2s).
+- **`automountServiceAccountToken: false`:** the app never talks to the Kubernetes API.
+- **Replicas 1.** Nothing in the app is built for horizontal scale yet.
+- **Resources are an educated guess**, not a measurement: requests 100m / 256Mi, limits
+  500m / 512Mi. Revisit in T13 against `kubectl top pod` once real traffic and the learning
+  module's embedding/ingest paths have run.
+- `Service` is `ClusterIP` named `api`, port 8000, which T10's `Ingress` targets.
+- **Verified 2026-10-05 against a local build of the working tree (v2), not a registry
+  image:** run under the Deployment's exact constraints (`--user 10001:10001 --read-only
+  --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges`) with the real ConfigMap
+  values and a throwaway pgvector Postgres: `/health/live` 200 after ~8s (inside the 60s
+  startup budget), `/health` 200 with `"database":"ok"` and modules `learning`, `notes`,
+  `plants`, uid 10001. Startup **requires a reachable database** (5 retries, then the
+  process exits), so `api` crash-loops, rather than starting degraded, if Postgres is
+  down. `/health` was ok *without* migrations applied, so readiness does not prove the
+  schema exists: T5 must precede T6 by procedure, nothing enforces it. Server-side
+  dry-run of the whole overlay also passes. Not verified: a real pod on the cluster.
+
+**Where this stands today (original text):** Not created.
 
 **What "done" looks like:** a `Deployment` running the `disp` image
 (`command`/default `CMD` from the root `Dockerfile`: `uvicorn disp.main:app ...`),
@@ -784,11 +849,28 @@ DISP_FILES_S3_SECRET_ACCESS_KEY: <R2 secret access key>
 ```
 `config.py`'s other S3 fields (`files_s3_force_path_style: bool = True`) already
 default to values that work with R2 — confirm against Cloudflare's S3-compatibility
-docs during implementation, but don't expect to need overrides. (Corrected
-2026-10-05: this paragraph used to cite `files_s3_native_presign`, which no longer
-exists in `Settings`; and `files_backend` is now `Literal["s3"]`, so setting
-`DISP_FILES_BACKEND` is optional but harmless.) **T8 completes T4's objects and gates
-T5:** see the T4 resolution. No `PersistentVolumeClaim`, no volume mount on T6/T7
+docs during implementation, but don't expect to need overrides. (Note 2026-10-05:
+this paragraph cites `files_s3_native_presign` and a `local` backend. Those exist in the
+**registry images** (v1) but not in the uncommitted working-tree rewrite (v2, where
+`files_backend` is `Literal["s3"]`). See "images are OLDER" in Cluster facts. Setting
+`DISP_FILES_BACKEND=s3` is required for v1 and harmless for v2, so it is set either
+way.) **T8 completes T4's objects and gates T5:** see the T4 resolution.
+
+**Resolution (2026-10-05) — where each value lives:** the account id would otherwise be
+committed (it is part of the endpoint URL) to a **public** GitHub repo, so the
+operator-specific values go in the gitignored Secret rather than the ConfigMap:
+- `api-configs` (committed): `DISP_FILES_BACKEND: s3`, `DISP_FILES_S3_REGION: auto`.
+- `api-secrets` (`k8s/secrets/api.secret.yaml`, filled in by the operator after creating
+  the bucket and an object-read/write token scoped to it in the Cloudflare dashboard):
+  `DISP_FILES_S3_BUCKET`, `DISP_FILES_S3_ENDPOINT_URL`
+  (`https://<account-id>.r2.cloudflarestorage.com`, **required for R2**: left empty the
+  client would target AWS S3), `DISP_FILES_S3_ACCESS_KEY_ID`,
+  `DISP_FILES_S3_SECRET_ACCESS_KEY`. The committed template documents all four; the real
+  file ships them as empty strings so an unfilled Secret fails loudly at boot instead of
+  booting against a fake bucket. The `Settings` validator checks bucket and both keys but
+  **not** the endpoint, so a forgotten endpoint is only caught by the first upload.
+- Not set: `DISP_FILES_S3_PUBLIC_ENDPOINT_URL`. R2's endpoint is reachable by the browser
+  as-is, so presigned links need no host rewrite. No `PersistentVolumeClaim`, no volume mount on T6/T7
 at all.
 
 **Why this task exists:** `disp`'s plant-photo uploads and any other `core.files`
