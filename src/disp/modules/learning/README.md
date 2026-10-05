@@ -3,10 +3,11 @@
 Point several books, transcripts and articles at one subject; get back a merged topic index, a
 tiered learning path, and quizzes and exercises that know what you're bad at.
 
-> **Status: specified, not built.** `TECHNICAL-SPEC.md` in this directory is the complete reference.
-> This module depends on two capabilities that are themselves unbuilt — the core file service
-> (`docs/milestones/server/M18-files.md`) and the core LLM service (`docs/milestones/server/M19-llm.md`) — and
-> `docs/milestones/server/M20-learning.md` sequences the work.
+> **Status: Phase 1 implemented, Phases 2–9 not started.** `TECHNICAL-SPEC.md` in this directory is
+> the complete reference; `docs/milestones/server/M20-learning.md` sequences the work and its own Status
+> line has the current phase-by-phase detail. Course CRUD (this directory's skeleton, schema, and
+> ACL) is built and tested; everything generative — ingestion, indexing, path generation, quiz,
+> exercise, chat, mastery, the tile, and the web client — is specified but not yet built.
 
 ## Model
 

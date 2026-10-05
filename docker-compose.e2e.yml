@@ -106,6 +106,7 @@ services:
         alembic --name=core upgrade head &&
         alembic --name=notes upgrade head &&
         alembic --name=plants upgrade head &&
+        alembic --name=learning upgrade head &&
         procrastinate --app=disp.core.scheduler.app schema --apply &&
         disp-admin seed-admin --email e2e-admin@example.com --display-name "E2E Admin"
 
