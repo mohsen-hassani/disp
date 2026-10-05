@@ -21,7 +21,7 @@ board.
 | T4 | `api`/`worker` ConfigMap + Secret | Done — applied 2026-10-05 (`api-configs`, `api-secrets`; R2 values added via T8) |
 | T5 | Migrations (initContainer on `api`) | Files written and verified locally 2026-10-05 (changed from a manual Job to an automatic initContainer, see T5); **not yet run on the cluster** — happens on the next `kubectl apply -k k8s/overlays/prod` |
 | T6 | `api` Deployment + Service | Files written; overlay pins `aba85dd9ef79` (v2). Applied once with the old tag (crash-looped, expected). Re-applying it now also runs T5's migrations (initContainer) |
-| T7 | `worker` Deployment | Not started |
+| T7 | `worker` Deployment | Files written and verified locally 2026-10-05; **not applied. ⚠️ Confirm the R2 bucket is dedicated to this deployment first** (the worker's sweeper deletes objects with no row in this database, see T7) |
 | T8 | File storage — Cloudflare R2 | Done as config — bucket + token created, `api-secrets` filled and applied (2026-10-05); **not yet exercised** against R2 (first upload / sweep) |
 | T9 | `web` Deployment + Service | Not started |
 | T10 | Ingress + TLS | Not started |
@@ -877,7 +877,52 @@ api.Service.yaml, kustomization.yaml}`.
 
 ### T7 — `worker` Deployment
 
-**Where this stands today:** Not created. `docker-compose.yml` runs this as the
+**Resolution (2026-10-05) — decisions that refine the plan below:**
+- **Same shape as T6's `api`, minus the network and the probes:** the image's default `CMD` is
+  uvicorn, so the container sets `command: ["python", "-m", "disp.worker"]` (as
+  `docker-compose.yml` does). No `ports`, no `Service`, no probes (locked-in decision). Same
+  `envFrom` (`api-configs`/`api-secrets`), same pod hardening (uid 10001, read-only root, `/tmp`
+  `emptyDir`, caps dropped, no service-account token), `replicas: 1`. The image tag comes from
+  the prod overlay's single `images:` entry, like `api`'s.
+- **No wait for the schema (the open question from T5).** Verified 2026-10-05 on the real
+  `:aba85dd9ef79` image: on a database with no schema the worker **exits 1** within seconds
+  (`procrastinate.exceptions.ConnectorException: Database error`: no Procrastinate tables), so
+  on the very first deploy it restarts with backoff (`CrashLoopBackOff` in `k get pods`) until
+  `api`'s `migrate` initContainer has built the schema, then starts by itself. That is noise on
+  a first deploy only: after it, the schema exists and later rollouts don't hit it. Not worth a
+  wait-for-schema initContainer, which would also not help the case that matters more, a new
+  worker starting against a schema `api` hasn't migrated *yet* (it has Procrastinate's tables, so
+  it starts anyway).
+- **Default RollingUpdate strategy, kept on purpose.** A single-replica worker briefly overlaps
+  with its replacement, which is harmless: Procrastinate dedups periodic jobs in the database
+  (`procrastinate_periodic_defers`, unique per task and timestamp). And it fails safe: a new
+  worker that crash-loops never becomes Ready, so the old one keeps running.
+- **Resources:** same guess as `api` (requests 100m / 256Mi, limits 500m / 512Mi). The
+  `learning` module's background work (ingest, embeddings) runs here, so this one is more likely
+  than `api` to need raising. Revisit in T13 against `kubectl top pod`.
+- **⚠️ Before applying: the worker runs the file sweeper against the R2 bucket.**
+  `core.sweep_files` deletes every object under the bucket/prefix that has **no row in this
+  cluster's database** and is older than `DISP_FILES_ORPHAN_GRACE_SECONDS` (3600s). It also runs
+  **immediately on the worker's first start** (a catch-up run, observed in the 2026-10-05 test),
+  not only at `:17` past the hour. If the bucket in `api-secrets` also holds the compose
+  production's uploads, the first sweep deletes all of them: this database is empty, so every
+  object is an "orphan". The bucket must be dedicated to this deployment (`CLAUDE.md`: never
+  point a non-production database at the production bucket). Confirm that before applying T7.
+- **Correction to the "known limit" paragraph below:** `GET /health`'s `worker_last_seen` is not a
+  check-in. It is `MAX(at)` over `procrastinate_events` where `type = 'succeeded'`
+  (`core/health.py`), i.e. *the last job that succeeded*. It is `null` until one does, and it only
+  advances when a job completes (the sweep is hourly), so it cannot catch a hang quickly and
+  stays `null` if jobs keep failing. In particular a **`null` an hour after the first start means
+  the sweep is failing, which for a fresh deploy usually means R2 is misconfigured**: a free R2
+  smoke test.
+- **Verified 2026-10-05 (locally, not yet on the cluster):** the real `:aba85dd9ef79` image,
+  `python -m disp.worker` under `--user 10001:10001 --read-only --tmpfs /tmp --cap-drop ALL`,
+  against a migrated throwaway Postgres: stays up (0 restarts), logs `Starting worker on all
+  queues`, registers `core.sweep_files` (`17 * * * *`), `notes.purge_deleted` (`30 3 * * *`),
+  `plants.daily_check` (`0 7 * * *`) and `learning.daily_nudge` (`0 18 * * *`), and ran the
+  catch-up `core.sweep_files` at once (it errored, as expected, against my dummy R2 endpoint).
+
+**Where this stands today (original text):** Not created. `docker-compose.yml` runs this as the
 same `disp` image with `command: ["python", "-m", "disp.worker"]`, no exposed port.
 
 **What "done" looks like:** a `Deployment` (no `Service` needed — nothing calls this
@@ -894,8 +939,9 @@ registered all four periodic tasks (`core.sweep_files`, `notes.purge_deleted`,
 
 **Known limit of "no probe" (T13 to decide):** Kubernetes restarts a *crashed*
 worker, but it won't notice one that is *hung* and still running. The signal for
-that already exists: `GET /health` reports `worker_last_seen`, the worker's last
-check-in. It deliberately doesn't fail `api`'s readiness on it, which is right,
+that already exists: `GET /health` reports `worker_last_seen` (corrected 2026-10-05, see
+the T7 resolution: it is the last *succeeded job*, not a check-in; a weaker signal than
+this paragraph implies). It deliberately doesn't fail `api`'s readiness on it, which is right,
 because a stalled worker shouldn't take the API out of service. Alert on that field
 if hangs ever become a real concern. Don't reuse `/health` as a worker probe.
 
