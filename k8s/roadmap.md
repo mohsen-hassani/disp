@@ -27,7 +27,7 @@ board.
 | T10 | Ingress + TLS | Files written and server-dry-run 2026-10-05; **not applied** (applying makes the site public; needs T9 applied and healthy first), see T10 |
 | T11 | pgweb | Dropped — see D4 resolution below |
 | T12 | Deploy trigger (CI → cluster) | Blocked — needs decision (see Open Decisions §D5): Argo CD vs Flux |
-| T13 | Production-readiness review | Not started |
+| T13 | Production-readiness review | Audit done 2026-10-05: the checklist passes, no manifest edits needed. **Open: backups (blocked on a backup bucket + token from you), HTTPS enforcement, see T13** |
 | T14 | Cutover from `docker-compose` | Not started |
 
 ---
@@ -1277,6 +1277,55 @@ the chosen GitOps controller needs (its own install manifest, an `Application`/
 ---
 
 ### T13 — Production-readiness review
+
+**Audit, 2026-10-05** (rendered `k8s/overlays/prod`, the live cluster, and the public URL; T9 and T10
+were applied by then, so the site is live):
+
+- **Checklist: passes, nothing to edit.** All 4 pods run (`api`, `worker`, `web`, `postgres-1`),
+  `Cluster` "in healthy state", certificate `disp-tls` Ready. Every container (including the `migrate`
+  initContainer) has requests+limits, `runAsNonRoot` at pod level, `allowPrivilegeEscalation: false`,
+  `readOnlyRootFilesystem`, `drop: [ALL]`; every pod has seccomp `RuntimeDefault` and
+  `automountServiceAccountToken: false`. Probes: `api` has liveness+readiness+startup, `web` has
+  liveness+readiness, `worker` has none by design (see T7). Postgres is CNPG's own spec, not this checklist.
+- **No credential in git.** `k8s/secrets/api.secret.yaml` is gitignored; the committed example has
+  placeholders only. The one real value in a committed ConfigMap is `DISP_BASE_URL` (the public
+  hostname), which T4 put there deliberately. **Drift to decide:** the checklist wording above says "no
+  real domain" in a ConfigMap, but the domain is public (it is also in the `Ingress`), so I read the
+  intent as "no credential". Say if you want the wording changed instead.
+- **Live check:** `https://disp.mohsen-hassani.com/health` → `status ok`, `database ok`, all three modules,
+  `worker_last_seen` set (a job succeeded, so the worker and R2 both work). `/` serves the PWA with the
+  CSP/nosniff/referrer headers, `/openapi.json` 200.
+- **Observed use vs. limits** (`k top pod`, idle): `api` 154Mi (limit 512Mi), `worker` 165Mi (512Mi),
+  `postgres-1` 120Mi (512Mi), `web` 4Mi (128Mi). All far under their limits, so no resize now. Re-check
+  once real use exists; the guessed numbers stay.
+
+**Findings (open), most important first:**
+
+1. **No database backups (the only real risk).** One `local-path` volume on one node holds the only copy;
+   `ReclaimPolicy: Delete` means losing the PVC loses the data. Fix: `spec.backup.barmanObjectStore` on
+   the `Cluster` plus a `ScheduledBackup`, writing to R2 (operator 1.24 supports it in-tree; do not
+   upgrade the shared operator). Checked: the pinned Postgres image ships `barman-cloud-backup` 3.19.1
+   and boto3. **Needs a new, separate R2 bucket and an API token scoped to it, which only you can create.**
+   **Use a different bucket from the files bucket:** `core.sweep_files` deletes every object under the
+   files bucket/prefix that has no row in the database, so WAL/backups stored there would be swept.
+   Open at implementation: R2's checksum behaviour with the bundled boto3 1.43 (if uploads fail, the usual
+   fix is the `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` env var on the instance), and a retention
+   (`30d` proposed). Do a restore test into a scratch cluster before trusting it.
+2. **Plain http is served and there is no HSTS.** The cluster's Traefik doesn't redirect, and the web image's
+   `security-headers.conf` sends no `Strict-Transport-Security`. With `COOKIE_SECURE=true`, a login on
+   `http://` silently fails. Options: HSTS in `clients/web/security-headers.conf` (a web-client change
+   owned by M12, so it needs the docs-first step there and an image rebuild), and an http→https redirect (a
+   Traefik `Middleware` + a second http-only `Ingress`, or a cluster-wide entrypoint redirect, which is
+   shared infrastructure and not ours to change).
+3. **Worker hang detection.** Unchanged from T7: `worker_last_seen` is the last succeeded job. The
+   cluster has a logging stack (`mohsen-hassani-logging`), so an alert on it is possible, but that is
+   outside this repo; nothing added.
+4. **Single replica everywhere, and no `NetworkPolicy`.** Accepted for a one-node personal deployment.
+   CNPG created its own PodDisruptionBudget (`postgres-primary`, 0 disruptions allowed), which blocks a
+   node drain until `instances` > 1; expected on a single node. Any pod in any namespace can reach
+   `postgres-rw:5432` (password required); a `NetworkPolicy` would narrow that, optional.
+5. **The T5 initContainer decision is due for review** once backups exist (see T5).
+6. **Image tags are bumped by hand in two places** (T12).
 
 **Where this stands today:** N/A — capstone task, run once T1–T10 and T12 (T11 is
 dropped, see above) are individually done.
