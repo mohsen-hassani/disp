@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
 
 import { client } from '../../../src/api/client';
-import type { NoteOut } from '../../../src/api/generated';
+import type { DispModulesNotesSchemasNoteOut as NoteOut } from '../../../src/api/generated';
 import { NoteDetailPage } from '../../../src/routes/-note-detail';
 import { jsonResponse } from '../auth/testUtils';
 import { renderNotes } from './testUtils';

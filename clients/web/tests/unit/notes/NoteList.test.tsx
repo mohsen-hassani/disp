@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
 
 import { client } from '../../../src/api/client';
-import type { NoteOut } from '../../../src/api/generated';
+import type { DispModulesNotesSchemasNoteOut as NoteOut } from '../../../src/api/generated';
 import { NoteList } from '../../../src/components/notes/NoteList';
 import { jsonResponse } from '../auth/testUtils';
 import { setOnline } from '../pwa/testUtils';

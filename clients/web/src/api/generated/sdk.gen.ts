@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AuthAcceptInviteData, AuthAcceptInviteErrors, AuthAcceptInviteResponses, AuthChangePasswordData, AuthChangePasswordErrors, AuthChangePasswordResponses, AuthCreateInviteData, AuthCreateInviteErrors, AuthCreateInviteResponses, AuthCreateTokenData, AuthCreateTokenErrors, AuthCreateTokenResponses, AuthDeleteInviteData, AuthDeleteInviteErrors, AuthDeleteInviteResponses, AuthListInvitesData, AuthListInvitesErrors, AuthListInvitesResponses, AuthListTokensData, AuthListTokensErrors, AuthListTokensResponses, AuthLoginData, AuthLoginErrors, AuthLoginResponses, AuthLogoutData, AuthLogoutErrors, AuthLogoutResponses, AuthMeData, AuthMeErrors, AuthMeResponses, AuthRefreshData, AuthRefreshErrors, AuthRefreshResponses, AuthRevokeTokenData, AuthRevokeTokenErrors, AuthRevokeTokenResponses, DashboardManifestData, DashboardManifestErrors, DashboardManifestResponses, DashboardTileData, DashboardTileErrors, DashboardTileResponses, DashboardTilesData, DashboardTilesErrors, DashboardTilesResponses, FilesGetData, FilesGetErrors, FilesGetResponses, FilesUsageData, FilesUsageErrors, FilesUsageResponses, HealthCheckData, HealthCheckErrors, HealthCheckResponses, HealthLiveData, HealthLiveResponses, NotesCreateData, NotesCreateErrors, NotesCreateResponses, NotesDeleteData, NotesDeleteErrors, NotesDeleteResponses, NotesGetData, NotesGetErrors, NotesGetResponses, NotesListData, NotesListErrors, NotesListResponses, NotesShareData, NotesShareErrors, NotesShareResponses, NotesUpdateData, NotesUpdateErrors, NotesUpdateResponses, PlantsAddIntervalData, PlantsAddIntervalErrors, PlantsAddIntervalResponses, PlantsCalendarData, PlantsCalendarErrors, PlantsCalendarResponses, PlantsCompleteIntervalData, PlantsCompleteIntervalErrors, PlantsCompleteIntervalResponses, PlantsCreateData, PlantsCreateErrors, PlantsCreateResponses, PlantsDeleteData, PlantsDeleteErrors, PlantsDeleteImageData, PlantsDeleteImageErrors, PlantsDeleteImageResponses, PlantsDeleteIntervalData, PlantsDeleteIntervalErrors, PlantsDeleteIntervalResponses, PlantsDeleteResponses, PlantsDueData, PlantsDueErrors, PlantsDueResponses, PlantsGetData, PlantsGetErrors, PlantsGetImageData, PlantsGetImageErrors, PlantsGetResponses, PlantsHistoryData, PlantsHistoryErrors, PlantsHistoryResponses, PlantsListData, PlantsListErrors, PlantsListResponses, PlantsSetImageData, PlantsSetImageErrors, PlantsSetImageResponses, PlantsUpdateData, PlantsUpdateErrors, PlantsUpdateIntervalData, PlantsUpdateIntervalErrors, PlantsUpdateIntervalResponses, PlantsUpdateResponses, SettingsGetData, SettingsGetErrors, SettingsGetResponses, SettingsUpdateData, SettingsUpdateErrors, SettingsUpdateResponses } from './types.gen';
+import type { AuthAcceptInviteData, AuthAcceptInviteErrors, AuthAcceptInviteResponses, AuthChangePasswordData, AuthChangePasswordErrors, AuthChangePasswordResponses, AuthCreateInviteData, AuthCreateInviteErrors, AuthCreateInviteResponses, AuthCreateTokenData, AuthCreateTokenErrors, AuthCreateTokenResponses, AuthDeleteInviteData, AuthDeleteInviteErrors, AuthDeleteInviteResponses, AuthListInvitesData, AuthListInvitesErrors, AuthListInvitesResponses, AuthListTokensData, AuthListTokensErrors, AuthListTokensResponses, AuthLoginData, AuthLoginErrors, AuthLoginResponses, AuthLogoutData, AuthLogoutErrors, AuthLogoutResponses, AuthMeData, AuthMeErrors, AuthMeResponses, AuthRefreshData, AuthRefreshErrors, AuthRefreshResponses, AuthRevokeTokenData, AuthRevokeTokenErrors, AuthRevokeTokenResponses, DashboardManifestData, DashboardManifestErrors, DashboardManifestResponses, DashboardTileData, DashboardTileErrors, DashboardTileResponses, DashboardTilesData, DashboardTilesErrors, DashboardTilesResponses, FilesUsageData, FilesUsageErrors, FilesUsageResponses, HealthCheckData, HealthCheckErrors, HealthCheckResponses, HealthLiveData, HealthLiveResponses, LearningAdvanceExerciseData, LearningAdvanceExerciseErrors, LearningAdvanceExerciseResponses, LearningAdvanceQuizData, LearningAdvanceQuizErrors, LearningAdvanceQuizResponses, LearningApprovePathData, LearningApprovePathErrors, LearningApprovePathResponses, LearningCreateChatData, LearningCreateChatErrors, LearningCreateChatResponses, LearningCreateCourseData, LearningCreateCourseErrors, LearningCreateCourseResponses, LearningCreateExerciseData, LearningCreateExerciseErrors, LearningCreateExerciseResponses, LearningCreateNoteData, LearningCreateNoteErrors, LearningCreateNoteResponses, LearningCreateQuizData, LearningCreateQuizErrors, LearningCreateQuizResponses, LearningCreateSourceData, LearningCreateSourceErrors, LearningCreateSourceResponses, LearningDeleteCourseData, LearningDeleteCourseErrors, LearningDeleteCourseResponses, LearningDeleteNoteData, LearningDeleteNoteErrors, LearningDeleteNoteResponses, LearningDeletePathItemData, LearningDeletePathItemErrors, LearningDeletePathItemResponses, LearningDeleteQuestionData, LearningDeleteQuestionErrors, LearningDeleteQuestionResponses, LearningDeleteSourceData, LearningDeleteSourceErrors, LearningDeleteSourceResponses, LearningDeleteStepData, LearningDeleteStepErrors, LearningDeleteStepResponses, LearningExerciseFollowupData, LearningExerciseFollowupErrors, LearningExerciseFollowupResponses, LearningExerciseSummaryData, LearningExerciseSummaryErrors, LearningExerciseSummaryResponses, LearningExplainPathItemData, LearningExplainPathItemErrors, LearningExplainPathItemResponses, LearningGeneratePathData, LearningGeneratePathErrors, LearningGeneratePathResponses, LearningGetCourseData, LearningGetCourseErrors, LearningGetCourseResponses, LearningGetCurrentQuestionData, LearningGetCurrentQuestionErrors, LearningGetCurrentQuestionResponses, LearningGetCurrentStepData, LearningGetCurrentStepErrors, LearningGetCurrentStepResponses, LearningGetExerciseData, LearningGetExerciseErrors, LearningGetExerciseResponses, LearningGetJobData, LearningGetJobErrors, LearningGetJobResponses, LearningGetPathData, LearningGetPathErrors, LearningGetPathItemContentData, LearningGetPathItemContentErrors, LearningGetPathItemContentResponses, LearningGetPathResponses, LearningGetProgressData, LearningGetProgressErrors, LearningGetProgressResponses, LearningGetQuizData, LearningGetQuizErrors, LearningGetQuizResponses, LearningGetWeakPointsData, LearningGetWeakPointsErrors, LearningGetWeakPointsResponses, LearningIndexCourseData, LearningIndexCourseErrors, LearningIndexCourseResponses, LearningListChatMessagesData, LearningListChatMessagesErrors, LearningListChatMessagesResponses, LearningListChatsData, LearningListChatsErrors, LearningListChatsResponses, LearningListCoursesData, LearningListCoursesErrors, LearningListCoursesResponses, LearningListNotesData, LearningListNotesErrors, LearningListNotesResponses, LearningListSourcesData, LearningListSourcesErrors, LearningListSourcesResponses, LearningQuizFollowupData, LearningQuizFollowupErrors, LearningQuizFollowupResponses, LearningQuizSummaryData, LearningQuizSummaryErrors, LearningQuizSummaryResponses, LearningSendChatMessageData, LearningSendChatMessageErrors, LearningSendChatMessageResponses, LearningStartExerciseData, LearningStartExerciseErrors, LearningStartExerciseResponses, LearningStartQuizData, LearningStartQuizErrors, LearningStartQuizResponses, LearningSubmitAnswerData, LearningSubmitAnswerErrors, LearningSubmitAnswerResponses, LearningSubmitStepData, LearningSubmitStepErrors, LearningSubmitStepResponses, LearningUpdateCourseData, LearningUpdateCourseErrors, LearningUpdateCourseResponses, LearningUpdateNoteData, LearningUpdateNoteErrors, LearningUpdateNoteResponses, LearningUpdatePathItemData, LearningUpdatePathItemErrors, LearningUpdatePathItemResponses, LearningUpdateQuestionData, LearningUpdateQuestionErrors, LearningUpdateQuestionResponses, LearningUpdateStepData, LearningUpdateStepErrors, LearningUpdateStepResponses, LlmUsageData, LlmUsageErrors, LlmUsageResponses, NotesCreateData, NotesCreateErrors, NotesCreateResponses, NotesDeleteData, NotesDeleteErrors, NotesDeleteResponses, NotesGetData, NotesGetErrors, NotesGetResponses, NotesListData, NotesListErrors, NotesListResponses, NotesShareData, NotesShareErrors, NotesShareResponses, NotesUpdateData, NotesUpdateErrors, NotesUpdateResponses, PlantsAddIntervalData, PlantsAddIntervalErrors, PlantsAddIntervalResponses, PlantsCalendarData, PlantsCalendarErrors, PlantsCalendarResponses, PlantsCompleteIntervalData, PlantsCompleteIntervalErrors, PlantsCompleteIntervalResponses, PlantsCreateData, PlantsCreateErrors, PlantsCreateResponses, PlantsDeleteData, PlantsDeleteErrors, PlantsDeleteImageData, PlantsDeleteImageErrors, PlantsDeleteImageResponses, PlantsDeleteIntervalData, PlantsDeleteIntervalErrors, PlantsDeleteIntervalResponses, PlantsDeleteResponses, PlantsDueData, PlantsDueErrors, PlantsDueResponses, PlantsGetData, PlantsGetErrors, PlantsGetImageData, PlantsGetImageErrors, PlantsGetResponses, PlantsHistoryData, PlantsHistoryErrors, PlantsHistoryResponses, PlantsListData, PlantsListErrors, PlantsListResponses, PlantsSetImageData, PlantsSetImageErrors, PlantsSetImageResponses, PlantsUpdateData, PlantsUpdateErrors, PlantsUpdateIntervalData, PlantsUpdateIntervalErrors, PlantsUpdateIntervalResponses, PlantsUpdateResponses, SettingsGetData, SettingsGetErrors, SettingsGetResponses, SettingsUpdateData, SettingsUpdateErrors, SettingsUpdateResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -161,9 +161,350 @@ export const settingsUpdate = <ThrowOnError extends boolean = false>(options: Op
 export const filesUsage = <ThrowOnError extends boolean = false>(options?: Options<FilesUsageData, ThrowOnError>): RequestResult<FilesUsageResponses, FilesUsageErrors, ThrowOnError> => (options?.client ?? client).get<FilesUsageResponses, FilesUsageErrors, ThrowOnError>({ url: '/api/files/usage', ...options });
 
 /**
- * Get Asset
+ * Get Usage
  */
-export const filesGet = <ThrowOnError extends boolean = false>(options: Options<FilesGetData, ThrowOnError>): RequestResult<FilesGetResponses, FilesGetErrors, ThrowOnError> => (options.client ?? client).get<FilesGetResponses, FilesGetErrors, ThrowOnError>({ url: '/api/files/{asset_id}', ...options });
+export const llmUsage = <ThrowOnError extends boolean = false>(options?: Options<LlmUsageData, ThrowOnError>): RequestResult<LlmUsageResponses, LlmUsageErrors, ThrowOnError> => (options?.client ?? client).get<LlmUsageResponses, LlmUsageErrors, ThrowOnError>({ url: '/api/llm/usage', ...options });
+
+/**
+ * List the caller's courses
+ */
+export const learningListCourses = <ThrowOnError extends boolean = false>(options?: Options<LearningListCoursesData, ThrowOnError>): RequestResult<LearningListCoursesResponses, LearningListCoursesErrors, ThrowOnError> => (options?.client ?? client).get<LearningListCoursesResponses, LearningListCoursesErrors, ThrowOnError>({ url: '/api/learning/courses', ...options });
+
+/**
+ * Create a course
+ */
+export const learningCreateCourse = <ThrowOnError extends boolean = false>(options: Options<LearningCreateCourseData, ThrowOnError>): RequestResult<LearningCreateCourseResponses, LearningCreateCourseErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateCourseResponses, LearningCreateCourseErrors, ThrowOnError>({
+    url: '/api/learning/courses',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-delete a course
+ */
+export const learningDeleteCourse = <ThrowOnError extends boolean = false>(options: Options<LearningDeleteCourseData, ThrowOnError>): RequestResult<LearningDeleteCourseResponses, LearningDeleteCourseErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeleteCourseResponses, LearningDeleteCourseErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}', ...options });
+
+/**
+ * Read a single course
+ */
+export const learningGetCourse = <ThrowOnError extends boolean = false>(options: Options<LearningGetCourseData, ThrowOnError>): RequestResult<LearningGetCourseResponses, LearningGetCourseErrors, ThrowOnError> => (options.client ?? client).get<LearningGetCourseResponses, LearningGetCourseErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}', ...options });
+
+/**
+ * Partially update a course
+ */
+export const learningUpdateCourse = <ThrowOnError extends boolean = false>(options: Options<LearningUpdateCourseData, ThrowOnError>): RequestResult<LearningUpdateCourseResponses, LearningUpdateCourseErrors, ThrowOnError> => (options.client ?? client).patch<LearningUpdateCourseResponses, LearningUpdateCourseErrors, ThrowOnError>({
+    url: '/api/learning/courses/{course_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List a course's sources
+ */
+export const learningListSources = <ThrowOnError extends boolean = false>(options: Options<LearningListSourcesData, ThrowOnError>): RequestResult<LearningListSourcesResponses, LearningListSourcesErrors, ThrowOnError> => (options.client ?? client).get<LearningListSourcesResponses, LearningListSourcesErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/sources', ...options });
+
+/**
+ * Add a source: upload a file or paste text (§8.1)
+ */
+export const learningCreateSource = <ThrowOnError extends boolean = false>(options: Options<LearningCreateSourceData, ThrowOnError>): RequestResult<LearningCreateSourceResponses, LearningCreateSourceErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateSourceResponses, LearningCreateSourceErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/learning/courses/{course_id}/sources',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Remove a source
+ */
+export const learningDeleteSource = <ThrowOnError extends boolean = false>(options: Options<LearningDeleteSourceData, ThrowOnError>): RequestResult<LearningDeleteSourceResponses, LearningDeleteSourceErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeleteSourceResponses, LearningDeleteSourceErrors, ThrowOnError>({ url: '/api/learning/sources/{source_id}', ...options });
+
+/**
+ * Index a course: parse, align into topics, tag, summarize (§8)
+ */
+export const learningIndexCourse = <ThrowOnError extends boolean = false>(options: Options<LearningIndexCourseData, ThrowOnError>): RequestResult<LearningIndexCourseResponses, LearningIndexCourseErrors, ThrowOnError> => (options.client ?? client).post<LearningIndexCourseResponses, LearningIndexCourseErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/index', ...options });
+
+/**
+ * Read a background job's status (§16)
+ */
+export const learningGetJob = <ThrowOnError extends boolean = false>(options: Options<LearningGetJobData, ThrowOnError>): RequestResult<LearningGetJobResponses, LearningGetJobErrors, ThrowOnError> => (options.client ?? client).get<LearningGetJobResponses, LearningGetJobErrors, ThrowOnError>({ url: '/api/learning/jobs/{job_id}', ...options });
+
+/**
+ * Generate a draft learning path from the course's topic index (§9)
+ */
+export const learningGeneratePath = <ThrowOnError extends boolean = false>(options: Options<LearningGeneratePathData, ThrowOnError>): RequestResult<LearningGeneratePathResponses, LearningGeneratePathErrors, ThrowOnError> => (options.client ?? client).post<LearningGeneratePathResponses, LearningGeneratePathErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/path/generate', ...options });
+
+/**
+ * Read the course's learning path, in order (§9)
+ */
+export const learningGetPath = <ThrowOnError extends boolean = false>(options: Options<LearningGetPathData, ThrowOnError>): RequestResult<LearningGetPathResponses, LearningGetPathErrors, ThrowOnError> => (options.client ?? client).get<LearningGetPathResponses, LearningGetPathErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/path', ...options });
+
+/**
+ * Approve the draft path: every item -> approved, course -> active (§9)
+ */
+export const learningApprovePath = <ThrowOnError extends boolean = false>(options: Options<LearningApprovePathData, ThrowOnError>): RequestResult<LearningApprovePathResponses, LearningApprovePathErrors, ThrowOnError> => (options.client ?? client).post<LearningApprovePathResponses, LearningApprovePathErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/path/approve', ...options });
+
+/**
+ * Delete a path item
+ */
+export const learningDeletePathItem = <ThrowOnError extends boolean = false>(options: Options<LearningDeletePathItemData, ThrowOnError>): RequestResult<LearningDeletePathItemResponses, LearningDeletePathItemErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeletePathItemResponses, LearningDeletePathItemErrors, ThrowOnError>({ url: '/api/learning/path-items/{path_item_id}', ...options });
+
+/**
+ * Retitle, reorder, re-tier, or reassign a path item's topics (§9)
+ */
+export const learningUpdatePathItem = <ThrowOnError extends boolean = false>(options: Options<LearningUpdatePathItemData, ThrowOnError>): RequestResult<LearningUpdatePathItemResponses, LearningUpdatePathItemErrors, ThrowOnError> => (options.client ?? client).patch<LearningUpdatePathItemResponses, LearningUpdatePathItemErrors, ThrowOnError>({
+    url: '/api/learning/path-items/{path_item_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Read a path item's joined content, via §3.1's deterministic join
+ */
+export const learningGetPathItemContent = <ThrowOnError extends boolean = false>(options: Options<LearningGetPathItemContentData, ThrowOnError>): RequestResult<LearningGetPathItemContentResponses, LearningGetPathItemContentErrors, ThrowOnError> => (options.client ?? client).get<LearningGetPathItemContentResponses, LearningGetPathItemContentErrors, ThrowOnError>({ url: '/api/learning/path-items/{path_item_id}/content', ...options });
+
+/**
+ * Create a draft quiz over a path item (§10)
+ */
+export const learningCreateQuiz = <ThrowOnError extends boolean = false>(options: Options<LearningCreateQuizData, ThrowOnError>): RequestResult<LearningCreateQuizResponses, LearningCreateQuizErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateQuizResponses, LearningCreateQuizErrors, ThrowOnError>({ url: '/api/learning/path-items/{path_item_id}/quizzes', ...options });
+
+/**
+ * Read a quiz session and its questions (§10)
+ */
+export const learningGetQuiz = <ThrowOnError extends boolean = false>(options: Options<LearningGetQuizData, ThrowOnError>): RequestResult<LearningGetQuizResponses, LearningGetQuizErrors, ThrowOnError> => (options.client ?? client).get<LearningGetQuizResponses, LearningGetQuizErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}', ...options });
+
+/**
+ * Delete a draft quiz question (§10, draft only)
+ */
+export const learningDeleteQuestion = <ThrowOnError extends boolean = false>(options: Options<LearningDeleteQuestionData, ThrowOnError>): RequestResult<LearningDeleteQuestionResponses, LearningDeleteQuestionErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeleteQuestionResponses, LearningDeleteQuestionErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}/items/{item_id}', ...options });
+
+/**
+ * Edit a draft quiz question (§10, draft only)
+ */
+export const learningUpdateQuestion = <ThrowOnError extends boolean = false>(options: Options<LearningUpdateQuestionData, ThrowOnError>): RequestResult<LearningUpdateQuestionResponses, LearningUpdateQuestionErrors, ThrowOnError> => (options.client ?? client).patch<LearningUpdateQuestionResponses, LearningUpdateQuestionErrors, ThrowOnError>({
+    url: '/api/learning/quizzes/{session_id}/items/{item_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start a quiz session, freezing its question set (§10)
+ */
+export const learningStartQuiz = <ThrowOnError extends boolean = false>(options: Options<LearningStartQuizData, ThrowOnError>): RequestResult<LearningStartQuizResponses, LearningStartQuizErrors, ThrowOnError> => (options.client ?? client).post<LearningStartQuizResponses, LearningStartQuizErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}/start', ...options });
+
+/**
+ * Read the current question, text only (§10)
+ */
+export const learningGetCurrentQuestion = <ThrowOnError extends boolean = false>(options: Options<LearningGetCurrentQuestionData, ThrowOnError>): RequestResult<LearningGetCurrentQuestionResponses, LearningGetCurrentQuestionErrors, ThrowOnError> => (options.client ?? client).get<LearningGetCurrentQuestionResponses, LearningGetCurrentQuestionErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}/current', ...options });
+
+/**
+ * Submit an answer to the current question; does not advance (§10)
+ */
+export const learningSubmitAnswer = <ThrowOnError extends boolean = false>(options: Options<LearningSubmitAnswerData, ThrowOnError>): RequestResult<LearningSubmitAnswerResponses, LearningSubmitAnswerErrors, ThrowOnError> => (options.client ?? client).post<LearningSubmitAnswerResponses, LearningSubmitAnswerErrors, ThrowOnError>({
+    url: '/api/learning/quizzes/{session_id}/submit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Ask a free-form follow-up on the just-graded question (§10)
+ */
+export const learningQuizFollowup = <ThrowOnError extends boolean = false>(options: Options<LearningQuizFollowupData, ThrowOnError>): RequestResult<LearningQuizFollowupResponses, LearningQuizFollowupErrors, ThrowOnError> => (options.client ?? client).post<LearningQuizFollowupResponses, LearningQuizFollowupErrors, ThrowOnError>({
+    url: '/api/learning/quizzes/{session_id}/followup',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Advance past the answered question (§10)
+ */
+export const learningAdvanceQuiz = <ThrowOnError extends boolean = false>(options: Options<LearningAdvanceQuizData, ThrowOnError>): RequestResult<LearningAdvanceQuizResponses, LearningAdvanceQuizErrors, ThrowOnError> => (options.client ?? client).post<LearningAdvanceQuizResponses, LearningAdvanceQuizErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}/advance', ...options });
+
+/**
+ * Read a completed quiz session's summary (§10)
+ */
+export const learningQuizSummary = <ThrowOnError extends boolean = false>(options: Options<LearningQuizSummaryData, ThrowOnError>): RequestResult<LearningQuizSummaryResponses, LearningQuizSummaryErrors, ThrowOnError> => (options.client ?? client).get<LearningQuizSummaryResponses, LearningQuizSummaryErrors, ThrowOnError>({ url: '/api/learning/quizzes/{session_id}/summary', ...options });
+
+/**
+ * Create a draft exercise over a path item (§11)
+ */
+export const learningCreateExercise = <ThrowOnError extends boolean = false>(options: Options<LearningCreateExerciseData, ThrowOnError>): RequestResult<LearningCreateExerciseResponses, LearningCreateExerciseErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateExerciseResponses, LearningCreateExerciseErrors, ThrowOnError>({ url: '/api/learning/path-items/{path_item_id}/exercises', ...options });
+
+/**
+ * Read an exercise session and its steps (§11)
+ */
+export const learningGetExercise = <ThrowOnError extends boolean = false>(options: Options<LearningGetExerciseData, ThrowOnError>): RequestResult<LearningGetExerciseResponses, LearningGetExerciseErrors, ThrowOnError> => (options.client ?? client).get<LearningGetExerciseResponses, LearningGetExerciseErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}', ...options });
+
+/**
+ * Delete a draft exercise step (§11, draft only)
+ */
+export const learningDeleteStep = <ThrowOnError extends boolean = false>(options: Options<LearningDeleteStepData, ThrowOnError>): RequestResult<LearningDeleteStepResponses, LearningDeleteStepErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeleteStepResponses, LearningDeleteStepErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}/items/{item_id}', ...options });
+
+/**
+ * Edit a draft exercise step (§11, draft only)
+ */
+export const learningUpdateStep = <ThrowOnError extends boolean = false>(options: Options<LearningUpdateStepData, ThrowOnError>): RequestResult<LearningUpdateStepResponses, LearningUpdateStepErrors, ThrowOnError> => (options.client ?? client).patch<LearningUpdateStepResponses, LearningUpdateStepErrors, ThrowOnError>({
+    url: '/api/learning/exercises/{session_id}/items/{item_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Start an exercise session, freezing its step set (§11)
+ */
+export const learningStartExercise = <ThrowOnError extends boolean = false>(options: Options<LearningStartExerciseData, ThrowOnError>): RequestResult<LearningStartExerciseResponses, LearningStartExerciseErrors, ThrowOnError> => (options.client ?? client).post<LearningStartExerciseResponses, LearningStartExerciseErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}/start', ...options });
+
+/**
+ * Read the current step, text only — never the rubric (§11, §3.4)
+ */
+export const learningGetCurrentStep = <ThrowOnError extends boolean = false>(options: Options<LearningGetCurrentStepData, ThrowOnError>): RequestResult<LearningGetCurrentStepResponses, LearningGetCurrentStepErrors, ThrowOnError> => (options.client ?? client).get<LearningGetCurrentStepResponses, LearningGetCurrentStepErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}/current', ...options });
+
+/**
+ * Submit a solution to the current step; does not advance (§11)
+ */
+export const learningSubmitStep = <ThrowOnError extends boolean = false>(options: Options<LearningSubmitStepData, ThrowOnError>): RequestResult<LearningSubmitStepResponses, LearningSubmitStepErrors, ThrowOnError> => (options.client ?? client).post<LearningSubmitStepResponses, LearningSubmitStepErrors, ThrowOnError>({
+    url: '/api/learning/exercises/{session_id}/submit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Ask a free-form follow-up on the just-graded step (§11)
+ */
+export const learningExerciseFollowup = <ThrowOnError extends boolean = false>(options: Options<LearningExerciseFollowupData, ThrowOnError>): RequestResult<LearningExerciseFollowupResponses, LearningExerciseFollowupErrors, ThrowOnError> => (options.client ?? client).post<LearningExerciseFollowupResponses, LearningExerciseFollowupErrors, ThrowOnError>({
+    url: '/api/learning/exercises/{session_id}/followup',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Advance past the submitted step (§11)
+ */
+export const learningAdvanceExercise = <ThrowOnError extends boolean = false>(options: Options<LearningAdvanceExerciseData, ThrowOnError>): RequestResult<LearningAdvanceExerciseResponses, LearningAdvanceExerciseErrors, ThrowOnError> => (options.client ?? client).post<LearningAdvanceExerciseResponses, LearningAdvanceExerciseErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}/advance', ...options });
+
+/**
+ * Read a completed exercise session's summary (§11)
+ */
+export const learningExerciseSummary = <ThrowOnError extends boolean = false>(options: Options<LearningExerciseSummaryData, ThrowOnError>): RequestResult<LearningExerciseSummaryResponses, LearningExerciseSummaryErrors, ThrowOnError> => (options.client ?? client).get<LearningExerciseSummaryResponses, LearningExerciseSummaryErrors, ThrowOnError>({ url: '/api/learning/exercises/{session_id}/summary', ...options });
+
+/**
+ * Explain, guide, or summarize a path item — stateless (§12)
+ */
+export const learningExplainPathItem = <ThrowOnError extends boolean = false>(options: Options<LearningExplainPathItemData, ThrowOnError>): RequestResult<LearningExplainPathItemResponses, LearningExplainPathItemErrors, ThrowOnError> => (options.client ?? client).post<LearningExplainPathItemResponses, LearningExplainPathItemErrors, ThrowOnError>({
+    url: '/api/learning/path-items/{path_item_id}/explain',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List a course's chat sessions (§13)
+ */
+export const learningListChats = <ThrowOnError extends boolean = false>(options: Options<LearningListChatsData, ThrowOnError>): RequestResult<LearningListChatsResponses, LearningListChatsErrors, ThrowOnError> => (options.client ?? client).get<LearningListChatsResponses, LearningListChatsErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/chats', ...options });
+
+/**
+ * Create a scoped chat session (§13)
+ */
+export const learningCreateChat = <ThrowOnError extends boolean = false>(options: Options<LearningCreateChatData, ThrowOnError>): RequestResult<LearningCreateChatResponses, LearningCreateChatErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateChatResponses, LearningCreateChatErrors, ThrowOnError>({
+    url: '/api/learning/courses/{course_id}/chats',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List a chat session's messages, oldest first (§13)
+ */
+export const learningListChatMessages = <ThrowOnError extends boolean = false>(options: Options<LearningListChatMessagesData, ThrowOnError>): RequestResult<LearningListChatMessagesResponses, LearningListChatMessagesErrors, ThrowOnError> => (options.client ?? client).get<LearningListChatMessagesResponses, LearningListChatMessagesErrors, ThrowOnError>({ url: '/api/learning/chats/{chat_id}/messages', ...options });
+
+/**
+ * Send a chat message; returns the assistant's reply (§13)
+ */
+export const learningSendChatMessage = <ThrowOnError extends boolean = false>(options: Options<LearningSendChatMessageData, ThrowOnError>): RequestResult<LearningSendChatMessageResponses, LearningSendChatMessageErrors, ThrowOnError> => (options.client ?? client).post<LearningSendChatMessageResponses, LearningSendChatMessageErrors, ThrowOnError>({
+    url: '/api/learning/chats/{chat_id}/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List a course's notes, filterable by label and anchor (§14)
+ */
+export const learningListNotes = <ThrowOnError extends boolean = false>(options: Options<LearningListNotesData, ThrowOnError>): RequestResult<LearningListNotesResponses, LearningListNotesErrors, ThrowOnError> => (options.client ?? client).get<LearningListNotesResponses, LearningListNotesErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/notes', ...options });
+
+/**
+ * Create a note, optionally anchored to a path item, topic, or section (§14)
+ */
+export const learningCreateNote = <ThrowOnError extends boolean = false>(options: Options<LearningCreateNoteData, ThrowOnError>): RequestResult<LearningCreateNoteResponses, LearningCreateNoteErrors, ThrowOnError> => (options.client ?? client).post<LearningCreateNoteResponses, LearningCreateNoteErrors, ThrowOnError>({
+    url: '/api/learning/courses/{course_id}/notes',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-delete a note
+ */
+export const learningDeleteNote = <ThrowOnError extends boolean = false>(options: Options<LearningDeleteNoteData, ThrowOnError>): RequestResult<LearningDeleteNoteResponses, LearningDeleteNoteErrors, ThrowOnError> => (options.client ?? client).delete<LearningDeleteNoteResponses, LearningDeleteNoteErrors, ThrowOnError>({ url: '/api/learning/notes/{note_id}', ...options });
+
+/**
+ * Update a note's label or body
+ */
+export const learningUpdateNote = <ThrowOnError extends boolean = false>(options: Options<LearningUpdateNoteData, ThrowOnError>): RequestResult<LearningUpdateNoteResponses, LearningUpdateNoteErrors, ThrowOnError> => (options.client ?? client).patch<LearningUpdateNoteResponses, LearningUpdateNoteErrors, ThrowOnError>({
+    url: '/api/learning/notes/{note_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Completed vs. total approved path items, by tier (§15.2)
+ */
+export const learningGetProgress = <ThrowOnError extends boolean = false>(options: Options<LearningGetProgressData, ThrowOnError>): RequestResult<LearningGetProgressResponses, LearningGetProgressErrors, ThrowOnError> => (options.client ?? client).get<LearningGetProgressResponses, LearningGetProgressErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/progress', ...options });
+
+/**
+ * Tags below the weak-point threshold, weakest first (§15.3)
+ */
+export const learningGetWeakPoints = <ThrowOnError extends boolean = false>(options: Options<LearningGetWeakPointsData, ThrowOnError>): RequestResult<LearningGetWeakPointsResponses, LearningGetWeakPointsErrors, ThrowOnError> => (options.client ?? client).get<LearningGetWeakPointsResponses, LearningGetWeakPointsErrors, ThrowOnError>({ url: '/api/learning/courses/{course_id}/weak-points', ...options });
 
 /**
  * List the caller's notes

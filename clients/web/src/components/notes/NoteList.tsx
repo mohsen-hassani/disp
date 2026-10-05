@@ -3,7 +3,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { AlertCircle, SearchX, StickyNote } from 'lucide-react';
 import { type ReactElement, useEffect, useRef, useState } from 'react';
 
-import type { NoteOut } from '../../api/generated';
+import type { DispModulesNotesSchemasNoteOut as NoteOut } from '../../api/generated';
 import { notesListInfiniteQueryOptions } from '../../api/queries';
 import { qk } from '../../api/queryKeys';
 import { EmptyState } from '../feedback/EmptyState';

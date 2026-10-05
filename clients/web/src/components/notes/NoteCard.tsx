@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { MoreVertical, Pin } from 'lucide-react';
 import { type ReactElement, useId, useRef, useState } from 'react';
 
-import type { NoteOut } from '../../api/generated';
+import type { DispModulesNotesSchemasNoteOut as NoteOut } from '../../api/generated';
 import { relativeTime } from '../../lib/format';
 
 interface NoteCardProps {

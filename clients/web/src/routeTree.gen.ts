@@ -15,6 +15,7 @@ import { Route as AcceptInviteRouteImport } from './routes/accept-invite'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppAdminInvitesRouteImport } from './routes/_app.admin.invites'
+import { Route as AppLearningIndexRouteImport } from './routes/_app.learning.index'
 import { Route as AppNotesIndexRouteImport } from './routes/_app.notes.index'
 import { Route as AppNotesNoteIdRouteImport } from './routes/_app.notes.$noteId'
 import { Route as AppPlantsIndexRouteImport } from './routes/_app.plants.index'
@@ -25,7 +26,14 @@ import { Route as AppSettingsIndexRouteImport } from './routes/_app.settings.ind
 import { Route as AppSettingsDomainRouteImport } from './routes/_app.settings.$domain'
 import { Route as AppSettingsAccountRouteImport } from './routes/_app.settings.account'
 import { Route as AppSettingsTokensRouteImport } from './routes/_app.settings.tokens'
+import { Route as AppLearningCourseIdIndexRouteImport } from './routes/_app.learning.$courseId.index'
+import { Route as AppLearningCourseIdChatRouteImport } from './routes/_app.learning.$courseId.chat'
+import { Route as AppLearningCourseIdNotesRouteImport } from './routes/_app.learning.$courseId.notes'
+import { Route as AppLearningCourseIdPathRouteImport } from './routes/_app.learning.$courseId.path'
 import { Route as AppPlantsPlantIdEditRouteImport } from './routes/_app.plants.$plantId.edit'
+import { Route as AppLearningCourseIdExerciseSessionIdRouteImport } from './routes/_app.learning.$courseId.exercise.$sessionId'
+import { Route as AppLearningCourseIdItemsItemIdRouteImport } from './routes/_app.learning.$courseId.items.$itemId'
+import { Route as AppLearningCourseIdQuizSessionIdRouteImport } from './routes/_app.learning.$courseId.quiz.$sessionId'
 
 const SplatRoute = SplatRouteImport.update({
   id: '/$',
@@ -54,6 +62,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAdminInvitesRoute = AppAdminInvitesRouteImport.update({
   id: '/admin/invites',
   path: '/admin/invites',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLearningIndexRoute = AppLearningIndexRouteImport.update({
+  id: '/learning/',
+  path: '/learning/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNotesIndexRoute = AppNotesIndexRouteImport.update({
@@ -106,11 +119,51 @@ const AppSettingsTokensRoute = AppSettingsTokensRouteImport.update({
   path: '/settings/tokens',
   getParentRoute: () => AppRoute,
 } as any)
+const AppLearningCourseIdIndexRoute =
+  AppLearningCourseIdIndexRouteImport.update({
+    id: '/learning/$courseId/',
+    path: '/learning/$courseId/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppLearningCourseIdChatRoute = AppLearningCourseIdChatRouteImport.update({
+  id: '/learning/$courseId/chat',
+  path: '/learning/$courseId/chat',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLearningCourseIdNotesRoute =
+  AppLearningCourseIdNotesRouteImport.update({
+    id: '/learning/$courseId/notes',
+    path: '/learning/$courseId/notes',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppLearningCourseIdPathRoute = AppLearningCourseIdPathRouteImport.update({
+  id: '/learning/$courseId/path',
+  path: '/learning/$courseId/path',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPlantsPlantIdEditRoute = AppPlantsPlantIdEditRouteImport.update({
   id: '/edit',
   path: '/edit',
   getParentRoute: () => AppPlantsPlantIdRoute,
 } as any)
+const AppLearningCourseIdExerciseSessionIdRoute =
+  AppLearningCourseIdExerciseSessionIdRouteImport.update({
+    id: '/learning/$courseId/exercise/$sessionId',
+    path: '/learning/$courseId/exercise/$sessionId',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppLearningCourseIdItemsItemIdRoute =
+  AppLearningCourseIdItemsItemIdRouteImport.update({
+    id: '/learning/$courseId/items/$itemId',
+    path: '/learning/$courseId/items/$itemId',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppLearningCourseIdQuizSessionIdRoute =
+  AppLearningCourseIdQuizSessionIdRouteImport.update({
+    id: '/learning/$courseId/quiz/$sessionId',
+    path: '/learning/$courseId/quiz/$sessionId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/$': typeof SplatRoute
@@ -125,10 +178,18 @@ export interface FileRoutesByFullPath {
   '/settings/$domain': typeof AppSettingsDomainRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
+  '/learning/': typeof AppLearningIndexRoute
   '/notes/': typeof AppNotesIndexRoute
   '/plants/': typeof AppPlantsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
+  '/learning/$courseId/chat': typeof AppLearningCourseIdChatRoute
+  '/learning/$courseId/notes': typeof AppLearningCourseIdNotesRoute
+  '/learning/$courseId/path': typeof AppLearningCourseIdPathRoute
   '/plants/$plantId/edit': typeof AppPlantsPlantIdEditRoute
+  '/learning/$courseId/': typeof AppLearningCourseIdIndexRoute
+  '/learning/$courseId/exercise/$sessionId': typeof AppLearningCourseIdExerciseSessionIdRoute
+  '/learning/$courseId/items/$itemId': typeof AppLearningCourseIdItemsItemIdRoute
+  '/learning/$courseId/quiz/$sessionId': typeof AppLearningCourseIdQuizSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/$': typeof SplatRoute
@@ -143,10 +204,18 @@ export interface FileRoutesByTo {
   '/settings/$domain': typeof AppSettingsDomainRoute
   '/settings/account': typeof AppSettingsAccountRoute
   '/settings/tokens': typeof AppSettingsTokensRoute
+  '/learning': typeof AppLearningIndexRoute
   '/notes': typeof AppNotesIndexRoute
   '/plants': typeof AppPlantsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
+  '/learning/$courseId/chat': typeof AppLearningCourseIdChatRoute
+  '/learning/$courseId/notes': typeof AppLearningCourseIdNotesRoute
+  '/learning/$courseId/path': typeof AppLearningCourseIdPathRoute
   '/plants/$plantId/edit': typeof AppPlantsPlantIdEditRoute
+  '/learning/$courseId': typeof AppLearningCourseIdIndexRoute
+  '/learning/$courseId/exercise/$sessionId': typeof AppLearningCourseIdExerciseSessionIdRoute
+  '/learning/$courseId/items/$itemId': typeof AppLearningCourseIdItemsItemIdRoute
+  '/learning/$courseId/quiz/$sessionId': typeof AppLearningCourseIdQuizSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -163,10 +232,18 @@ export interface FileRoutesById {
   '/_app/settings/$domain': typeof AppSettingsDomainRoute
   '/_app/settings/account': typeof AppSettingsAccountRoute
   '/_app/settings/tokens': typeof AppSettingsTokensRoute
+  '/_app/learning/': typeof AppLearningIndexRoute
   '/_app/notes/': typeof AppNotesIndexRoute
   '/_app/plants/': typeof AppPlantsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/learning/$courseId/chat': typeof AppLearningCourseIdChatRoute
+  '/_app/learning/$courseId/notes': typeof AppLearningCourseIdNotesRoute
+  '/_app/learning/$courseId/path': typeof AppLearningCourseIdPathRoute
   '/_app/plants/$plantId/edit': typeof AppPlantsPlantIdEditRoute
+  '/_app/learning/$courseId/': typeof AppLearningCourseIdIndexRoute
+  '/_app/learning/$courseId/exercise/$sessionId': typeof AppLearningCourseIdExerciseSessionIdRoute
+  '/_app/learning/$courseId/items/$itemId': typeof AppLearningCourseIdItemsItemIdRoute
+  '/_app/learning/$courseId/quiz/$sessionId': typeof AppLearningCourseIdQuizSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -183,10 +260,18 @@ export interface FileRouteTypes {
     | '/settings/$domain'
     | '/settings/account'
     | '/settings/tokens'
+    | '/learning/'
     | '/notes/'
     | '/plants/'
     | '/settings/'
+    | '/learning/$courseId/chat'
+    | '/learning/$courseId/notes'
+    | '/learning/$courseId/path'
     | '/plants/$plantId/edit'
+    | '/learning/$courseId/'
+    | '/learning/$courseId/exercise/$sessionId'
+    | '/learning/$courseId/items/$itemId'
+    | '/learning/$courseId/quiz/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/$'
@@ -201,10 +286,18 @@ export interface FileRouteTypes {
     | '/settings/$domain'
     | '/settings/account'
     | '/settings/tokens'
+    | '/learning'
     | '/notes'
     | '/plants'
     | '/settings'
+    | '/learning/$courseId/chat'
+    | '/learning/$courseId/notes'
+    | '/learning/$courseId/path'
     | '/plants/$plantId/edit'
+    | '/learning/$courseId'
+    | '/learning/$courseId/exercise/$sessionId'
+    | '/learning/$courseId/items/$itemId'
+    | '/learning/$courseId/quiz/$sessionId'
   id:
     | '__root__'
     | '/$'
@@ -220,10 +313,18 @@ export interface FileRouteTypes {
     | '/_app/settings/$domain'
     | '/_app/settings/account'
     | '/_app/settings/tokens'
+    | '/_app/learning/'
     | '/_app/notes/'
     | '/_app/plants/'
     | '/_app/settings/'
+    | '/_app/learning/$courseId/chat'
+    | '/_app/learning/$courseId/notes'
+    | '/_app/learning/$courseId/path'
     | '/_app/plants/$plantId/edit'
+    | '/_app/learning/$courseId/'
+    | '/_app/learning/$courseId/exercise/$sessionId'
+    | '/_app/learning/$courseId/items/$itemId'
+    | '/_app/learning/$courseId/quiz/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -275,6 +376,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/invites'
       fullPath: '/admin/invites'
       preLoaderRoute: typeof AppAdminInvitesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/': {
+      id: '/_app/learning/'
+      path: '/learning'
+      fullPath: '/learning/'
+      preLoaderRoute: typeof AppLearningIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/notes/': {
@@ -347,12 +455,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsTokensRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/learning/$courseId/': {
+      id: '/_app/learning/$courseId/'
+      path: '/learning/$courseId'
+      fullPath: '/learning/$courseId/'
+      preLoaderRoute: typeof AppLearningCourseIdIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/$courseId/chat': {
+      id: '/_app/learning/$courseId/chat'
+      path: '/learning/$courseId/chat'
+      fullPath: '/learning/$courseId/chat'
+      preLoaderRoute: typeof AppLearningCourseIdChatRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/$courseId/notes': {
+      id: '/_app/learning/$courseId/notes'
+      path: '/learning/$courseId/notes'
+      fullPath: '/learning/$courseId/notes'
+      preLoaderRoute: typeof AppLearningCourseIdNotesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/$courseId/path': {
+      id: '/_app/learning/$courseId/path'
+      path: '/learning/$courseId/path'
+      fullPath: '/learning/$courseId/path'
+      preLoaderRoute: typeof AppLearningCourseIdPathRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/plants/$plantId/edit': {
       id: '/_app/plants/$plantId/edit'
       path: '/edit'
       fullPath: '/plants/$plantId/edit'
       preLoaderRoute: typeof AppPlantsPlantIdEditRouteImport
       parentRoute: typeof AppPlantsPlantIdRoute
+    }
+    '/_app/learning/$courseId/exercise/$sessionId': {
+      id: '/_app/learning/$courseId/exercise/$sessionId'
+      path: '/learning/$courseId/exercise/$sessionId'
+      fullPath: '/learning/$courseId/exercise/$sessionId'
+      preLoaderRoute: typeof AppLearningCourseIdExerciseSessionIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/$courseId/items/$itemId': {
+      id: '/_app/learning/$courseId/items/$itemId'
+      path: '/learning/$courseId/items/$itemId'
+      fullPath: '/learning/$courseId/items/$itemId'
+      preLoaderRoute: typeof AppLearningCourseIdItemsItemIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/learning/$courseId/quiz/$sessionId': {
+      id: '/_app/learning/$courseId/quiz/$sessionId'
+      path: '/learning/$courseId/quiz/$sessionId'
+      fullPath: '/learning/$courseId/quiz/$sessionId'
+      preLoaderRoute: typeof AppLearningCourseIdQuizSessionIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
@@ -378,9 +535,17 @@ interface AppRouteChildren {
   AppSettingsDomainRoute: typeof AppSettingsDomainRoute
   AppSettingsAccountRoute: typeof AppSettingsAccountRoute
   AppSettingsTokensRoute: typeof AppSettingsTokensRoute
+  AppLearningIndexRoute: typeof AppLearningIndexRoute
   AppNotesIndexRoute: typeof AppNotesIndexRoute
   AppPlantsIndexRoute: typeof AppPlantsIndexRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+  AppLearningCourseIdChatRoute: typeof AppLearningCourseIdChatRoute
+  AppLearningCourseIdNotesRoute: typeof AppLearningCourseIdNotesRoute
+  AppLearningCourseIdPathRoute: typeof AppLearningCourseIdPathRoute
+  AppLearningCourseIdIndexRoute: typeof AppLearningCourseIdIndexRoute
+  AppLearningCourseIdExerciseSessionIdRoute: typeof AppLearningCourseIdExerciseSessionIdRoute
+  AppLearningCourseIdItemsItemIdRoute: typeof AppLearningCourseIdItemsItemIdRoute
+  AppLearningCourseIdQuizSessionIdRoute: typeof AppLearningCourseIdQuizSessionIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -393,9 +558,18 @@ const AppRouteChildren: AppRouteChildren = {
   AppSettingsDomainRoute: AppSettingsDomainRoute,
   AppSettingsAccountRoute: AppSettingsAccountRoute,
   AppSettingsTokensRoute: AppSettingsTokensRoute,
+  AppLearningIndexRoute: AppLearningIndexRoute,
   AppNotesIndexRoute: AppNotesIndexRoute,
   AppPlantsIndexRoute: AppPlantsIndexRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
+  AppLearningCourseIdChatRoute: AppLearningCourseIdChatRoute,
+  AppLearningCourseIdNotesRoute: AppLearningCourseIdNotesRoute,
+  AppLearningCourseIdPathRoute: AppLearningCourseIdPathRoute,
+  AppLearningCourseIdIndexRoute: AppLearningCourseIdIndexRoute,
+  AppLearningCourseIdExerciseSessionIdRoute:
+    AppLearningCourseIdExerciseSessionIdRoute,
+  AppLearningCourseIdItemsItemIdRoute: AppLearningCourseIdItemsItemIdRoute,
+  AppLearningCourseIdQuizSessionIdRoute: AppLearningCourseIdQuizSessionIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

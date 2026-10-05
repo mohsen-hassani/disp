@@ -6,10 +6,10 @@ import {
 } from '@tanstack/react-query';
 
 import type {
-  NoteCreate,
-  NoteOut,
-  NoteUpdate,
-  PageNoteOut,
+  DispCorePaginationPageNoteOut2 as PageNoteOut,
+  DispModulesNotesSchemasNoteCreate as NoteCreate,
+  DispModulesNotesSchemasNoteOut as NoteOut,
+  DispModulesNotesSchemasNoteUpdate as NoteUpdate,
   ShareRequest,
 } from '../../api/generated';
 import { notesCreate, notesDelete, notesShare, notesUpdate } from '../../api/generated';

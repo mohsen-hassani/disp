@@ -53,6 +53,28 @@ export type ApiTokenOut = {
 };
 
 /**
+ * Body_learning_create_source
+ */
+export type BodyLearningCreateSource = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * File
+     */
+    file?: Blob | File | null;
+    /**
+     * Raw Text
+     */
+    raw_text?: string | null;
+};
+
+/**
  * Body_plants_set_image
  */
 export type BodyPlantsSetImage = {
@@ -251,6 +273,86 @@ export type CareLogOut = {
 };
 
 /**
+ * ChatMessageIn
+ */
+export type ChatMessageIn = {
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
+ * ChatMessageOut
+ */
+export type ChatMessageOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * ChatSessionCreate
+ */
+export type ChatSessionCreate = {
+    /**
+     * Scope Type
+     */
+    scope_type: string;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Path Item Id
+     */
+    path_item_id?: string | null;
+    /**
+     * Path Item Ids
+     */
+    path_item_ids?: Array<string> | null;
+};
+
+/**
+ * ChatSessionOut
+ */
+export type ChatSessionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Scope Type
+     */
+    scope_type: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * ClientNavSpec
  *
  * How a module appears in the client's "Modules" navigation section.
@@ -304,6 +406,64 @@ export type CompleteRequest = {
 export type CompleteResult = {
     log: CareLogOut;
     interval: CareIntervalOut;
+};
+
+/**
+ * CourseCreate
+ */
+export type CourseCreate = {
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description?: string | null;
+};
+
+/**
+ * CourseOut
+ */
+export type CourseOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string | null;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * CourseUpdate
+ */
+export type CourseUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
 };
 
 /**
@@ -469,6 +629,210 @@ export type DueSummary = {
 };
 
 /**
+ * ExerciseItemOut
+ */
+export type ExerciseItemOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Order Index
+     */
+    order_index: number;
+    /**
+     * Instruction Text
+     */
+    instruction_text: string;
+    /**
+     * Hint Text
+     */
+    hint_text: string | null;
+    /**
+     * Target Tag Ids
+     */
+    target_tag_ids: Array<string>;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * ExerciseItemUpdate
+ */
+export type ExerciseItemUpdate = {
+    /**
+     * Instruction Text
+     */
+    instruction_text?: string | null;
+    /**
+     * Hint Text
+     */
+    hint_text?: string | null;
+    /**
+     * Order Index
+     */
+    order_index?: number | null;
+    /**
+     * Target Tag Ids
+     */
+    target_tag_ids?: Array<string> | null;
+};
+
+/**
+ * ExerciseSessionOut
+ */
+export type ExerciseSessionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Path Item Id
+     */
+    path_item_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Current Step Index
+     */
+    current_step_index: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Started At
+     */
+    started_at: string | null;
+    /**
+     * Completed At
+     */
+    completed_at: string | null;
+    /**
+     * Steps
+     */
+    steps: Array<ExerciseItemOut>;
+};
+
+/**
+ * ExerciseSubmissionIn
+ */
+export type ExerciseSubmissionIn = {
+    /**
+     * Submission Text
+     */
+    submission_text: string;
+};
+
+/**
+ * ExerciseSubmissionOut
+ */
+export type ExerciseSubmissionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Step Id
+     */
+    step_id: string;
+    /**
+     * Submission Text
+     */
+    submission_text: string;
+    /**
+     * Passed
+     */
+    passed: boolean;
+    /**
+     * Feedback Text
+     */
+    feedback_text: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * ExerciseSummaryOut
+ */
+export type ExerciseSummaryOut = {
+    /**
+     * Pass Rate
+     */
+    pass_rate: number;
+    /**
+     * Step Count
+     */
+    step_count: number;
+    /**
+     * Submissions
+     */
+    submissions: Array<ExerciseSubmissionOut>;
+    /**
+     * Weakest Tag Ids
+     */
+    weakest_tag_ids: Array<string>;
+};
+
+/**
+ * ExplainIn
+ */
+export type ExplainIn = {
+    /**
+     * Mode
+     */
+    mode: string;
+};
+
+/**
+ * ExplainOut
+ */
+export type ExplainOut = {
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
+ * FollowupIn
+ */
+export type FollowupIn = {
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
+ * FollowupOut
+ */
+export type FollowupOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -528,6 +892,56 @@ export type InviteOut = {
      * Created At
      */
     created_at: string;
+};
+
+/**
+ * JobOut
+ */
+export type JobOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Phase
+     */
+    phase: string | null;
+    /**
+     * Progress Current
+     */
+    progress_current: number;
+    /**
+     * Progress Total
+     */
+    progress_total: number;
+    /**
+     * Error Code
+     */
+    error_code: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Started At
+     */
+    started_at: string | null;
+    /**
+     * Finished At
+     */
+    finished_at: string | null;
 };
 
 /**
@@ -639,72 +1053,6 @@ export type ModuleManifestOut = {
 };
 
 /**
- * NoteCreate
- */
-export type NoteCreate = {
-    /**
-     * Title
-     */
-    title?: string | null;
-    /**
-     * Body
-     */
-    body: string;
-    /**
-     * Pinned
-     */
-    pinned?: boolean;
-};
-
-/**
- * NoteOut
- */
-export type NoteOut = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Title
-     */
-    title: string | null;
-    /**
-     * Body
-     */
-    body: string;
-    /**
-     * Pinned
-     */
-    pinned: boolean;
-    /**
-     * Created At
-     */
-    created_at: string;
-    /**
-     * Updated At
-     */
-    updated_at: string;
-};
-
-/**
- * NoteUpdate
- */
-export type NoteUpdate = {
-    /**
-     * Title
-     */
-    title?: string | null;
-    /**
-     * Body
-     */
-    body?: string | null;
-    /**
-     * Pinned
-     */
-    pinned?: boolean | null;
-};
-
-/**
  * NotificationTypeSpec
  */
 export type NotificationTypeSpec = {
@@ -727,13 +1075,13 @@ export type NotificationTypeSpec = {
 };
 
 /**
- * Page[NoteOut]
+ * Page[CourseOut]
  */
-export type PageNoteOut = {
+export type PageCourseOut = {
     /**
      * Items
      */
-    items: Array<NoteOut>;
+    items: Array<CourseOut>;
     /**
      * Next Cursor
      */
@@ -774,6 +1122,85 @@ export type PasswordChangeRequest = {
      * New Password
      */
     new_password: string;
+};
+
+/**
+ * PathItemContentOut
+ */
+export type PathItemContentOut = {
+    path_item: PathItemOut;
+    /**
+     * Sections
+     */
+    sections: Array<SourceSectionOut>;
+};
+
+/**
+ * PathItemOut
+ */
+export type PathItemOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Tier
+     */
+    tier: string;
+    /**
+     * Order Index
+     */
+    order_index: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Est Minutes
+     */
+    est_minutes: number;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Completion Status
+     */
+    completion_status: string;
+    /**
+     * Completed At
+     */
+    completed_at: string | null;
+    /**
+     * Topic Ids
+     */
+    topic_ids: Array<string>;
+};
+
+/**
+ * PathItemUpdate
+ */
+export type PathItemUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Tier
+     */
+    tier?: string | null;
+    /**
+     * Order Index
+     */
+    order_index?: number | null;
+    /**
+     * Topic Ids
+     */
+    topic_ids?: Array<string> | null;
 };
 
 /**
@@ -917,6 +1344,174 @@ export type PlantUpdate = {
 };
 
 /**
+ * ProgressOut
+ */
+export type ProgressOut = {
+    /**
+     * Completed
+     */
+    completed: number;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * By Tier
+     */
+    by_tier: {
+        [key: string]: TierProgress;
+    };
+};
+
+/**
+ * QuizAnswerIn
+ */
+export type QuizAnswerIn = {
+    /**
+     * Answer Text
+     */
+    answer_text: string;
+};
+
+/**
+ * QuizAnswerOut
+ */
+export type QuizAnswerOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Question Id
+     */
+    question_id: string;
+    /**
+     * Answer Text
+     */
+    answer_text: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Feedback Text
+     */
+    feedback_text: string;
+    /**
+     * Tags Tested
+     */
+    tags_tested: Array<string>;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * QuizItemOut
+ */
+export type QuizItemOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Order Index
+     */
+    order_index: number;
+    /**
+     * Question Text
+     */
+    question_text: string;
+    /**
+     * Target Tag Ids
+     */
+    target_tag_ids: Array<string>;
+    /**
+     * Status
+     */
+    status: string;
+};
+
+/**
+ * QuizItemUpdate
+ */
+export type QuizItemUpdate = {
+    /**
+     * Question Text
+     */
+    question_text?: string | null;
+    /**
+     * Order Index
+     */
+    order_index?: number | null;
+    /**
+     * Target Tag Ids
+     */
+    target_tag_ids?: Array<string> | null;
+};
+
+/**
+ * QuizSessionOut
+ */
+export type QuizSessionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Path Item Id
+     */
+    path_item_id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Current Question Index
+     */
+    current_question_index: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Started At
+     */
+    started_at: string | null;
+    /**
+     * Completed At
+     */
+    completed_at: string | null;
+    /**
+     * Questions
+     */
+    questions: Array<QuizItemOut>;
+};
+
+/**
+ * QuizSummaryOut
+ */
+export type QuizSummaryOut = {
+    /**
+     * Overall Score
+     */
+    overall_score: number;
+    /**
+     * Question Count
+     */
+    question_count: number;
+    /**
+     * Answers
+     */
+    answers: Array<QuizAnswerOut>;
+    /**
+     * Weakest Tag Ids
+     */
+    weakest_tag_ids: Array<string>;
+};
+
+/**
  * SettingsPanelOut
  */
 export type SettingsPanelOut = {
@@ -956,6 +1551,68 @@ export type ShareRequest = {
      * Permission
      */
     permission: 'read' | 'write';
+};
+
+/**
+ * SourceOut
+ */
+export type SourceOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Token Count
+     */
+    token_count: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * SourceSectionOut
+ */
+export type SourceSectionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Heading Path
+     */
+    heading_path: string;
+    /**
+     * Content Text
+     */
+    content_text: string;
+};
+
+/**
+ * TierProgress
+ */
+export type TierProgress = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Completed
+     */
+    completed: number;
 };
 
 /**
@@ -1115,50 +1772,6 @@ export type TilesResponse = {
 };
 
 /**
- * UsageRow
- */
-export type UsageRow = {
-    /**
-     * Domain
-     */
-    domain: string;
-    /**
-     * Purpose
-     */
-    purpose: string;
-    /**
-     * Owner User Id
-     */
-    owner_user_id: string;
-    /**
-     * Count
-     */
-    count: number;
-    /**
-     * Total Bytes
-     */
-    total_bytes: number;
-};
-
-/**
- * UsageSummary
- */
-export type UsageSummary = {
-    /**
-     * Rows
-     */
-    rows: Array<UsageRow>;
-    /**
-     * Total Count
-     */
-    total_count: number;
-    /**
-     * Total Bytes
-     */
-    total_bytes: number;
-};
-
-/**
  * UserOut
  */
 export type UserOut = {
@@ -1206,6 +1819,334 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WeakPointOut
+ */
+export type WeakPointOut = {
+    /**
+     * Topic Tag Id
+     */
+    topic_tag_id: string;
+    /**
+     * Tag Name
+     */
+    tag_name: string;
+    /**
+     * Topic Id
+     */
+    topic_id: string;
+    /**
+     * Topic Name
+     */
+    topic_name: string;
+    /**
+     * Rolling Score
+     */
+    rolling_score: number;
+    /**
+     * Path Items
+     */
+    path_items: Array<WeakPointPathItem>;
+};
+
+/**
+ * WeakPointPathItem
+ */
+export type WeakPointPathItem = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+};
+
+/**
+ * UsageRow
+ */
+export type DispCoreFilesStoreUsageRow = {
+    /**
+     * Domain
+     */
+    domain: string;
+    /**
+     * Purpose
+     */
+    purpose: string;
+    /**
+     * Owner User Id
+     */
+    owner_user_id: string;
+    /**
+     * Count
+     */
+    count: number;
+    /**
+     * Total Bytes
+     */
+    total_bytes: number;
+};
+
+/**
+ * UsageSummary
+ */
+export type DispCoreFilesStoreUsageSummary = {
+    /**
+     * Rows
+     */
+    rows: Array<DispCoreFilesStoreUsageRow>;
+    /**
+     * Total Count
+     */
+    total_count: number;
+    /**
+     * Total Bytes
+     */
+    total_bytes: number;
+};
+
+/**
+ * UsageRow
+ */
+export type DispCoreLlmUsageUsageRow = {
+    /**
+     * Call Name
+     */
+    call_name: string;
+    /**
+     * Day
+     */
+    day: string;
+    /**
+     * Outcome
+     */
+    outcome: string;
+    /**
+     * Call Count
+     */
+    call_count: number;
+    /**
+     * Input Tokens
+     */
+    input_tokens: number;
+    /**
+     * Cached Read Tokens
+     */
+    cached_read_tokens: number;
+    /**
+     * Output Tokens
+     */
+    output_tokens: number;
+};
+
+/**
+ * UsageSummary
+ */
+export type DispCoreLlmUsageUsageSummary = {
+    /**
+     * Rows
+     */
+    rows: Array<DispCoreLlmUsageUsageRow>;
+    /**
+     * Total Calls
+     */
+    total_calls: number;
+    /**
+     * Total Input Tokens
+     */
+    total_input_tokens: number;
+    /**
+     * Total Output Tokens
+     */
+    total_output_tokens: number;
+};
+
+/**
+ * Page[NoteOut]
+ */
+export type DispCorePaginationPageNoteOut1 = {
+    /**
+     * Items
+     */
+    items: Array<DispModulesLearningSchemasNoteOut>;
+    /**
+     * Next Cursor
+     */
+    next_cursor: string | null;
+    /**
+     * Has More
+     */
+    has_more: boolean;
+};
+
+/**
+ * Page[NoteOut]
+ */
+export type DispCorePaginationPageNoteOut2 = {
+    /**
+     * Items
+     */
+    items: Array<DispModulesNotesSchemasNoteOut>;
+    /**
+     * Next Cursor
+     */
+    next_cursor: string | null;
+    /**
+     * Has More
+     */
+    has_more: boolean;
+};
+
+/**
+ * NoteCreate
+ */
+export type DispModulesLearningSchemasNoteCreate = {
+    /**
+     * Label
+     */
+    label?: string;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Path Item Id
+     */
+    path_item_id?: string | null;
+    /**
+     * Topic Id
+     */
+    topic_id?: string | null;
+    /**
+     * Source Section Id
+     */
+    source_section_id?: string | null;
+};
+
+/**
+ * NoteOut
+ */
+export type DispModulesLearningSchemasNoteOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Course Id
+     */
+    course_id: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Path Item Id
+     */
+    path_item_id: string | null;
+    /**
+     * Topic Id
+     */
+    topic_id: string | null;
+    /**
+     * Source Section Id
+     */
+    source_section_id: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * NoteUpdate
+ */
+export type DispModulesLearningSchemasNoteUpdate = {
+    /**
+     * Label
+     */
+    label?: string | null;
+    /**
+     * Body
+     */
+    body?: string | null;
+};
+
+/**
+ * NoteCreate
+ */
+export type DispModulesNotesSchemasNoteCreate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Pinned
+     */
+    pinned?: boolean;
+};
+
+/**
+ * NoteOut
+ */
+export type DispModulesNotesSchemasNoteOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Pinned
+     */
+    pinned: boolean;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * NoteUpdate
+ */
+export type DispModulesNotesSchemasNoteUpdate = {
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Body
+     */
+    body?: string | null;
+    /**
+     * Pinned
+     */
+    pinned?: boolean | null;
 };
 
 export type HealthCheckData = {
@@ -1926,18 +2867,125 @@ export type FilesUsageResponses = {
     /**
      * Successful Response
      */
-    200: UsageSummary;
+    200: DispCoreFilesStoreUsageSummary;
 };
 
 export type FilesUsageResponse = FilesUsageResponses[keyof FilesUsageResponses];
 
-export type FilesGetData = {
+export type LlmUsageData = {
     body?: never;
     headers?: {
         /**
-         * If-None-Match
+         * Authorization
          */
-        'if-none-match'?: string | null;
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Since
+         */
+        since?: string | null;
+        /**
+         * Call Name
+         */
+        call_name?: string | null;
+    };
+    url: '/api/llm/usage';
+};
+
+export type LlmUsageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LlmUsageError = LlmUsageErrors[keyof LlmUsageErrors];
+
+export type LlmUsageResponses = {
+    /**
+     * Successful Response
+     */
+    200: DispCoreLlmUsageUsageSummary;
+};
+
+export type LlmUsageResponse = LlmUsageResponses[keyof LlmUsageResponses];
+
+export type LearningListCoursesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+    };
+    url: '/api/learning/courses';
+};
+
+export type LearningListCoursesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningListCoursesError = LearningListCoursesErrors[keyof LearningListCoursesErrors];
+
+export type LearningListCoursesResponses = {
+    /**
+     * Successful Response
+     */
+    200: PageCourseOut;
+};
+
+export type LearningListCoursesResponse = LearningListCoursesResponses[keyof LearningListCoursesResponses];
+
+export type LearningCreateCourseData = {
+    body: CourseCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/learning/courses';
+};
+
+export type LearningCreateCourseErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateCourseError = LearningCreateCourseErrors[keyof LearningCreateCourseErrors];
+
+export type LearningCreateCourseResponses = {
+    /**
+     * Successful Response
+     */
+    201: CourseOut;
+};
+
+export type LearningCreateCourseResponse = LearningCreateCourseResponses[keyof LearningCreateCourseResponses];
+
+export type LearningDeleteCourseData = {
+    body?: never;
+    headers?: {
         /**
          * Authorization
          */
@@ -1945,38 +2993,2028 @@ export type FilesGetData = {
     };
     path: {
         /**
-         * Asset Id
+         * Course Id
          */
-        asset_id: string;
+        course_id: string;
     };
-    query?: {
-        /**
-         * Exp
-         */
-        exp?: number | null;
-        /**
-         * Sig
-         */
-        sig?: string | null;
-    };
-    url: '/api/files/{asset_id}';
+    query?: never;
+    url: '/api/learning/courses/{course_id}';
 };
 
-export type FilesGetErrors = {
+export type LearningDeleteCourseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type FilesGetError = FilesGetErrors[keyof FilesGetErrors];
+export type LearningDeleteCourseError = LearningDeleteCourseErrors[keyof LearningDeleteCourseErrors];
 
-export type FilesGetResponses = {
+export type LearningDeleteCourseResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    204: void;
 };
+
+export type LearningDeleteCourseResponse = LearningDeleteCourseResponses[keyof LearningDeleteCourseResponses];
+
+export type LearningGetCourseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}';
+};
+
+export type LearningGetCourseErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetCourseError = LearningGetCourseErrors[keyof LearningGetCourseErrors];
+
+export type LearningGetCourseResponses = {
+    /**
+     * Successful Response
+     */
+    200: CourseOut;
+};
+
+export type LearningGetCourseResponse = LearningGetCourseResponses[keyof LearningGetCourseResponses];
+
+export type LearningUpdateCourseData = {
+    body: CourseUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}';
+};
+
+export type LearningUpdateCourseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningUpdateCourseError = LearningUpdateCourseErrors[keyof LearningUpdateCourseErrors];
+
+export type LearningUpdateCourseResponses = {
+    /**
+     * Successful Response
+     */
+    200: CourseOut;
+};
+
+export type LearningUpdateCourseResponse = LearningUpdateCourseResponses[keyof LearningUpdateCourseResponses];
+
+export type LearningListSourcesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/sources';
+};
+
+export type LearningListSourcesErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningListSourcesError = LearningListSourcesErrors[keyof LearningListSourcesErrors];
+
+export type LearningListSourcesResponses = {
+    /**
+     * Response Learning List Sources
+     *
+     * Successful Response
+     */
+    200: Array<SourceOut>;
+};
+
+export type LearningListSourcesResponse = LearningListSourcesResponses[keyof LearningListSourcesResponses];
+
+export type LearningCreateSourceData = {
+    body: BodyLearningCreateSource;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/sources';
+};
+
+export type LearningCreateSourceErrors = {
+    /**
+     * The source has no extractable text (modules.learning.empty_source)
+     */
+    400: unknown;
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * max_sources_per_course exceeded (modules.learning.source_limit)
+     */
+    409: unknown;
+    /**
+     * Unrecognised content_type
+     */
+    415: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateSourceError = LearningCreateSourceErrors[keyof LearningCreateSourceErrors];
+
+export type LearningCreateSourceResponses = {
+    /**
+     * Successful Response
+     */
+    201: SourceOut;
+};
+
+export type LearningCreateSourceResponse = LearningCreateSourceResponses[keyof LearningCreateSourceResponses];
+
+export type LearningDeleteSourceData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/learning/sources/{source_id}';
+};
+
+export type LearningDeleteSourceErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Source not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningDeleteSourceError = LearningDeleteSourceErrors[keyof LearningDeleteSourceErrors];
+
+export type LearningDeleteSourceResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LearningDeleteSourceResponse = LearningDeleteSourceResponses[keyof LearningDeleteSourceResponses];
+
+export type LearningIndexCourseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/index';
+};
+
+export type LearningIndexCourseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * An index job is already running for this course
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningIndexCourseError = LearningIndexCourseErrors[keyof LearningIndexCourseErrors];
+
+export type LearningIndexCourseResponses = {
+    /**
+     * Successful Response
+     */
+    202: JobOut;
+};
+
+export type LearningIndexCourseResponse = LearningIndexCourseResponses[keyof LearningIndexCourseResponses];
+
+export type LearningGetJobData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/learning/jobs/{job_id}';
+};
+
+export type LearningGetJobErrors = {
+    /**
+     * Job not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetJobError = LearningGetJobErrors[keyof LearningGetJobErrors];
+
+export type LearningGetJobResponses = {
+    /**
+     * Successful Response
+     */
+    200: JobOut;
+};
+
+export type LearningGetJobResponse = LearningGetJobResponses[keyof LearningGetJobResponses];
+
+export type LearningGeneratePathData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/path/generate';
+};
+
+export type LearningGeneratePathErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Course not indexed, a job is already running, or an approved path already exists
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGeneratePathError = LearningGeneratePathErrors[keyof LearningGeneratePathErrors];
+
+export type LearningGeneratePathResponses = {
+    /**
+     * Successful Response
+     */
+    202: JobOut;
+};
+
+export type LearningGeneratePathResponse = LearningGeneratePathResponses[keyof LearningGeneratePathResponses];
+
+export type LearningGetPathData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/path';
+};
+
+export type LearningGetPathErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetPathError = LearningGetPathErrors[keyof LearningGetPathErrors];
+
+export type LearningGetPathResponses = {
+    /**
+     * Response Learning Get Path
+     *
+     * Successful Response
+     */
+    200: Array<PathItemOut>;
+};
+
+export type LearningGetPathResponse = LearningGetPathResponses[keyof LearningGetPathResponses];
+
+export type LearningApprovePathData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/path/approve';
+};
+
+export type LearningApprovePathErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningApprovePathError = LearningApprovePathErrors[keyof LearningApprovePathErrors];
+
+export type LearningApprovePathResponses = {
+    /**
+     * Response Learning Approve Path
+     *
+     * Successful Response
+     */
+    200: Array<PathItemOut>;
+};
+
+export type LearningApprovePathResponse = LearningApprovePathResponses[keyof LearningApprovePathResponses];
+
+export type LearningDeletePathItemData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}';
+};
+
+export type LearningDeletePathItemErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Path item not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningDeletePathItemError = LearningDeletePathItemErrors[keyof LearningDeletePathItemErrors];
+
+export type LearningDeletePathItemResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LearningDeletePathItemResponse = LearningDeletePathItemResponses[keyof LearningDeletePathItemResponses];
+
+export type LearningUpdatePathItemData = {
+    body: PathItemUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}';
+};
+
+export type LearningUpdatePathItemErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Path item not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningUpdatePathItemError = LearningUpdatePathItemErrors[keyof LearningUpdatePathItemErrors];
+
+export type LearningUpdatePathItemResponses = {
+    /**
+     * Successful Response
+     */
+    200: PathItemOut;
+};
+
+export type LearningUpdatePathItemResponse = LearningUpdatePathItemResponses[keyof LearningUpdatePathItemResponses];
+
+export type LearningGetPathItemContentData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}/content';
+};
+
+export type LearningGetPathItemContentErrors = {
+    /**
+     * Path item not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetPathItemContentError = LearningGetPathItemContentErrors[keyof LearningGetPathItemContentErrors];
+
+export type LearningGetPathItemContentResponses = {
+    /**
+     * Successful Response
+     */
+    200: PathItemContentOut;
+};
+
+export type LearningGetPathItemContentResponse = LearningGetPathItemContentResponses[keyof LearningGetPathItemContentResponses];
+
+export type LearningCreateQuizData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}/quizzes';
+};
+
+export type LearningCreateQuizErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The path item is not approved (modules.learning.path_not_approved)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateQuizError = LearningCreateQuizErrors[keyof LearningCreateQuizErrors];
+
+export type LearningCreateQuizResponses = {
+    /**
+     * Successful Response
+     */
+    201: QuizSessionOut;
+};
+
+export type LearningCreateQuizResponse = LearningCreateQuizResponses[keyof LearningCreateQuizResponses];
+
+export type LearningGetQuizData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}';
+};
+
+export type LearningGetQuizErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetQuizError = LearningGetQuizErrors[keyof LearningGetQuizErrors];
+
+export type LearningGetQuizResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizSessionOut;
+};
+
+export type LearningGetQuizResponse = LearningGetQuizResponses[keyof LearningGetQuizResponses];
+
+export type LearningDeleteQuestionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+        /**
+         * Item Id
+         */
+        item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/items/{item_id}';
+};
+
+export type LearningDeleteQuestionErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningDeleteQuestionError = LearningDeleteQuestionErrors[keyof LearningDeleteQuestionErrors];
+
+export type LearningDeleteQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LearningDeleteQuestionResponse = LearningDeleteQuestionResponses[keyof LearningDeleteQuestionResponses];
+
+export type LearningUpdateQuestionData = {
+    body: QuizItemUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+        /**
+         * Item Id
+         */
+        item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/items/{item_id}';
+};
+
+export type LearningUpdateQuestionErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The session is not a draft (modules.learning.session_not_draft)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningUpdateQuestionError = LearningUpdateQuestionErrors[keyof LearningUpdateQuestionErrors];
+
+export type LearningUpdateQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizItemOut;
+};
+
+export type LearningUpdateQuestionResponse = LearningUpdateQuestionResponses[keyof LearningUpdateQuestionResponses];
+
+export type LearningStartQuizData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/start';
+};
+
+export type LearningStartQuizErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningStartQuizError = LearningStartQuizErrors[keyof LearningStartQuizErrors];
+
+export type LearningStartQuizResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizSessionOut;
+};
+
+export type LearningStartQuizResponse = LearningStartQuizResponses[keyof LearningStartQuizResponses];
+
+export type LearningGetCurrentQuestionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/current';
+};
+
+export type LearningGetCurrentQuestionErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetCurrentQuestionError = LearningGetCurrentQuestionErrors[keyof LearningGetCurrentQuestionErrors];
+
+export type LearningGetCurrentQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizItemOut;
+};
+
+export type LearningGetCurrentQuestionResponse = LearningGetCurrentQuestionResponses[keyof LearningGetCurrentQuestionResponses];
+
+export type LearningSubmitAnswerData = {
+    body: QuizAnswerIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/submit';
+};
+
+export type LearningSubmitAnswerErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Already answered (modules.learning.question_answered)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningSubmitAnswerError = LearningSubmitAnswerErrors[keyof LearningSubmitAnswerErrors];
+
+export type LearningSubmitAnswerResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizAnswerOut;
+};
+
+export type LearningSubmitAnswerResponse = LearningSubmitAnswerResponses[keyof LearningSubmitAnswerResponses];
+
+export type LearningQuizFollowupData = {
+    body: FollowupIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/followup';
+};
+
+export type LearningQuizFollowupErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The current question is not yet answered
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningQuizFollowupError = LearningQuizFollowupErrors[keyof LearningQuizFollowupErrors];
+
+export type LearningQuizFollowupResponses = {
+    /**
+     * Successful Response
+     */
+    200: FollowupOut;
+};
+
+export type LearningQuizFollowupResponse = LearningQuizFollowupResponses[keyof LearningQuizFollowupResponses];
+
+export type LearningAdvanceQuizData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/advance';
+};
+
+export type LearningAdvanceQuizErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The current question is not yet answered
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningAdvanceQuizError = LearningAdvanceQuizErrors[keyof LearningAdvanceQuizErrors];
+
+export type LearningAdvanceQuizResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizSessionOut;
+};
+
+export type LearningAdvanceQuizResponse = LearningAdvanceQuizResponses[keyof LearningAdvanceQuizResponses];
+
+export type LearningQuizSummaryData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/quizzes/{session_id}/summary';
+};
+
+export type LearningQuizSummaryErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The session is not completed (modules.learning.session_not_completed)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningQuizSummaryError = LearningQuizSummaryErrors[keyof LearningQuizSummaryErrors];
+
+export type LearningQuizSummaryResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuizSummaryOut;
+};
+
+export type LearningQuizSummaryResponse = LearningQuizSummaryResponses[keyof LearningQuizSummaryResponses];
+
+export type LearningCreateExerciseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}/exercises';
+};
+
+export type LearningCreateExerciseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The path item is not approved (modules.learning.path_not_approved)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateExerciseError = LearningCreateExerciseErrors[keyof LearningCreateExerciseErrors];
+
+export type LearningCreateExerciseResponses = {
+    /**
+     * Successful Response
+     */
+    201: ExerciseSessionOut;
+};
+
+export type LearningCreateExerciseResponse = LearningCreateExerciseResponses[keyof LearningCreateExerciseResponses];
+
+export type LearningGetExerciseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}';
+};
+
+export type LearningGetExerciseErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetExerciseError = LearningGetExerciseErrors[keyof LearningGetExerciseErrors];
+
+export type LearningGetExerciseResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseSessionOut;
+};
+
+export type LearningGetExerciseResponse = LearningGetExerciseResponses[keyof LearningGetExerciseResponses];
+
+export type LearningDeleteStepData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+        /**
+         * Item Id
+         */
+        item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/items/{item_id}';
+};
+
+export type LearningDeleteStepErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningDeleteStepError = LearningDeleteStepErrors[keyof LearningDeleteStepErrors];
+
+export type LearningDeleteStepResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LearningDeleteStepResponse = LearningDeleteStepResponses[keyof LearningDeleteStepResponses];
+
+export type LearningUpdateStepData = {
+    body: ExerciseItemUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+        /**
+         * Item Id
+         */
+        item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/items/{item_id}';
+};
+
+export type LearningUpdateStepErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The session is not a draft (modules.learning.session_not_draft)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningUpdateStepError = LearningUpdateStepErrors[keyof LearningUpdateStepErrors];
+
+export type LearningUpdateStepResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseItemOut;
+};
+
+export type LearningUpdateStepResponse = LearningUpdateStepResponses[keyof LearningUpdateStepResponses];
+
+export type LearningStartExerciseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/start';
+};
+
+export type LearningStartExerciseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningStartExerciseError = LearningStartExerciseErrors[keyof LearningStartExerciseErrors];
+
+export type LearningStartExerciseResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseSessionOut;
+};
+
+export type LearningStartExerciseResponse = LearningStartExerciseResponses[keyof LearningStartExerciseResponses];
+
+export type LearningGetCurrentStepData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/current';
+};
+
+export type LearningGetCurrentStepErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetCurrentStepError = LearningGetCurrentStepErrors[keyof LearningGetCurrentStepErrors];
+
+export type LearningGetCurrentStepResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseItemOut;
+};
+
+export type LearningGetCurrentStepResponse = LearningGetCurrentStepResponses[keyof LearningGetCurrentStepResponses];
+
+export type LearningSubmitStepData = {
+    body: ExerciseSubmissionIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/submit';
+};
+
+export type LearningSubmitStepErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Already submitted (modules.learning.question_answered)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningSubmitStepError = LearningSubmitStepErrors[keyof LearningSubmitStepErrors];
+
+export type LearningSubmitStepResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseSubmissionOut;
+};
+
+export type LearningSubmitStepResponse = LearningSubmitStepResponses[keyof LearningSubmitStepResponses];
+
+export type LearningExerciseFollowupData = {
+    body: FollowupIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/followup';
+};
+
+export type LearningExerciseFollowupErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The current step is not yet submitted
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningExerciseFollowupError = LearningExerciseFollowupErrors[keyof LearningExerciseFollowupErrors];
+
+export type LearningExerciseFollowupResponses = {
+    /**
+     * Successful Response
+     */
+    200: FollowupOut;
+};
+
+export type LearningExerciseFollowupResponse = LearningExerciseFollowupResponses[keyof LearningExerciseFollowupResponses];
+
+export type LearningAdvanceExerciseData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/advance';
+};
+
+export type LearningAdvanceExerciseErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The current step is not yet submitted
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningAdvanceExerciseError = LearningAdvanceExerciseErrors[keyof LearningAdvanceExerciseErrors];
+
+export type LearningAdvanceExerciseResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseSessionOut;
+};
+
+export type LearningAdvanceExerciseResponse = LearningAdvanceExerciseResponses[keyof LearningAdvanceExerciseResponses];
+
+export type LearningExerciseSummaryData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/learning/exercises/{session_id}/summary';
+};
+
+export type LearningExerciseSummaryErrors = {
+    /**
+     * Session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The session is not completed (modules.learning.session_not_completed)
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningExerciseSummaryError = LearningExerciseSummaryErrors[keyof LearningExerciseSummaryErrors];
+
+export type LearningExerciseSummaryResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExerciseSummaryOut;
+};
+
+export type LearningExerciseSummaryResponse = LearningExerciseSummaryResponses[keyof LearningExerciseSummaryResponses];
+
+export type LearningExplainPathItemData = {
+    body: ExplainIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Path Item Id
+         */
+        path_item_id: string;
+    };
+    query?: never;
+    url: '/api/learning/path-items/{path_item_id}/explain';
+};
+
+export type LearningExplainPathItemErrors = {
+    /**
+     * Path item not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The model declined to respond (modules.learning.llm_refused)
+     */
+    422: unknown;
+    /**
+     * AI features are temporarily unavailable (modules.learning.llm_unavailable)
+     */
+    503: unknown;
+};
+
+export type LearningExplainPathItemResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExplainOut;
+};
+
+export type LearningExplainPathItemResponse = LearningExplainPathItemResponses[keyof LearningExplainPathItemResponses];
+
+export type LearningListChatsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/chats';
+};
+
+export type LearningListChatsErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningListChatsError = LearningListChatsErrors[keyof LearningListChatsErrors];
+
+export type LearningListChatsResponses = {
+    /**
+     * Response Learning List Chats
+     *
+     * Successful Response
+     */
+    200: Array<ChatSessionOut>;
+};
+
+export type LearningListChatsResponse = LearningListChatsResponses[keyof LearningListChatsResponses];
+
+export type LearningCreateChatData = {
+    body: ChatSessionCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/chats';
+};
+
+export type LearningCreateChatErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateChatError = LearningCreateChatErrors[keyof LearningCreateChatErrors];
+
+export type LearningCreateChatResponses = {
+    /**
+     * Successful Response
+     */
+    201: ChatSessionOut;
+};
+
+export type LearningCreateChatResponse = LearningCreateChatResponses[keyof LearningCreateChatResponses];
+
+export type LearningListChatMessagesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Chat Id
+         */
+        chat_id: string;
+    };
+    query?: never;
+    url: '/api/learning/chats/{chat_id}/messages';
+};
+
+export type LearningListChatMessagesErrors = {
+    /**
+     * Chat session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningListChatMessagesError = LearningListChatMessagesErrors[keyof LearningListChatMessagesErrors];
+
+export type LearningListChatMessagesResponses = {
+    /**
+     * Response Learning List Chat Messages
+     *
+     * Successful Response
+     */
+    200: Array<ChatMessageOut>;
+};
+
+export type LearningListChatMessagesResponse = LearningListChatMessagesResponses[keyof LearningListChatMessagesResponses];
+
+export type LearningSendChatMessageData = {
+    body: ChatMessageIn;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Chat Id
+         */
+        chat_id: string;
+    };
+    query?: never;
+    url: '/api/learning/chats/{chat_id}/messages';
+};
+
+export type LearningSendChatMessageErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Chat session not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * The model declined to respond (modules.learning.llm_refused)
+     */
+    422: unknown;
+    /**
+     * AI features are temporarily unavailable (modules.learning.llm_unavailable)
+     */
+    503: unknown;
+};
+
+export type LearningSendChatMessageResponses = {
+    /**
+     * Successful Response
+     */
+    200: ChatMessageOut;
+};
+
+export type LearningSendChatMessageResponse = LearningSendChatMessageResponses[keyof LearningSendChatMessageResponses];
+
+export type LearningListNotesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: {
+        /**
+         * Label
+         */
+        label?: string | null;
+        /**
+         * Path Item Id
+         */
+        path_item_id?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Cursor
+         */
+        cursor?: string | null;
+    };
+    url: '/api/learning/courses/{course_id}/notes';
+};
+
+export type LearningListNotesErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningListNotesError = LearningListNotesErrors[keyof LearningListNotesErrors];
+
+export type LearningListNotesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DispCorePaginationPageNoteOut1;
+};
+
+export type LearningListNotesResponse = LearningListNotesResponses[keyof LearningListNotesResponses];
+
+export type LearningCreateNoteData = {
+    body: DispModulesLearningSchemasNoteCreate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/notes';
+};
+
+export type LearningCreateNoteErrors = {
+    /**
+     * More than one anchor supplied (modules.learning.invalid_note_anchor)
+     */
+    400: unknown;
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningCreateNoteError = LearningCreateNoteErrors[keyof LearningCreateNoteErrors];
+
+export type LearningCreateNoteResponses = {
+    /**
+     * Successful Response
+     */
+    201: DispModulesLearningSchemasNoteOut;
+};
+
+export type LearningCreateNoteResponse = LearningCreateNoteResponses[keyof LearningCreateNoteResponses];
+
+export type LearningDeleteNoteData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Note Id
+         */
+        note_id: string;
+    };
+    query?: never;
+    url: '/api/learning/notes/{note_id}';
+};
+
+export type LearningDeleteNoteErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Note not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningDeleteNoteError = LearningDeleteNoteErrors[keyof LearningDeleteNoteErrors];
+
+export type LearningDeleteNoteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type LearningDeleteNoteResponse = LearningDeleteNoteResponses[keyof LearningDeleteNoteResponses];
+
+export type LearningUpdateNoteData = {
+    body: DispModulesLearningSchemasNoteUpdate;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Note Id
+         */
+        note_id: string;
+    };
+    query?: never;
+    url: '/api/learning/notes/{note_id}';
+};
+
+export type LearningUpdateNoteErrors = {
+    /**
+     * Caller can see the course but lacks write permission
+     */
+    403: unknown;
+    /**
+     * Note not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningUpdateNoteError = LearningUpdateNoteErrors[keyof LearningUpdateNoteErrors];
+
+export type LearningUpdateNoteResponses = {
+    /**
+     * Successful Response
+     */
+    200: DispModulesLearningSchemasNoteOut;
+};
+
+export type LearningUpdateNoteResponse = LearningUpdateNoteResponses[keyof LearningUpdateNoteResponses];
+
+export type LearningGetProgressData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/progress';
+};
+
+export type LearningGetProgressErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetProgressError = LearningGetProgressErrors[keyof LearningGetProgressErrors];
+
+export type LearningGetProgressResponses = {
+    /**
+     * Successful Response
+     */
+    200: ProgressOut;
+};
+
+export type LearningGetProgressResponse = LearningGetProgressResponses[keyof LearningGetProgressResponses];
+
+export type LearningGetWeakPointsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Authorization
+         */
+        authorization?: string | null;
+    };
+    path: {
+        /**
+         * Course Id
+         */
+        course_id: string;
+    };
+    query?: never;
+    url: '/api/learning/courses/{course_id}/weak-points';
+};
+
+export type LearningGetWeakPointsErrors = {
+    /**
+     * Course not found or not visible to the caller
+     */
+    404: unknown;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LearningGetWeakPointsError = LearningGetWeakPointsErrors[keyof LearningGetWeakPointsErrors];
+
+export type LearningGetWeakPointsResponses = {
+    /**
+     * Response Learning Get Weak Points
+     *
+     * Successful Response
+     */
+    200: Array<WeakPointOut>;
+};
+
+export type LearningGetWeakPointsResponse = LearningGetWeakPointsResponses[keyof LearningGetWeakPointsResponses];
 
 export type NotesListData = {
     body?: never;
@@ -2021,13 +5059,13 @@ export type NotesListResponses = {
     /**
      * Successful Response
      */
-    200: PageNoteOut;
+    200: DispCorePaginationPageNoteOut2;
 };
 
 export type NotesListResponse = NotesListResponses[keyof NotesListResponses];
 
 export type NotesCreateData = {
-    body: NoteCreate;
+    body: DispModulesNotesSchemasNoteCreate;
     headers?: {
         /**
          * Authorization
@@ -2052,7 +5090,7 @@ export type NotesCreateResponses = {
     /**
      * Successful Response
      */
-    201: NoteOut;
+    201: DispModulesNotesSchemasNoteOut;
 };
 
 export type NotesCreateResponse = NotesCreateResponses[keyof NotesCreateResponses];
@@ -2136,13 +5174,13 @@ export type NotesGetResponses = {
     /**
      * Successful Response
      */
-    200: NoteOut;
+    200: DispModulesNotesSchemasNoteOut;
 };
 
 export type NotesGetResponse = NotesGetResponses[keyof NotesGetResponses];
 
 export type NotesUpdateData = {
-    body: NoteUpdate;
+    body: DispModulesNotesSchemasNoteUpdate;
     headers?: {
         /**
          * Authorization
@@ -2180,7 +5218,7 @@ export type NotesUpdateResponses = {
     /**
      * Successful Response
      */
-    200: NoteOut;
+    200: DispModulesNotesSchemasNoteOut;
 };
 
 export type NotesUpdateResponse = NotesUpdateResponses[keyof NotesUpdateResponses];

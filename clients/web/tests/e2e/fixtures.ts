@@ -130,3 +130,14 @@ export async function deletePlant(
 ): Promise<void> {
   await context.request.delete(`/api/plants/${id}`, { headers: authHeaders(accessToken) });
 }
+
+/** Same `finally`-block safety net as `deletePlant`, for `learning.spec.ts`. */
+export async function deleteCourse(
+  context: BrowserContext,
+  accessToken: string,
+  id: string,
+): Promise<void> {
+  await context.request.delete(`/api/learning/courses/${id}`, {
+    headers: authHeaders(accessToken),
+  });
+}

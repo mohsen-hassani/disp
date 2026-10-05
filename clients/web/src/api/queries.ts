@@ -6,6 +6,23 @@ import {
   authMe,
   dashboardManifest,
   dashboardTiles,
+  learningExerciseSummary,
+  learningGetCourse,
+  learningGetCurrentQuestion,
+  learningGetCurrentStep,
+  learningGetExercise,
+  learningGetJob,
+  learningGetPath,
+  learningGetPathItemContent,
+  learningGetProgress,
+  learningGetQuiz,
+  learningGetWeakPoints,
+  learningListChatMessages,
+  learningListChats,
+  learningListCourses,
+  learningListNotes,
+  learningListSources,
+  learningQuizSummary,
   notesGet,
   notesList,
   plantsCalendar,
@@ -327,4 +344,333 @@ export function plantCalendarQueryOptions(month: string) {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+}
+
+// --- M20 §23: learning ------------------------------------------------------
+//
+// `learning` reuses every mechanism M14 (plants) already established —
+// route/screen split, TanStack Query options colocated here, mutations in
+// `components/learning/useLearningMutations.ts` invalidating explicitly.
+// The one genuinely new piece is job polling (`useLearningJob`, in
+// `hooks/useLearningJob.ts`), since indexing/path-generation are the first
+// long-running jobs any DISP screen has had to poll for.
+
+/** `GET /courses` — cursor-paginated like `notes`/`plants`, same `useInfiniteQuery` shape. */
+export function learningCoursesInfiniteQueryOptions() {
+  return infiniteQueryOptions({
+    queryKey: qk.learning.courses.list(),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, response } = await learningListCourses({
+        query: { limit: 20, cursor: pageParam },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load courses.');
+      }
+      return data;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningCourseQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.detail(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetCourse({ path: { course_id: courseId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the course.');
+      }
+      return data;
+    },
+    // Short staleTime: `status` flips draft -> indexing -> active as a job
+    // runs, and this screen is exactly where a user watches that happen.
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningSourcesQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.sources(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningListSources({
+        path: { course_id: courseId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load sources.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningPathQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.path(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetPath({ path: { course_id: courseId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the learning path.');
+      }
+      return data;
+    },
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningPathItemContentQueryOptions(pathItemId: string) {
+  return queryOptions({
+    queryKey: qk.learning.pathItems.content(pathItemId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetPathItemContent({
+        path: { path_item_id: pathItemId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load this lesson.');
+      }
+      return data;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** Base options for `useLearningJob` (`hooks/useLearningJob.ts`), which layers `refetchInterval` on top. */
+export function learningJobQueryOptions(jobId: string) {
+  return queryOptions({
+    queryKey: qk.learning.jobs.detail(jobId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetJob({ path: { job_id: jobId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load job status.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningProgressQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.progress(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetProgress({
+        path: { course_id: courseId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load progress.');
+      }
+      return data;
+    },
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningWeakPointsQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.weakPoints(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetWeakPoints({
+        path: { course_id: courseId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load weak points.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningQuizSessionQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.detail('quiz', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetQuiz({ path: { session_id: sessionId } });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the quiz.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningExerciseSessionQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.detail('exercise', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetExercise({
+        path: { session_id: sessionId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the exercise.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningCurrentQuestionQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.current('quiz', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetCurrentQuestion({
+        path: { session_id: sessionId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the current question.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningCurrentStepQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.current('exercise', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningGetCurrentStep({
+        path: { session_id: sessionId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the current step.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningQuizSummaryQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.summary('quiz', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningQuizSummary({
+        path: { session_id: sessionId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the quiz summary.');
+      }
+      return data;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningExerciseSummaryQueryOptions(sessionId: string) {
+  return queryOptions({
+    queryKey: qk.learning.sessions.summary('exercise', sessionId),
+    queryFn: async () => {
+      const { data, error, response } = await learningExerciseSummary({
+        path: { session_id: sessionId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load the exercise summary.');
+      }
+      return data;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export function learningChatsQueryOptions(courseId: string) {
+  return queryOptions({
+    queryKey: qk.learning.courses.chats(courseId),
+    queryFn: async () => {
+      const { data, error, response } = await learningListChats({
+        path: { course_id: courseId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load chats.');
+      }
+      return data;
+    },
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function learningChatMessagesQueryOptions(chatId: string) {
+  return queryOptions({
+    queryKey: qk.learning.chats.messages(chatId),
+    queryFn: async () => {
+      const { data, error, response } = await learningListChatMessages({
+        path: { chat_id: chatId },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load messages.');
+      }
+      return data;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+interface LearningNotesFilters {
+  label?: string;
+  pathItemId?: string;
+}
+
+export function learningNotesInfiniteQueryOptions(courseId: string, filters: LearningNotesFilters) {
+  return infiniteQueryOptions({
+    queryKey: qk.learning.courses.notes(courseId, filters),
+    queryFn: async ({ pageParam }: { pageParam: string | undefined }) => {
+      const { data, error, response } = await learningListNotes({
+        path: { course_id: courseId },
+        query: {
+          limit: 20,
+          cursor: pageParam,
+          label: filters.label || undefined,
+          path_item_id: filters.pathItemId || undefined,
+        },
+      });
+      if (!response?.ok || !data) {
+        throw error ?? new Error('Failed to load notes.');
+      }
+      return data;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** M20 §24's two `learning.llm_*` codes, plus the generic fallbacks every `describe*Error` uses. */
+export function describeLearningError(problem: ProblemDetail): string {
+  if (problem.code === 'core.acl.forbidden') {
+    return "You don't have permission to do that.";
+  }
+  if (problem.code === 'modules.learning.llm_refused') {
+    return 'The AI declined to respond to that. Try rephrasing.';
+  }
+  if (problem.code === 'modules.learning.llm_unavailable') {
+    return 'AI features are temporarily unavailable. Try again shortly.';
+  }
+  if (problem.code === 'modules.learning.path_not_approved') {
+    return 'Approve the learning path before starting a session over this lesson.';
+  }
+  if (problem.status >= 500) {
+    return `Something went wrong on the server. Reference: ${problem.request_id}`;
+  }
+  return problem.detail || 'Something went wrong. Please try again.';
 }

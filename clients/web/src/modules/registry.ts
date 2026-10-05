@@ -17,7 +17,7 @@
  * Adding a module's screens is one line here plus the route files. Nothing
  * else in the shell changes: no label, no icon, no path, no ordering.
  */
-export const MODULE_SCREENS: ReadonlySet<string> = new Set(['notes', 'plants']);
+export const MODULE_SCREENS: ReadonlySet<string> = new Set(['notes', 'plants', 'learning']);
 
 /** Routes live at /<domain>/… — derived from the domain, never declared. */
 export function moduleBasePath(domain: string): string {

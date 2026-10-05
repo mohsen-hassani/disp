@@ -1,4 +1,12 @@
-import { Box, LayoutDashboard, Settings, Sprout, StickyNote, UserPlus } from 'lucide-react';
+import {
+  Box,
+  GraduationCap,
+  LayoutDashboard,
+  Settings,
+  Sprout,
+  StickyNote,
+  UserPlus,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -17,6 +25,7 @@ import type { LucideIcon } from 'lucide-react';
  */
 const ICONS: Record<string, LucideIcon> = {
   box: Box,
+  'graduation-cap': GraduationCap,
   'layout-dashboard': LayoutDashboard,
   settings: Settings,
   sprout: Sprout,
