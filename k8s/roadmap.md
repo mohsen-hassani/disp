@@ -24,7 +24,7 @@ board.
 | T7 | `worker` Deployment | Applied and running 2026-10-05 (`1/1`; 2 restarts at first, as predicted: it beat the schema). **⚠️ First sweep at 08:17 UTC: confirm the R2 bucket is dedicated to this deployment** (the sweeper deletes objects with no row in this database, see T7) |
 | T8 | File storage — Cloudflare R2 | Done as config — bucket + token created, `api-secrets` filled and applied (2026-10-05); **not yet exercised** against R2 (first upload / sweep) |
 | T9 | `web` Deployment + Service | Files written and verified locally 2026-10-05; **not applied**. Needs a second writable mount (`/var/cache/nginx`), see T9 |
-| T10 | Ingress + TLS | Not started |
+| T10 | Ingress + TLS | Files written and server-dry-run 2026-10-05; **not applied** (applying makes the site public; needs T9 applied and healthy first), see T10 |
 | T11 | pgweb | Dropped — see D4 resolution below |
 | T12 | Deploy trigger (CI → cluster) | Blocked — needs decision (see Open Decisions §D5): Argo CD vs Flux |
 | T13 | Production-readiness review | Not started |
@@ -322,7 +322,7 @@ k8s/
       web.Service.yaml
       kustomization.yaml
     ingress/                      # see T10
-      ingress.yaml
+      ingress.Ingress.yaml
       kustomization.yaml
   overlays/
     prod/
@@ -1122,6 +1122,35 @@ kustomization.yaml}`.
 
 ### T10 — Ingress + TLS
 
+**Resolution (2026-10-05):**
+
+- **Plain `networking.k8s.io/v1 Ingress`, not Traefik's `IngressRoute`.** The open question below is answered:
+  the cluster runs Traefik 3.7.8 with the `kubernetesingress` provider, which derives each
+  router's priority from the length of its rule, so the longer `/api` prefix beats `/` without
+  any annotation. That reproduces the compose labels' `priority=10` vs `priority=1` split. It is
+  also what all 8 existing Ingresses on this cluster use, and it stays portable.
+- **Routes:** `/api` (Prefix), `/health` (Prefix), `/openapi.json` (Exact) go to `api:8000`; `/`
+  (Prefix) goes to `web:8080`. Note that Traefik implements `Prefix` as a string prefix, so
+  `/health` also matches `/healthz`; harmless, since the API owns no such path and would 404.
+- **TLS:** annotation `cert-manager.io/cluster-issuer: letsencrypt-prod`, `tls` for
+  `disp.mohsen-hassani.com`, Secret `disp-tls` (cert-manager creates it). The solver is DNS-01
+  through Cloudflare, so issuance needs no port-80 reachability and does not depend on the
+  Ingress being served first.
+- **Label `domain: mohsen-hassani.com`**, as on the namespace and the other Ingresses.
+- **No HTTP→HTTPS redirect.** Traefik here has no global redirect (`web` entrypoint is plain,
+  `websecure` has `tls=true`) and none of the existing Ingresses add one, so plain `http://` is
+  served as is. With `DISP_COOKIE_SECURE=true` a login over http gets no usable cookie. Adding a
+  Traefik `Middleware` (a CRD, so not portable) is a T13 item, deliberately not done here.
+- **Verified 2026-10-05:** `kustomize build` renders it, and a server-side dry-run accepts it.
+  Not applied.
+- **Before applying:** T9 applied and `web` `1/1`; `api` and `worker` healthy (they are).
+  Applying then publishes the site, with an empty database and no admin yet (T14's
+  `disp-admin seed-admin`), so the app is reachable but nobody can log in.
+- **Sweeps checked:** the worker's 09:17 and 10:17 UTC sweeps both completed with
+  `swept_objects: 0, skipped_in_grace: 0`, so the bucket is empty under this prefix. Nothing was
+  deleted. It stays a T14 concern: until cutover the bucket must not also serve compose
+  production.
+
 **⚠️ Sequencing note:** the DNS record for `disp.mohsen-hassani.com` **already
 exists and already points at this cluster** (confirmed in the 2026-09-01
 discussion). That means the moment this `Ingress` is applied and cert-manager
@@ -1184,7 +1213,8 @@ Cluster facts): reuse the existing `letsencrypt-prod` `ClusterIssuer` and `traef
 **What we're changing from the source, and why:** n/a — no reference-repo pattern
 applied here at all.
 
-**Files to create/modify:** `k8s/base/ingress/{ingress.yaml, kustomization.yaml}`.
+**Files to create/modify:** `k8s/base/ingress/{ingress.Ingress.yaml, kustomization.yaml}`
+(named like the other components, `<name>.<Kind>.yaml`; the layout above says the same).
 
 ---
 

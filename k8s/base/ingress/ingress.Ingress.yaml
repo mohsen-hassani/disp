@@ -1,0 +1,37 @@
+# Reproduces the compose Traefik split (docker-compose.yml: api priority=10 beats
+# web priority=1). Traefik's Ingress provider ranks routers by rule length, so the
+# longer /api, /health and /openapi.json rules win over the catch-all `/`.
+# Applying this publishes https://disp.mohsen-hassani.com (DNS already points here).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: disp
+  namespace: mohsen-hassani-disp
+  labels:
+    app.kubernetes.io/name: disp
+    app.kubernetes.io/part-of: disp
+    domain: mohsen-hassani.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - disp.mohsen-hassani.com
+      secretName: disp-tls
+  rules:
+    - host: disp.mohsen-hassani.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend: {service: {name: api, port: {number: 8000}}}
+          - path: /health
+            pathType: Prefix
+            backend: {service: {name: api, port: {number: 8000}}}
+          - path: /openapi.json
+            pathType: Exact
+            backend: {service: {name: api, port: {number: 8000}}}
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: web, port: {number: 8080}}}
