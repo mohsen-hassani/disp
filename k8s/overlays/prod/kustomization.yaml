@@ -12,12 +12,15 @@ resources:
   - ../../base
 
 # The ONE place image tags are pinned (roadmap.md T6; never :latest). Bump
-# newTag to deploy a new build. It covers api, its migrate initContainer (T5,
-# same image) and worker (T7); web (T9) is a different image and gets its own entry.
+# newTag to deploy a new build. The first entry covers api, its migrate
+# initContainer (T5, same image) and worker (T7); web (T9) is a different image.
+# CI tags BOTH images with the same sha, so bump BOTH lines together.
 #
 # aba85dd9ef79 is the first build with M18 v2 (S3-only), the learning module and
 # core migrations 0001-0005 (verified by inspecting the image, roadmap.md Cluster
 # facts). Older tags (713cd73ac93b, 22d471b1e6ff) have no S3 backend and crash.
 images:
   - name: registry.mohsen-hassani.com/mohsen_hassani/disp
+    newTag: aba85dd9ef79
+  - name: registry.mohsen-hassani.com/mohsen_hassani/disp-web
     newTag: aba85dd9ef79

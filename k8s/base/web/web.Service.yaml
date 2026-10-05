@@ -1,0 +1,18 @@
+# In-cluster only; T10's Ingress targets this (name `web`, port 8080) for every path
+# that isn't /api, /health or /openapi.json.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: mohsen-hassani-disp
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: disp
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

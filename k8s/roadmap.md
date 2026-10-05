@@ -19,11 +19,11 @@ board.
 | T2 | Registry pull credentials | Skipped — images are publicly pullable, see T2 |
 | T3 | Postgres via CloudNativePG (CNPG) | Done — applied and Ready 2026-10-05; backups deferred to T13 |
 | T4 | `api`/`worker` ConfigMap + Secret | Done — applied 2026-10-05 (`api-configs`, `api-secrets`; R2 values added via T8) |
-| T5 | Migrations (initContainer on `api`) | Files written and verified locally 2026-10-05 (changed from a manual Job to an automatic initContainer, see T5); **not yet run on the cluster** — happens on the next `kubectl apply -k k8s/overlays/prod` |
-| T6 | `api` Deployment + Service | Files written; overlay pins `aba85dd9ef79` (v2). Applied once with the old tag (crash-looped, expected). Re-applying it now also runs T5's migrations (initContainer) |
-| T7 | `worker` Deployment | Files written and verified locally 2026-10-05; **not applied. ⚠️ Confirm the R2 bucket is dedicated to this deployment first** (the worker's sweeper deletes objects with no row in this database, see T7) |
+| T5 | Migrations (initContainer on `api`) | Done — ran on the cluster 2026-10-05 ~07:2x UTC: all four branches + Procrastinate schema applied, TLS to CNPG worked with no `ssl` parameter (see T5) |
+| T6 | `api` Deployment + Service | Done — applied 2026-10-05, `api` `1/1 Running`, 0 restarts (readiness `/health` passing), pinned to `aba85dd9ef79` |
+| T7 | `worker` Deployment | Applied and running 2026-10-05 (`1/1`; 2 restarts at first, as predicted: it beat the schema). **⚠️ First sweep at 08:17 UTC: confirm the R2 bucket is dedicated to this deployment** (the sweeper deletes objects with no row in this database, see T7) |
 | T8 | File storage — Cloudflare R2 | Done as config — bucket + token created, `api-secrets` filled and applied (2026-10-05); **not yet exercised** against R2 (first upload / sweep) |
-| T9 | `web` Deployment + Service | Not started |
+| T9 | `web` Deployment + Service | Files written and verified locally 2026-10-05; **not applied**. Needs a second writable mount (`/var/cache/nginx`), see T9 |
 | T10 | Ingress + TLS | Not started |
 | T11 | pgweb | Dropped — see D4 resolution below |
 | T12 | Deploy trigger (CI → cluster) | Blocked — needs decision (see Open Decisions §D5): Argo CD vs Flux |
@@ -723,9 +723,15 @@ generate each secret across both the compose and k8s deploy paths.
   - **Abort guard** (checked on the earlier Job form of the same script): an unreachable host
     exits 2 with `aborting: could not determine procrastinate schema state`, with no fall-through
     to `--apply`.
-  - Server-side dry-run of the whole overlay passes. **Not verified:** a real pod on the cluster,
-    and TLS to CNPG (psycopg's default `sslmode=prefer` should negotiate it). The first real
-    rollout will show both.
+  - Server-side dry-run of the whole overlay passes.
+- **Ran on the cluster, 2026-10-05 (~07:2x UTC):** the `migrate` initContainer applied core
+  0001–0005, learning 0001–0002, notes 0001, plants 0001–0003, then created the Procrastinate
+  schema, and `api` came up `1/1` with 0 restarts. **The open TLS question is answered:** psycopg
+  connected to CNPG with no `ssl` parameter in the URL (default `sslmode=prefer`), no errors.
+  (Whether it negotiated TLS or fell back to plaintext wasn't inspected; both are inside the
+  cluster network.) The `worker`, started in the same rollout, restarted twice with `function
+  procrastinate_prune_stalled_workers_v1(double precision) does not exist` (the schema wasn't
+  there yet) and then ran: the predicted first-deploy noise, see T7.
 - **Out of scope here, but you will hit them:**
   - `disp-admin seed-admin` (creates the first admin, `docs/operations.md`) is a separate
     manual step; a migrated database has no users.
@@ -902,9 +908,11 @@ api.Service.yaml, kustomization.yaml}`.
   than `api` to need raising. Revisit in T13 against `kubectl top pod`.
 - **⚠️ Before applying: the worker runs the file sweeper against the R2 bucket.**
   `core.sweep_files` deletes every object under the bucket/prefix that has **no row in this
-  cluster's database** and is older than `DISP_FILES_ORPHAN_GRACE_SECONDS` (3600s). It also runs
-  **immediately on the worker's first start** (a catch-up run, observed in the 2026-10-05 test),
-  not only at `:17` past the hour. If the bucket in `api-secrets` also holds the compose
+  cluster's database** and is older than `DISP_FILES_ORPHAN_GRACE_SECONDS` (3600s). It runs on
+  its cron, **`17 * * * *`: at :17 past every hour (UTC)**, so the first sweep after a worker
+  starts is at the next :17. (An earlier version of this note claimed it also runs immediately on
+  first start. That was wrong: my local test only saw it fire because it happened to start at
+  07:17. The cluster worker, started 07:27, had not swept by 07:29.) If the bucket in `api-secrets` also holds the compose
   production's uploads, the first sweep deletes all of them: this database is empty, so every
   object is an "orphan". The bucket must be dedicated to this deployment (`CLAUDE.md`: never
   point a non-production database at the production bucket). Confirm that before applying T7.
@@ -919,8 +927,9 @@ api.Service.yaml, kustomization.yaml}`.
   `python -m disp.worker` under `--user 10001:10001 --read-only --tmpfs /tmp --cap-drop ALL`,
   against a migrated throwaway Postgres: stays up (0 restarts), logs `Starting worker on all
   queues`, registers `core.sweep_files` (`17 * * * *`), `notes.purge_deleted` (`30 3 * * *`),
-  `plants.daily_check` (`0 7 * * *`) and `learning.daily_nudge` (`0 18 * * *`), and ran the
-  catch-up `core.sweep_files` at once (it errored, as expected, against my dummy R2 endpoint).
+  `plants.daily_check` (`0 7 * * *`) and `learning.daily_nudge` (`0 18 * * *`). (The `core.sweep_files` run that also appeared fired because
+  the test happened to start at 07:17, the cron minute; it errored, as expected, against my dummy
+  R2 endpoint.)
 
 **Where this stands today (original text):** Not created. `docker-compose.yml` runs this as the
 same `disp` image with `command: ["python", "-m", "disp.worker"]`, no exposed port.
@@ -1033,7 +1042,45 @@ directory.
 
 ### T9 — `web` Deployment + Service
 
-**Where this stands today:** Not created. `docker-compose.yml` runs this as the
+**Resolution (2026-10-05) — decisions that refine the plan below; where they differ, these win:**
+- **Writable mounts: `/tmp` AND `/var/cache/nginx`, not just `/tmp`.** The plan below says an
+  `emptyDir` at `/tmp` is enough; that was only checked on the failing side (without `--read-only`
+  it worked, with it and no `/tmp` it died) and **never with `/tmp` mounted**. Run against the real
+  `:aba85dd9ef79` image with only `/tmp` writable, nginx still exits at startup:
+  `mkdir() "/var/cache/nginx/uwsgi_temp" failed (30: Read-only file system)`. `nginx.conf`
+  redirects `client_body`, `proxy` and `fastcgi` temp paths into `/tmp` but leaves
+  `uwsgi_temp_path` and `scgi_temp_path` at their compiled-in defaults, and nginx creates all five
+  at startup. So the pod gets two `emptyDir`s. (Cleaner alternative, **not done**: add the two
+  missing `*_temp_path` lines to `clients/web/nginx.conf`, which then needs only `/tmp`. That edit
+  belongs to M12's deliverable and needs an image rebuild; the mount makes it unnecessary.)
+- **`runAsUser: 101` / `runAsGroup: 101`, numeric.** The Dockerfile ends with `USER nginx`, a
+  name Kubernetes can't verify as non-root, so `runAsNonRoot: true` alone would give
+  `CreateContainerConfigError` (same trap as `api`, T6). Verified `id nginx` = 101:101 in the image.
+  Port 8080 is unprivileged, so `drop: [ALL]` costs nothing.
+- **A second `images:` entry** in `k8s/overlays/prod/kustomization.yaml` for `disp-web`
+  (a different image name than `disp`, so the existing entry doesn't cover it). CI tags both
+  images with the **same** sha, so the two `newTag`s must always be equal: **bump both lines
+  together**. (Two places to edit is a known wart. A bump script or T12's automation should own it.)
+- **Probes:** `GET /` on port 8080 for liveness and readiness (as the Dockerfile's `HEALTHCHECK`),
+  no `startupProbe` (a static file server is up in under a second). `replicas: 1`.
+- **Resources:** requests 25m / 32Mi, limits 200m / 128Mi (static files, gzip). A guess; T13.
+- **`Service`:** `ClusterIP`, name `web`, port 8080, which T10's Ingress targets for everything
+  that isn't `/api`, `/health` or `/openapi.json`. No env vars: the PWA talks to `/api`
+  same-origin.
+- **Noted for T10/T13, no change needed:** the CSP in `clients/web/security-headers.conf` allows
+  images from `https://*.r2.cloudflarestorage.com`, which matches the presigned path-style R2 URLs
+  the API issues (`DISP_FILES_S3_FORCE_PATH_STYLE` defaults true). A custom domain on the bucket
+  would need that line edited.
+- **Verified 2026-10-05 (locally, not yet on the cluster):** the real `disp-web:aba85dd9ef79`
+  under `--user 101:101 --read-only --tmpfs /tmp --tmpfs /var/cache/nginx --cap-drop ALL
+  --security-opt no-new-privileges` (the tmpfs mounts with `mode=1777` to mimic an `emptyDir`'s
+  0777; Docker's default was root-owned and gave `Permission denied`, a harness artifact): stays
+  up, uid 101; `/`, `/plants`, `/plants/abc`, `/manifest.webmanifest`, `/sw.js`, `/index.html` all
+  200 (SPA fallback works); `/api/anything` and `/assets/nope.js` 404; `Cache-Control: no-cache`,
+  `X-Content-Type-Options`, and the CSP header present; the Dockerfile's `wget --spider` probe
+  succeeds.
+
+**Where this stands today (original text):** Not created. `docker-compose.yml` runs this as the
 `disp-web` image (nginx, non-root, port `8080` internally).
 
 **What "done" looks like:** a `Deployment` running

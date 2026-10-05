@@ -1,0 +1,74 @@
+# The built PWA, served by nginx (clients/web/Dockerfile). No env vars: the client
+# talks to /api same-origin, which T10's Ingress routes to `api`. The image has no tag
+# on purpose; the prod overlay's `images:` pins it. See roadmap.md T9.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: mohsen-hassani-disp
+  labels:
+    app.kubernetes.io/name: web
+    app.kubernetes.io/part-of: disp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+        app.kubernetes.io/part-of: disp
+    spec:
+      automountServiceAccountToken: false # never talks to the Kubernetes API
+      securityContext:
+        runAsNonRoot: true
+        # Numeric on purpose: the image's `USER nginx` is a name, which Kubernetes can't
+        # verify as non-root (CreateContainerConfigError). 101 is the nginx image's own user.
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: registry.mohsen-hassani.com/mohsen_hassani/disp-web
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080 # non-root nginx can't bind :80 (see nginx.conf)
+          livenessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            # nginx.conf puts the pid file and three temp paths in /tmp, but leaves the
+            # uwsgi/scgi temp paths at their default under /var/cache/nginx, and nginx
+            # creates all five at startup. Without BOTH mounts it exits immediately on a
+            # read-only root (verified on the real image, roadmap.md T9).
+            - name: tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
