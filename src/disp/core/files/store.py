@@ -1,52 +1,50 @@
-"""FileStore — the module-facing facade for core's file/asset service.
+"""FileStore — the module-facing facade for core's file service.
 
-Public surface (re-exported from disp.core.files, see docs/milestones/server/
-M18-files.md §11): FileStore, StoredFile, AcceptSpec, ACCEPT_IMAGES,
-ACCEPT_DOCUMENTS, UsageSummary, get_file_store.
+See docs/milestones/server/M18-files.md §7. Public surface (re-exported from
+disp.core.files, §11): FileStore, StoredFile, FileLink, AcceptSpec,
+ACCEPT_IMAGES, ACCEPT_DOCUMENTS, ACCEPT_VIDEOS, UsageSummary, get_file_store.
+
+Modules hand bytes in and get a file id back; they exchange the id for a
+presigned link later. They never see a backend, a bucket or a storage key.
 """
 
+import asyncio
 import codecs
 import hashlib
+import tempfile
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable, Mapping
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from pathlib import Path
-from typing import Protocol
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from urllib.parse import quote
 
+import structlog
 from fastapi import Request, UploadFile
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, event, func, select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from disp.core.auth import CurrentUser
 from disp.core.config import Settings
+from disp.core.db import session_scope
 from disp.core.errors import AppError
-from disp.core.files import signing, sniff
-from disp.core.models import Asset
+from disp.core.files import sniff
+from disp.core.files.backends import StorageBackend, StorageError
+from disp.core.files.sigv4 import MAX_EXPIRES_SECONDS
+from disp.core.models import FileRecord
+
+logger = structlog.get_logger(__name__)
 
 CHUNK_SIZE = 64 * 1024
+# Past this, the validated upload spools to local temp disk instead of RAM.
+SPOOL_MAX_MEMORY = 1024 * 1024
+MIN_LINK_TTL_SECONDS = 60
+MAX_LINK_TTL_SECONDS = MAX_EXPIRES_SECONDS  # SigV4's 7-day cap
 
-
-class StorageBackend(Protocol):
-    """Where bytes physically live — local disk or S3. See §6."""
-
-    name: str  # "local" | "s3", persisted into assets.backend
-
-    # These are never actually called — Protocol method bodies are pure
-    # structural stubs, satisfied by LocalBackend/S3Backend, not executed.
-    async def write(self, key: str, chunks: AsyncIterator[bytes]) -> None: ...  # pragma: no cover
-    def read(self, key: str) -> AsyncIterator[bytes]: ...  # pragma: no cover
-    async def delete(self, key: str) -> None: ...  # pragma: no cover
-    async def exists(self, key: str) -> bool: ...  # pragma: no cover
-
-    def iter_objects(  # pragma: no cover
-        self, prefix: str = ""
-    ) -> AsyncIterator[tuple[str, datetime]]: ...
-
-    def native_signed_url(  # pragma: no cover
-        self, key: str, *, content_type: str, expires_in: int
-    ) -> str | None: ...
+_PENDING_PURGES_KEY = "_disp_files_pending_purges"
+_PURGE_LISTENERS_KEY = "_disp_files_purge_listeners"
 
 
 @dataclass(frozen=True)
@@ -70,21 +68,34 @@ ACCEPT_DOCUMENTS = AcceptSpec(
     ),
     25 * 1024 * 1024,
 )
+ACCEPT_VIDEOS = AcceptSpec(
+    frozenset({"video/mp4", "video/quicktime", "video/webm"}), 100 * 1024 * 1024
+)
 
 
 @dataclass(frozen=True)
 class StoredFile:
     """What a module gets back from FileStore — never the ORM row (a module
-    holding Asset could reach every other user's assets with one select())."""
+    holding FileRecord could reach every other user's files with one
+    select())."""
 
     id: uuid.UUID
     domain: str
     purpose: str
+    name: str
     content_type: str
     byte_size: int
     sha256: str
-    original_filename: str | None
+    link_ttl_seconds: int
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class FileLink:
+    """A presigned bucket URL and the instant it stops working."""
+
+    url: str
+    expires_at: datetime
 
 
 @dataclass(frozen=True)
@@ -139,19 +150,19 @@ def _not_found_error() -> AppError:
     )
 
 
-def _missing_object_error() -> AppError:
+def _storage_unavailable_error() -> AppError:
     return AppError(
-        status_code=404,
-        code="core.files.missing_object",
-        title="File object missing",
-        detail="This file's metadata exists but its bytes could not be found.",
+        status_code=503,
+        code="core.files.storage_unavailable",
+        title="File storage unavailable",
+        detail="The file could not be stored right now. Please try again.",
     )
 
 
 async def _iter_source(source: UploadFile | bytes | AsyncIterator[bytes]) -> AsyncIterator[bytes]:
     if isinstance(source, bytes):
-        if source:
-            yield source
+        for start in range(0, len(source), CHUNK_SIZE):
+            yield source[start : start + CHUNK_SIZE]
         return
     # A real multipart upload is parsed by Starlette's own parser, which
     # constructs a starlette.datastructures.UploadFile — not the fastapi
@@ -163,44 +174,134 @@ async def _iter_source(source: UploadFile | bytes | AsyncIterator[bytes]) -> Asy
             if not chunk:
                 return
             yield chunk
-        return
-    async for chunk in source:
-        yield chunk
+    else:
+        async for chunk in source:
+            if chunk:
+                yield chunk
 
 
-def _asset_key(
-    asset_id: uuid.UUID, *, domain: str, purpose: str, content_type: str, now: datetime
+def _storage_key(
+    file_id: uuid.UUID, *, prefix: str, domain: str, purpose: str, content_type: str, now: datetime
 ) -> str:
     # No component derives from client input (I4) — domain/purpose are
-    # module-chosen labels, asset_id and the date shard are generated here.
+    # module-chosen labels, file_id and the date shard are generated here.
     ext = sniff.EXTENSIONS.get(content_type, "")
-    return f"{domain}/{purpose}/{now:%Y}/{now:%m}/{asset_id}{ext}"
+    return f"{prefix}{domain}/{purpose}/{now:%Y}/{now:%m}/{file_id}{ext}"
+
+
+def _sanitize_name(name: str | None, content_type: str) -> str:
+    """The display/download name (§4): path components stripped, control
+    characters dropped, capped at 255. Used only in Content-Disposition,
+    never in a storage key (I4)."""
+    if name:
+        base = name.replace("\\", "/").rsplit("/", 1)[-1]
+        base = "".join(ch for ch in base if ch.isprintable()).strip()[:255]
+        if base and base not in {".", ".."}:
+            return base
+    return f"file{sniff.EXTENSIONS.get(content_type, '')}"
+
+
+def _content_disposition(record: FileRecord) -> str:
+    # I6: only a positively sniffed type may be inline. The text family is
+    # unsniffable by definition, so it is always attachment.
+    disposition = "inline" if record.content_type in sniff.SNIFFABLE_EXTENSIONS else "attachment"
+    return f"{disposition}; filename*=UTF-8''{quote(record.name, safe='')}"
+
+
+def _to_stored(record: FileRecord, *, created_at: datetime | None = None) -> StoredFile:
+    return StoredFile(
+        id=record.id,
+        domain=record.domain,
+        purpose=record.purpose,
+        name=record.name,
+        content_type=record.content_type,
+        byte_size=record.byte_size,
+        sha256=record.sha256,
+        link_ttl_seconds=record.link_ttl_seconds,
+        created_at=created_at or record.created_at,
+    )
+
+
+def _discard_pending_purges(sync_session: Any, *_args: Any) -> None:
+    sync_session.info.pop(_PENDING_PURGES_KEY, None)
+
+
+@dataclass
+class _Validated:
+    content_type: str
+    byte_size: int
+    sha256: str
+    spool: Any  # tempfile.SpooledTemporaryFile[bytes], rewound
 
 
 class FileStore:
-    def __init__(self, backend: StorageBackend, *, settings: Settings) -> None:
-        self._backend = backend
+    def __init__(
+        self,
+        backends: Mapping[str, StorageBackend],
+        *,
+        active: str,
+        settings: Settings,
+        session_maker: async_sessionmaker[AsyncSession] | None = None,
+    ) -> None:
+        self._backends = dict(backends)
+        self._active = self._backends[active]
         self._settings = settings
-        self._url_key = signing.derive_key(settings.jwt_secret.get_secret_value())
+        self._session_maker = session_maker
+        # Strong references to in-flight post-commit purges, so the event
+        # loop can't garbage-collect one mid-flight.
+        self._purge_tasks: set[asyncio.Task[int]] = set()
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> "FileStore":
+    def from_settings(
+        cls,
+        settings: Settings,
+        *,
+        session_maker: async_sessionmaker[AsyncSession] | None = None,
+    ) -> "FileStore":
         """The single construction point for create_app(), worker.py, and the
-        disp-admin files CLI — see §7's "third construction context"."""
-        if settings.files_backend == "s3":
-            # Deferred this pass — see backends/s3.py's absence and §6.2.
-            raise RuntimeError("S3 backend not yet implemented — see M18-files.md §6.2")
+        disp-admin files CLI. `session_maker` is what post-commit purges and
+        the sweeper open their own sessions from; None means the shared
+        background one (session_scope's default)."""
+        from disp.core.files.backends.s3 import S3Backend
 
-        from disp.core.files.backends.local import LocalBackend
+        backend = S3Backend.from_settings(settings)
+        return cls(
+            {backend.name: backend},
+            active=settings.files_backend,
+            settings=settings,
+            session_maker=session_maker,
+        )
 
-        backend = LocalBackend(Path(settings.files_root))
-        return cls(backend, settings=settings)
+    # ------------------------------------------------------------------
+    # Core-internal (sweeper, CLI, tests) — not on the module surface.
+    # ------------------------------------------------------------------
 
     @property
     def backend(self) -> StorageBackend:
-        """For core-internal use (the sweeper, `disp-admin files verify`) —
-        not part of the module-facing surface."""
-        return self._backend
+        """The backend new writes go to."""
+        return self._active
+
+    @property
+    def prefix(self) -> str:
+        return self._settings.files_s3_prefix
+
+    def open_session(self) -> AbstractAsyncContextManager[AsyncSession]:
+        return session_scope(self._session_maker)
+
+    def backend_for(self, name: str) -> StorageBackend:
+        try:
+            return self._backends[name]
+        except KeyError:
+            raise RuntimeError(f"no storage backend registered under {name!r}") from None
+
+    async def wait_for_purges(self) -> None:
+        """Await every in-flight post-commit purge (tests, graceful shutdown)."""
+        while self._purge_tasks:
+            await asyncio.gather(*self._purge_tasks, return_exceptions=True)
+
+    # ------------------------------------------------------------------
+    # Module-facing API (§7)
+    # ------------------------------------------------------------------
 
     async def put(
         self,
@@ -210,163 +311,117 @@ class FileStore:
         domain: str,
         purpose: str,
         source: UploadFile | bytes | AsyncIterator[bytes],
-        filename: str | None = None,
+        name: str | None = None,
         accept: AcceptSpec,
+        link_ttl: timedelta | None = None,
         attributes: dict[str, object] | None = None,
     ) -> StoredFile:
-        """Streams, validates, writes bytes, adds the row to `session`. Does
-        NOT commit — the caller's transaction owns it (I1: bytes before row).
-
-        §7.2: one pass, 64 KiB chunks, peak memory bounded to one chunk plus
-        the sniff buffer. The size check on the first chunk happens before
-        the backend is ever invoked — a payload whose very first chunk
-        already exceeds max_bytes never reaches backend.write.
-        """
+        """Validates the whole stream, uploads it in one PutObject, adds the
+        row to `session`. Does NOT commit — the caller's transaction owns it
+        (I1: bytes before row). A rejected upload never reaches the bucket
+        (§7.2)."""
+        ttl_seconds = self._resolve_link_ttl(link_ttl)
         max_bytes = min(accept.max_bytes, self._settings.files_max_bytes)
-        iterator = _iter_source(source).__aiter__()
+        validated = await self._validate(source, accept=accept, max_bytes=max_bytes)
 
-        try:
-            first_chunk = await iterator.__anext__()
-        except StopAsyncIteration:
-            raise _empty_upload_error() from None
-
-        head = first_chunk[:16]
-        content_type = sniff.sniff(head)
-        is_text_family = False
-        if content_type is not None:
-            if content_type not in accept.content_types:
-                raise _unsupported_type_error()
-        else:
-            # Unsniffable formats write no signature by definition — there's
-            # no byte sequence illegal in a .txt file. The declared
-            # Content-Type (from the multipart upload) picks which text/*
-            # type this is; a strict UTF-8 decode below is the only actual
-            # validation available for the text family (§7.1).
-            text_candidates = accept.content_types & sniff.TEXT_FAMILY_TYPES
-            declared = source.content_type if isinstance(source, StarletteUploadFile) else None
-            if declared in text_candidates:
-                content_type = declared
-            elif len(text_candidates) == 1:
-                content_type = next(iter(text_candidates))
-            else:
-                raise _unsupported_type_error()
-            is_text_family = True
-
-        if len(first_chunk) > max_bytes:
-            raise _too_large_error(max_bytes)
-
-        digest = hashlib.sha256()
-        digest.update(first_chunk)
-        byte_size = len(first_chunk)
-        decoder = codecs.getincrementaldecoder("utf-8")() if is_text_family else None
-        if decoder is not None:
-            try:
-                decoder.decode(first_chunk)
-            except UnicodeDecodeError as exc:
-                raise _unsupported_type_error() from exc
-
-        async def _chunks() -> AsyncIterator[bytes]:
-            nonlocal byte_size
-            yield first_chunk
-            async for chunk in iterator:
-                byte_size += len(chunk)
-                if byte_size > max_bytes:
-                    raise _too_large_error(max_bytes)
-                if decoder is not None:
-                    try:
-                        decoder.decode(chunk)
-                    except UnicodeDecodeError as exc:
-                        raise _unsupported_type_error() from exc
-                digest.update(chunk)
-                yield chunk
-
-        asset_id = uuid.uuid4()
+        file_id = uuid.uuid4()
         now = datetime.now(UTC)
-        key = _asset_key(
-            asset_id, domain=domain, purpose=purpose, content_type=content_type, now=now
-        )
-
-        await self._backend.write(key, _chunks())
-
-        owner_id = owner.id if isinstance(owner, CurrentUser) else owner
-        asset = Asset(
-            id=asset_id,
-            owner_user_id=owner_id,
+        key = _storage_key(
+            file_id,
+            prefix=self.prefix,
             domain=domain,
             purpose=purpose,
-            content_type=content_type,
-            byte_size=byte_size,
-            sha256=digest.hexdigest(),
-            original_filename=filename,
-            backend=self._backend.name,
+            content_type=validated.content_type,
+            now=now,
+        )
+        try:
+            await self._active.put(
+                key,
+                validated.spool,
+                size=validated.byte_size,
+                content_type=validated.content_type,
+            )
+        except StorageError as exc:
+            logger.error("files_put_failed", storage_key=key, exc_info=exc)
+            raise _storage_unavailable_error() from exc
+        finally:
+            validated.spool.close()
+
+        record = FileRecord(
+            id=file_id,
+            owner_user_id=owner.id if isinstance(owner, CurrentUser) else owner,
+            domain=domain,
+            purpose=purpose,
+            name=_sanitize_name(name, validated.content_type),
+            content_type=validated.content_type,
+            byte_size=validated.byte_size,
+            sha256=validated.sha256,
+            backend=self._active.name,
+            bucket=self._active.bucket,
             storage_key=key,
+            link_ttl_seconds=ttl_seconds,
             attributes=attributes or {},
         )
-        session.add(asset)
+        session.add(record)
+        return _to_stored(record, created_at=now)
 
-        return StoredFile(
-            id=asset.id,
-            domain=asset.domain,
-            purpose=asset.purpose,
-            content_type=asset.content_type,
-            byte_size=asset.byte_size,
-            sha256=asset.sha256,
-            original_filename=asset.original_filename,
-            created_at=now,
-        )
+    async def get(
+        self, session: AsyncSession, file_id: uuid.UUID, *, domain: str
+    ) -> StoredFile | None:
+        record = await self._live_record(session, file_id, domain=domain)
+        return _to_stored(record) if record is not None else None
 
-    async def get(self, session: AsyncSession, asset_id: uuid.UUID) -> StoredFile | None:
-        asset = await session.get(Asset, asset_id)
-        if asset is None or asset.deleted_at is not None:
-            return None
-        return StoredFile(
-            id=asset.id,
-            domain=asset.domain,
-            purpose=asset.purpose,
-            content_type=asset.content_type,
-            byte_size=asset.byte_size,
-            sha256=asset.sha256,
-            original_filename=asset.original_filename,
-            created_at=asset.created_at,
-        )
-
-    async def open(self, session: AsyncSession, asset_id: uuid.UUID) -> AsyncIterator[bytes]:
-        """Distinguishes "no such asset" (core.files.not_found) from "row
-        present, bytes gone" (core.files.missing_object) — the distinction
-        §15.3's restore scenario depends on."""
-        asset = await session.get(Asset, asset_id)
-        if asset is None or asset.deleted_at is not None:
+    async def link(
+        self,
+        session: AsyncSession,
+        file_id: uuid.UUID,
+        *,
+        domain: str,
+        max_ttl: timedelta | None = None,
+    ) -> FileLink:
+        """A presigned link valid for min(the file's stored ceiling,
+        max_ttl) — a reader may shorten, never extend (§9.1)."""
+        record = await self._live_record(session, file_id, domain=domain)
+        if record is None:
             raise _not_found_error()
-        if not await self._backend.exists(asset.storage_key):
-            raise _missing_object_error()
-        return self._backend.read(asset.storage_key)
+        return self._link_for(record, max_ttl=max_ttl, now=datetime.now(UTC))
 
-    async def delete(self, session: AsyncSession, asset_id: uuid.UUID) -> None:
-        """Sets deleted_at. Idempotent. Never touches bytes (I2) — only the
-        sweeper removes objects, after the grace period."""
-        asset = await session.get(Asset, asset_id)
-        if asset is None or asset.deleted_at is not None:
-            return
-        asset.deleted_at = datetime.now(UTC)
-
-    def verify_signature(self, asset_id: uuid.UUID, *, exp: int, sig: str) -> bool:
-        """Signature-and-expiry check for the signed-URL auth path in
-        routes.py. Keeps the derived key encapsulated in FileStore rather
-        than exposed to callers."""
-        if exp < datetime.now(UTC).timestamp():
-            return False
-        return signing.verify(asset_id, exp, sig, key=self._url_key)
-
-    def signed_url(self, asset_id: uuid.UUID, *, ttl: int | None = None) -> str:
-        """Pure function of the asset id and the bucketed expiry — no I/O, no
-        DB access (§7's "requiring the DTO would force a database read to
-        mint a URL for an id the caller already holds")."""
-        return signing.build_url(
-            asset_id,
-            key=self._url_key,
-            ttl=ttl or self._settings.files_url_ttl_seconds,
-            now=datetime.now(UTC),
+    async def links(
+        self,
+        session: AsyncSession,
+        file_ids: Iterable[uuid.UUID | None],
+        *,
+        domain: str,
+        max_ttl: timedelta | None = None,
+    ) -> dict[uuid.UUID, FileLink]:
+        """Batched `link` in one query, for list endpoints. Unknown, deleted
+        or foreign-domain ids are simply absent from the result."""
+        ids = {file_id for file_id in file_ids if file_id is not None}
+        if not ids:
+            return {}
+        result = await session.execute(
+            select(FileRecord).where(
+                FileRecord.id.in_(ids),
+                FileRecord.domain == domain,
+                FileRecord.deleted_at.is_(None),
+            )
         )
+        now = datetime.now(UTC)
+        return {
+            record.id: self._link_for(record, max_ttl=max_ttl, now=now)
+            for record in result.scalars()
+        }
+
+    async def delete(self, session: AsyncSession, file_id: uuid.UUID, *, domain: str) -> None:
+        """Marks the row and schedules the post-commit purge (§8.2).
+        Idempotent; unknown or foreign-domain ids are a no-op. Never touches
+        bytes before commit (I2)."""
+        record = await session.get(FileRecord, file_id)
+        if record is None or record.domain != domain:
+            return
+        if record.deleted_at is None:
+            record.deleted_at = datetime.now(UTC)
+        self._schedule_purge(session, record.id)
 
     async def usage(
         self,
@@ -377,29 +432,29 @@ class FileStore:
     ) -> UsageSummary:
         stmt = (
             select(
-                Asset.domain,
-                Asset.purpose,
-                Asset.owner_user_id,
-                # Labeled "asset_count", not "count" — Row inherits tuple's
+                FileRecord.domain,
+                FileRecord.purpose,
+                FileRecord.owner_user_id,
+                # Labeled "file_count", not "count" — Row inherits tuple's
                 # own .count() method, which would shadow a same-named
                 # attribute and silently break static typing on row access.
-                func.count().label("asset_count"),
-                func.coalesce(func.sum(Asset.byte_size), 0).label("total_bytes"),
+                func.count().label("file_count"),
+                func.coalesce(func.sum(FileRecord.byte_size), 0).label("total_bytes"),
             )
-            .where(Asset.deleted_at.is_(None))
-            .group_by(Asset.domain, Asset.purpose, Asset.owner_user_id)
+            .where(FileRecord.deleted_at.is_(None))
+            .group_by(FileRecord.domain, FileRecord.purpose, FileRecord.owner_user_id)
         )
         if owner is not None:
-            stmt = stmt.where(Asset.owner_user_id == owner)
+            stmt = stmt.where(FileRecord.owner_user_id == owner)
         if domain is not None:
-            stmt = stmt.where(Asset.domain == domain)
+            stmt = stmt.where(FileRecord.domain == domain)
         result = await session.execute(stmt)
         rows = [
             UsageRow(
                 domain=row.domain,
                 purpose=row.purpose,
                 owner_user_id=row.owner_user_id,
-                count=row.asset_count,
+                count=row.file_count,
                 total_bytes=row.total_bytes,
             )
             for row in result
@@ -410,10 +465,188 @@ class FileStore:
             total_bytes=sum(r.total_bytes for r in rows),
         )
 
+    # ------------------------------------------------------------------
+    # Purge (§8.2) — also pass A of the sweeper (§8.3)
+    # ------------------------------------------------------------------
+
+    async def purge(self, file_ids: Iterable[uuid.UUID] | None = None) -> int:
+        """Delete the object, then the row, for every *committed* deletion
+        mark (all of them when `file_ids` is None). Runs in a fresh session,
+        so an uncommitted mark is invisible and left alone. A storage failure
+        on one file is logged and skipped; its mark stays for the next purge
+        or sweep. Returns the number of files purged."""
+        purged = 0
+        async with self.open_session() as session:
+            stmt = select(
+                FileRecord.id, FileRecord.backend, FileRecord.bucket, FileRecord.storage_key
+            ).where(FileRecord.deleted_at.is_not(None))
+            if file_ids is not None:
+                stmt = stmt.where(FileRecord.id.in_(list(file_ids)))
+            rows = (await session.execute(stmt)).all()
+            for row in rows:
+                try:
+                    await self.backend_for(row.backend).delete(row.bucket, row.storage_key)
+                except StorageError as exc:
+                    logger.error("files_purge_failed", file_id=str(row.id), exc_info=exc)
+                    continue
+                # A Core DELETE, not session.delete(): a concurrent purge or
+                # sweep may already have removed the row, and the ORM would
+                # raise StaleDataError on a zero-row delete.
+                await session.execute(delete(FileRecord).where(FileRecord.id == row.id))
+                purged += 1
+        return purged
+
+    def _schedule_purge(self, session: AsyncSession, file_id: uuid.UUID) -> None:
+        # Same mechanism as core/events.py's publish_after_commit, but
+        # self-contained: it must work in the worker and the CLI too, where
+        # no EventBus is guaranteed to be bound.
+        sync_session = session.sync_session
+        pending: set[uuid.UUID] = sync_session.info.setdefault(_PENDING_PURGES_KEY, set())
+        pending.add(file_id)
+        if not sync_session.info.get(_PURGE_LISTENERS_KEY):
+            sync_session.info[_PURGE_LISTENERS_KEY] = True
+            event.listen(sync_session, "after_commit", self._on_commit)
+            event.listen(sync_session, "after_rollback", _discard_pending_purges)
+
+    def _on_commit(self, sync_session: Any) -> None:
+        file_ids: set[uuid.UUID] | None = sync_session.info.pop(_PENDING_PURGES_KEY, None)
+        if not file_ids:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:  # pragma: no cover - async sessions always commit inside a loop
+            logger.warning("files_purge_no_loop", count=len(file_ids))
+            return
+        task = loop.create_task(self._purge_logged(frozenset(file_ids)))
+        self._purge_tasks.add(task)
+        task.add_done_callback(self._purge_tasks.discard)
+
+    async def _purge_logged(self, file_ids: frozenset[uuid.UUID]) -> int:
+        try:
+            return await self.purge(file_ids)
+        except Exception as exc:  # fire-and-forget: the sweeper retries
+            logger.error("files_purge_failed", count=len(file_ids), exc_info=exc)
+            return 0
+
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+
+    def _resolve_link_ttl(self, link_ttl: timedelta | None) -> int:
+        if link_ttl is None:
+            return self._settings.files_default_link_ttl_seconds
+        seconds = int(link_ttl.total_seconds())
+        if not MIN_LINK_TTL_SECONDS <= seconds <= MAX_LINK_TTL_SECONDS:
+            raise ValueError(
+                f"link_ttl must be within {MIN_LINK_TTL_SECONDS}..{MAX_LINK_TTL_SECONDS} "
+                f"seconds, got {seconds}"
+            )
+        return seconds
+
+    async def _live_record(
+        self, session: AsyncSession, file_id: uuid.UUID, *, domain: str
+    ) -> FileRecord | None:
+        record = await session.get(FileRecord, file_id)
+        if record is None or record.deleted_at is not None or record.domain != domain:
+            return None
+        return record
+
+    def _link_for(
+        self, record: FileRecord, *, max_ttl: timedelta | None, now: datetime
+    ) -> FileLink:
+        ttl = record.link_ttl_seconds
+        if max_ttl is not None:
+            requested = int(max_ttl.total_seconds())
+            if requested < 1:
+                raise ValueError(f"max_ttl must be at least 1 second, got {max_ttl}")
+            ttl = min(ttl, requested)
+        url, expires_at = self.backend_for(record.backend).presign_get(
+            record.bucket,
+            record.storage_key,
+            ttl=ttl,
+            now=now,
+            content_type=record.content_type,
+            content_disposition=_content_disposition(record),
+        )
+        return FileLink(url=url, expires_at=expires_at)
+
+    async def _validate(
+        self,
+        source: UploadFile | bytes | AsyncIterator[bytes],
+        *,
+        accept: AcceptSpec,
+        max_bytes: int,
+    ) -> _Validated:
+        """§7.2: one pass in 64 KiB chunks — sniff, size cap mid-stream,
+        UTF-8 for the text family, sha256 — into a spool that only reaches
+        the bucket once all of it has passed."""
+        iterator = _iter_source(source).__aiter__()
+        try:
+            first_chunk = await iterator.__anext__()
+        except StopAsyncIteration:
+            raise _empty_upload_error() from None
+
+        content_type = sniff.sniff(first_chunk[: sniff.SNIFF_HEAD_BYTES])
+        is_text_family = False
+        if content_type is not None:
+            if content_type not in accept.content_types:
+                raise _unsupported_type_error()
+        else:
+            # Unsniffable formats write no signature by definition. The
+            # declared Content-Type picks which text/* type this is; a strict
+            # UTF-8 decode is the only validation available (§7.1).
+            text_candidates = accept.content_types & sniff.TEXT_FAMILY_TYPES
+            declared = source.content_type if isinstance(source, StarletteUploadFile) else None
+            if declared is not None and declared in text_candidates:
+                content_type = declared
+            elif len(text_candidates) == 1:
+                content_type = next(iter(text_candidates))
+            else:
+                raise _unsupported_type_error()
+            is_text_family = True
+
+        decoder = codecs.getincrementaldecoder("utf-8")() if is_text_family else None
+        digest = hashlib.sha256()
+        byte_size = 0
+        spool = tempfile.SpooledTemporaryFile(max_size=SPOOL_MAX_MEMORY)
+        try:
+            chunk: bytes | None = first_chunk
+            while chunk is not None:
+                byte_size += len(chunk)
+                if byte_size > max_bytes:
+                    # Stop reading: the rest of the request body is never
+                    # consumed, and nothing has touched the bucket.
+                    raise _too_large_error(max_bytes)
+                if decoder is not None:
+                    try:
+                        decoder.decode(chunk)
+                    except UnicodeDecodeError as exc:
+                        raise _unsupported_type_error() from exc
+                digest.update(chunk)
+                spool.write(chunk)
+                try:
+                    chunk = await iterator.__anext__()
+                except StopAsyncIteration:
+                    chunk = None
+            if decoder is not None:
+                # A multi-byte sequence truncated at the very end only
+                # surfaces on the final flush.
+                try:
+                    decoder.decode(b"", final=True)
+                except UnicodeDecodeError as exc:
+                    raise _unsupported_type_error() from exc
+            spool.seek(0)
+        except BaseException:
+            spool.close()
+            raise
+        return _Validated(
+            content_type=content_type,
+            byte_size=byte_size,
+            sha256=digest.hexdigest(),
+            spool=spool,
+        )
+
 
 def get_file_store(request: Request) -> FileStore:
-    """Request-scoped dependency, mirroring settings_store._get_store. §7
-    defines this pattern explicitly even though §11's surface table omits
-    it — treated as an omission, not a deliberate exclusion (see the M18
-    implementation plan)."""
+    """Request-scoped dependency, mirroring settings_store._get_store."""
     return request.app.state.platform.files  # type: ignore[no-any-return]

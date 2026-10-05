@@ -97,11 +97,11 @@ test.describe('plants', () => {
     }
   });
 
-  // M18-files.md's own acceptance test for its user-visible half: a photo
-  // must render on a *fresh* page load (not just already-loaded client
-  // state) via a signed /api/files URL, with no JS blob involvement. There
-  // were previously zero image assertions anywhere in the e2e suite.
-  test('uploads a photo and it renders on a fresh page load via a signed URL', async ({
+  // M18-files.md's acceptance test for its user-visible half: a photo must
+  // render on a *fresh* page load (not just already-loaded client state) via
+  // a presigned link straight to the bucket — MinIO on localhost:9000 in the
+  // e2e stack (docker-compose.e2e.yml), R2 in production.
+  test('uploads a photo and it renders on a fresh page load via a presigned link', async ({
     authedPage,
     context,
     accessToken,
@@ -132,7 +132,8 @@ test.describe('plants', () => {
       const src = await img.getAttribute('src');
       expect(src).toBeTruthy();
       expect(src).not.toMatch(/^blob:/);
-      expect(src).toMatch(/^\/api\/files\//);
+      expect(src).toMatch(/^http:\/\/localhost:9000\/disp-e2e\/plants\/plant_photo\//);
+      expect(src).toContain('X-Amz-Signature=');
 
       const bytesResponse = await context.request.get(src!);
       expect(bytesResponse.ok()).toBe(true);

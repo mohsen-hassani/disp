@@ -2,7 +2,6 @@ import atexit
 import os
 import subprocess
 import sys
-import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -10,6 +9,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, async_sessionmaker
+from testcontainers.minio import MinioContainer
 from testcontainers.postgres import PostgresContainer
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -31,14 +31,32 @@ os.environ["DISP_BASE_URL"] = "http://localhost:8000"
 os.environ["DISP_ENV"] = "test"
 os.environ["DISP_COOKIE_SECURE"] = "false"
 os.environ["DISP_RATE_LIMIT_ENABLED"] = "false"
-# The session-scoped `app`/`client` fixtures build their FileStore via the
-# real create_app(), which reads DISP_FILES_ROOT at face value — unlike
-# tests that construct their own sandboxed FileStore/LocalBackend against
-# `tmp_path`, anything going through those fixtures (e.g. an HTTP-level PUT
-# .../image test) would otherwise write real objects into the repo's own
-# var/media/ on every run. A session-scoped mkdtemp() here keeps that
-# hermetic without touching the working tree.
-os.environ["DISP_FILES_ROOT"] = tempfile.mkdtemp(prefix="disp-test-files-")
+
+# M18 v2: the file service is S3-only, and the suite must never talk to the
+# real bucket (§22.1: no outbound network I/O; and the sweeper deletes every
+# object with no row in *this* database). A MinIO testcontainer stands in for
+# R2 — a real S3 server that verifies SigV4 signatures, which is the only way
+# to prove core's own presigner (files/sigv4.py) produces links R2 accepts.
+# Started at import time for the same reason as Postgres below: create_app()
+# validates DISP_FILES_S3_* when Settings is first built.
+# pgsty/minio: maintained drop-in fork — upstream minio/minio images are no
+# longer pullable (M18-files.md §3). Keep in sync with the compose files.
+MINIO_IMAGE = "pgsty/minio:RELEASE.2026-08-04T00-00-00Z"
+MINIO_BUCKET = "disp-test"
+_minio = MinioContainer(MINIO_IMAGE)
+_minio.start()
+atexit.register(_minio.stop)
+_minio.get_client().make_bucket(MINIO_BUCKET)
+MINIO_ENDPOINT = f"http://{_minio.get_config()['endpoint']}"
+os.environ["DISP_FILES_BACKEND"] = "s3"
+os.environ["DISP_FILES_S3_BUCKET"] = MINIO_BUCKET
+os.environ["DISP_FILES_S3_ENDPOINT_URL"] = MINIO_ENDPOINT
+os.environ["DISP_FILES_S3_PUBLIC_ENDPOINT_URL"] = MINIO_ENDPOINT
+os.environ["DISP_FILES_S3_REGION"] = "us-east-1"
+os.environ["DISP_FILES_S3_ACCESS_KEY_ID"] = _minio.access_key
+os.environ["DISP_FILES_S3_SECRET_ACCESS_KEY"] = _minio.secret_key
+os.environ["DISP_FILES_S3_PREFIX"] = ""
+os.environ["DISP_FILES_S3_FORCE_PATH_STYLE"] = "true"
 
 # §22.1 requires a real PostgreSQL 16 via testcontainers, started once per
 # session. This MUST happen at conftest.py *module import time* (not inside a
@@ -48,7 +66,7 @@ os.environ["DISP_FILES_ROOT"] = tempfile.mkdtemp(prefix="disp-test-files-")
 # that transitively imports disp.core.scheduler) does so during pytest's
 # collection phase — which runs after this file executes top-to-bottom, but
 # a fixture body would run later still, after collection, which is too late.
-_container = PostgresContainer("postgres:16", driver="asyncpg")
+_container = PostgresContainer("pgvector/pgvector:pg16", driver="asyncpg")
 _container.start()
 atexit.register(_container.stop)
 

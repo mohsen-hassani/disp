@@ -1,5 +1,7 @@
+import asyncio
 import uuid
-from pathlib import Path
+from collections.abc import Iterator
+from io import BytesIO
 
 import psycopg
 import pytest
@@ -7,6 +9,7 @@ from typer.testing import CliRunner
 
 from disp.core.cli_admin import app as admin_app
 from disp.core.config import get_settings
+from disp.core.files.backends.s3 import S3Backend
 
 runner = CliRunner()
 
@@ -98,191 +101,153 @@ def _make_user_row(conn: psycopg.Connection, email: str) -> uuid.UUID:
     return user_id
 
 
-def _make_plant_row(conn: psycopg.Connection, user_id: uuid.UUID, name: str) -> uuid.UUID:
+def _put_object(key: str) -> None:
+    backend = S3Backend.from_settings(get_settings())
+    asyncio.run(backend.put(key, BytesIO(PNG_1PX), size=len(PNG_1PX), content_type="image/png"))
+
+
+def _bucket_keys(prefix: str) -> set[str]:
+    backend = S3Backend.from_settings(get_settings())
+
+    async def _list() -> set[str]:
+        return {key async for key, _ in backend.iter_objects(prefix)}
+
+    return asyncio.run(_list())
+
+
+def _insert_file_row(
+    conn: psycopg.Connection, user_id: uuid.UUID, key: str, *, deleted: bool = False
+) -> uuid.UUID:
+    settings = get_settings()
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO plants.plant (user_id, name) VALUES (%s, %s) RETURNING id",
-            (user_id, name),
+            """
+            INSERT INTO core.files
+                (owner_user_id, domain, purpose, name, content_type, byte_size, sha256,
+                 backend, bucket, storage_key, link_ttl_seconds, deleted_at)
+            VALUES (%s, 'plants', 'plant_photo', 'x.png', 'image/png', 1, %s,
+                    's3', %s, %s, 3600, CASE WHEN %s THEN now() END)
+            RETURNING id
+            """,
+            (user_id, "0" * 64, settings.files_s3_bucket, key, deleted),
         )
-        plant_id = cur.fetchone()[0]
+        file_id = cur.fetchone()[0]
     conn.commit()
-    return plant_id
+    return file_id
 
 
-def test_files_adopt_backfills_a_plant_photo_and_is_idempotent(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("DISP_FILES_ROOT", str(tmp_path / "files"))
+@pytest.fixture
+def private_prefix(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
+    """The CLI reads get_settings(); a private prefix keeps its bucket
+    listing (and the sweep's deletions) away from every other test."""
+    prefix = f"t-{uuid.uuid4().hex}/"
+    monkeypatch.setenv("DISP_FILES_S3_PREFIX", prefix)
     get_settings.cache_clear()
-    try:
-        with _sync_conn() as conn:
-            user_id = _make_user_row(conn, "adopt-user@example.com")
-            plant_id = _make_plant_row(conn, user_id, "Sansevieria")
-
-            media_root = tmp_path / "old-media"
-            media_root.mkdir()
-            (media_root / f"{plant_id}.png").write_bytes(PNG_1PX)
-
-            result = runner.invoke(
-                admin_app,
-                [
-                    "files",
-                    "adopt",
-                    "--domain",
-                    "plants",
-                    "--purpose",
-                    "plant_photo",
-                    "--root",
-                    str(media_root),
-                ],
-            )
-            assert result.exit_code == 0, result.output
-            assert "Adopted: 1" in result.output
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT image_asset_id FROM plants.plant WHERE id = %s", (plant_id,))
-                asset_id = cur.fetchone()[0]
-                assert asset_id is not None
-
-                cur.execute(
-                    "SELECT owner_user_id, domain, purpose, content_type FROM core.assets "
-                    "WHERE id = %s",
-                    (asset_id,),
-                )
-                row = cur.fetchone()
-                assert row == (user_id, "plants", "plant_photo", "image/png")
-
-            # Re-running is a no-op: an already-adopted plant is skipped, not
-            # duplicated.
-            second = runner.invoke(
-                admin_app,
-                [
-                    "files",
-                    "adopt",
-                    "--domain",
-                    "plants",
-                    "--purpose",
-                    "plant_photo",
-                    "--root",
-                    str(media_root),
-                ],
-            )
-            assert second.exit_code == 0, second.output
-            assert "Adopted: 0" in second.output
-            assert "Already adopted (skipped): 1" in second.output
-
-            with conn.cursor() as cur:
-                cur.execute("SELECT count(*) FROM core.assets WHERE owner_user_id = %s", (user_id,))
-                assert cur.fetchone()[0] == 1
-
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM core.assets WHERE owner_user_id = %s", (user_id,))
-                cur.execute("DELETE FROM plants.plant WHERE id = %s", (plant_id,))
-                cur.execute("DELETE FROM core.users WHERE id = %s", (user_id,))
-            conn.commit()
-    finally:
-        get_settings.cache_clear()
-
-
-def test_files_adopt_reports_orphaned_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("DISP_FILES_ROOT", str(tmp_path / "files"))
+    yield prefix
     get_settings.cache_clear()
-    try:
-        media_root = tmp_path / "old-media"
-        media_root.mkdir()
-        orphan_name = f"{uuid.uuid4()}.png"
-        (media_root / orphan_name).write_bytes(PNG_1PX)
-
-        result = runner.invoke(
-            admin_app,
-            [
-                "files",
-                "adopt",
-                "--domain",
-                "plants",
-                "--purpose",
-                "plant_photo",
-                "--root",
-                str(media_root),
-            ],
-        )
-        assert result.exit_code == 0, result.output
-        assert "Adopted: 0" in result.output
-        assert "Orphaned (no matching plant): 1" in result.output
-        assert orphan_name in result.output
-    finally:
-        get_settings.cache_clear()
 
 
-def test_files_adopt_rejects_domains_other_than_plants(tmp_path: Path) -> None:
-    result = runner.invoke(
-        admin_app,
-        [
-            "files",
-            "adopt",
-            "--domain",
-            "notes",
-            "--purpose",
-            "attachment",
-            "--root",
-            str(tmp_path),
-        ],
-    )
-    assert result.exit_code == 1
-    assert "only supports --domain plants" in result.output
-
-
-def test_files_verify_reports_both_directions_and_deletes_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("DISP_FILES_ROOT", str(tmp_path))
-    get_settings.cache_clear()
-    try:
-        with _sync_conn() as conn:
-            user_id = _make_user_row(conn, "verify-user@example.com")
-
-            # A row whose object was never written — simulates a DB-only
-            # restore where the media volume didn't come back.
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO core.assets
-                        (owner_user_id, domain, purpose, content_type, byte_size, sha256,
-                         backend, storage_key)
-                    VALUES (%s, 'plants', 'plant_photo', 'image/png', 1, %s,
-                            'local', 'plants/plant_photo/never/written.png')
-                    RETURNING id
-                    """,
-                    (user_id, "0" * 64),
-                )
-                missing_object_asset_id = cur.fetchone()[0]
-            conn.commit()
-
-            # An object on disk with no matching row — a genuine orphan.
-            orphan_path = tmp_path / "plants" / "plant_photo" / "orphan.png"
-            orphan_path.parent.mkdir(parents=True)
-            orphan_path.write_bytes(PNG_1PX)
+def test_files_verify_reports_both_directions_and_deletes_nothing(private_prefix: str) -> None:
+    with _sync_conn() as conn:
+        user_id = _make_user_row(conn, f"verify-{private_prefix[:10]}@example.com")
+        try:
+            # A row whose object was never written — e.g. a database restored
+            # from before a purge.
+            missing_key = f"{private_prefix}plants/plant_photo/never-written.png"
+            missing_id = _insert_file_row(conn, user_id, missing_key)
+            # A healthy row + object, and a marked row awaiting purge.
+            healthy_key = f"{private_prefix}plants/plant_photo/healthy.png"
+            _insert_file_row(conn, user_id, healthy_key)
+            _put_object(healthy_key)
+            _insert_file_row(conn, user_id, f"{private_prefix}pending.png", deleted=True)
+            # An object with no row — a genuine orphan.
+            orphan_key = f"{private_prefix}plants/plant_photo/orphan.png"
+            _put_object(orphan_key)
 
             result = runner.invoke(admin_app, ["files", "verify"])
             assert result.exit_code == 0, result.output
             assert "Rows with no backing object: 1" in result.output
-            assert str(missing_object_asset_id) in result.output
+            assert str(missing_id) in result.output
             assert "Objects with no row: 1" in result.output
-            assert "plants/plant_photo/orphan.png" in result.output
+            assert orphan_key in result.output
+            assert "awaiting purge: 1" in result.output
 
             # Deletes nothing (I3).
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT count(*) FROM core.assets WHERE id = %s", (missing_object_asset_id,)
-                )
-                assert cur.fetchone()[0] == 1
-            assert orphan_path.exists()
-
+                cur.execute("SELECT count(*) FROM core.files WHERE owner_user_id = %s", (user_id,))
+                assert cur.fetchone()[0] == 3
+            assert _bucket_keys(private_prefix) == {healthy_key, orphan_key}
+        finally:
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM core.assets WHERE id = %s", (missing_object_asset_id,))
+                cur.execute("DELETE FROM core.users WHERE id = %s", (user_id,))  # cascades
+            conn.commit()
+
+
+def test_files_verify_reports_clean(private_prefix: str) -> None:
+    result = runner.invoke(admin_app, ["files", "verify"])
+    assert result.exit_code == 0, result.output
+    assert "Clean" in result.output
+
+
+def test_files_sweep_purges_marked_rows(private_prefix: str) -> None:
+    with _sync_conn() as conn:
+        user_id = _make_user_row(conn, f"sweep-{private_prefix[:10]}@example.com")
+        try:
+            key = f"{private_prefix}plants/plant_photo/marked.png"
+            _put_object(key)
+            file_id = _insert_file_row(conn, user_id, key, deleted=True)
+
+            result = runner.invoke(admin_app, ["files", "sweep"])
+            assert result.exit_code == 0, result.output
+            assert "Purged rows: 1" in result.output
+
+            assert key not in _bucket_keys(private_prefix)
+            with conn.cursor() as cur:
+                cur.execute("SELECT count(*) FROM core.files WHERE id = %s", (file_id,))
+                assert cur.fetchone()[0] == 0
+        finally:
+            with conn.cursor() as cur:
                 cur.execute("DELETE FROM core.users WHERE id = %s", (user_id,))
             conn.commit()
+
+
+def test_translation_usage_reports_recorded_calls() -> None:
+    """M22-translation.md §10: this command is the *only* surface for the
+    usage table — there is deliberately no HTTP route.
+
+    Sync for the same reason as `test_seed_admin_creates_first_admin_user`
+    above: the command calls `asyncio.run()` internally, so setup and
+    verification go through a plain psycopg connection rather than the async
+    fixtures. Rows are committed for real and deleted afterwards; a unique
+    backend name keeps them out of every other test's counts.
+    """
+    marker = "cli-usage-test"
+    with _sync_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO core.translation_call
+                (backend, operation, source_lang, target_lang,
+                 text_count, char_count, latency_ms, outcome)
+            VALUES (%s, 'translate', 'EN', 'DE', 2, 41, 7, 'ok')
+            """,
+            (marker,),
+        )
+        conn.commit()
+
+    try:
+        result = runner.invoke(admin_app, ["translation", "usage", "--backend", marker])
+        assert result.exit_code == 0, result.output
+        assert marker in result.output
+        assert "41 characters" in result.output
     finally:
-        get_settings.cache_clear()
+        with _sync_conn() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM core.translation_call WHERE backend = %s", (marker,))
+            conn.commit()
+
+
+def test_translation_usage_says_so_when_there_is_nothing_to_report() -> None:
+    result = runner.invoke(
+        admin_app, ["translation", "usage", "--backend", "no-such-backend-at-all"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "No translation calls" in result.output

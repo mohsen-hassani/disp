@@ -307,13 +307,6 @@ export function describePlantError(problem: ProblemDetail): string {
   if (problem.code === 'modules.plants.no_image') {
     return "This plant's photo is missing.";
   }
-  // WEB-SPEC §7.3: an `<img>` load never reaches this function (image
-  // fetches don't go through the mutation/query error path at all) — this
-  // branch is defensive, for the case a plants mutation itself somehow
-  // surfaces an expired signed URL.
-  if (problem.code === 'core.files.url_expired') {
-    return 'This link has expired. Refreshing…';
-  }
   if (problem.status >= 500) {
     return `Something went wrong on the server. Reference: ${problem.request_id}`;
   }

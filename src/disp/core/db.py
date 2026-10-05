@@ -1,16 +1,18 @@
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from functools import lru_cache
 
 from fastapi import Request
 from sqlalchemy import MetaData
+from sqlalchemy import create_engine as create_sync_sqlalchemy_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from disp.core.config import get_settings
 
@@ -78,4 +80,52 @@ async def session_scope(
             await session.commit()
         except Exception:
             await session.rollback()
+            raise
+
+
+def create_sync_engine(database_url_sync: str) -> Engine:
+    """The psycopg-backed mirror of `create_engine`. Introduced by M22 for the
+    sync half of `disp.core.translation` (M22-translation.md §7.1) — a general
+    core primitive, not a translation detail.
+
+    Pool size is deliberately smaller than the async engine's: the sync path
+    serves one-shot CLI commands and worker-thread callers, not a request
+    hot path."""
+    return create_sync_sqlalchemy_engine(
+        database_url_sync,
+        pool_size=2,
+        max_overflow=3,
+        pool_pre_ping=True,
+    )
+
+
+def create_sync_session_maker(engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(engine, expire_on_commit=False)
+
+
+@lru_cache
+def _background_sync_session_maker() -> sessionmaker[Session]:
+    """Sync counterpart to `_background_session_maker`. `database_url_sync` is
+    derived from `database_url` by swapping `+asyncpg` for `+psycopg`
+    (config.py's `_derive_database_url_sync`), so this needs no extra
+    configuration and no extra dependency — psycopg is already installed for
+    Alembic and Procrastinate."""
+    return create_sync_session_maker(create_sync_engine(get_settings().database_url_sync))
+
+
+@contextmanager
+def sync_session_scope(
+    session_maker: sessionmaker[Session] | None = None,
+) -> Iterator[Session]:
+    """The sync mirror of `session_scope`, with identical commit/rollback
+    semantics. For callers that have no event loop and must not create one:
+    Typer commands, Alembic data migrations, and code already running in a
+    worker thread (M22-translation.md §5.1)."""
+    maker = session_maker if session_maker is not None else _background_sync_session_maker()
+    with maker() as session:
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
             raise

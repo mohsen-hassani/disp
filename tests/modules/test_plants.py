@@ -9,7 +9,6 @@ Anchoring to the due date would make a user who runs late permanently late.
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
-from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -18,7 +17,7 @@ import pytest
 from cryptography.fernet import Fernet
 from fastapi import UploadFile
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from disp.core import events as events_module
 from disp.core.auth import Permission, grant
@@ -27,8 +26,7 @@ from disp.core.contract import TileContext
 from disp.core.errors import AppError
 from disp.core.events import EventBus, set_event_bus
 from disp.core.files import FileStore
-from disp.core.files.backends.local import LocalBackend
-from disp.core.models import Asset
+from disp.core.models import FileRecord
 from disp.core.settings_store import SettingsStore
 from disp.modules.plants import reminders, service
 from disp.modules.plants.config import get_plants_settings
@@ -55,10 +53,9 @@ PNG_1PX = bytes.fromhex(
 JPEG_HEAD = b"\xff\xd8\xff\xe0" + b"\x00" * 64
 
 # Shared FileStore for every test that doesn't itself exercise image upload —
-# `_to_plant_out` only calls `files.signed_url(...)` when a plant actually
-# has an image_asset_id, so a backend that's never written to is safe to
-# share across every non-image test in this module.
-_FILES = FileStore(LocalBackend(Path("var/media-unused-in-tests")), settings=get_settings())
+# `files.links(...)` short-circuits without a query or a bucket call when no
+# plant on the page has an image_file_id, so it's safe to share.
+_FILES = FileStore.from_settings(get_settings())
 
 
 @pytest.fixture(autouse=True)
@@ -80,8 +77,15 @@ def _fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(service, "today", lambda: TODAY)
 
 
-def _local_files(tmp_path: Path) -> FileStore:
-    return FileStore(LocalBackend(tmp_path), settings=get_settings())
+def _photo_files(session_maker: async_sessionmaker[AsyncSession]) -> FileStore:
+    # A private key prefix in the shared MinIO bucket, and the per-test
+    # session_maker so post-commit purges see this test's rows.
+    settings = get_settings().model_copy(update={"files_s3_prefix": f"t-{uuid4().hex}/"})
+    return FileStore.from_settings(settings, session_maker=session_maker)
+
+
+async def _bucket_keys(files: FileStore) -> set[str]:
+    return {key async for key, _ in files.backend.iter_objects(files.prefix)}
 
 
 def _upload(data: bytes, filename: str = "photo.png") -> UploadFile:
@@ -97,7 +101,7 @@ async def _plant_with_intervals(
     session: AsyncSession, cu, name: str = "Sansevieria", **intervals: int
 ):
     """Create a plant plus named intervals, each anchored to `last_done_on=TODAY`."""
-    plant = await service.create_plant(session, cu, PlantCreate(name=name), files=_FILES)
+    plant = await service.create_plant(session, cu, PlantCreate(name=name))
     for label, days in intervals.items():
         await service.add_interval(
             session,
@@ -131,7 +135,6 @@ async def test_create_plant_grants_owner_and_emits_event(db_session: AsyncSessio
         db_session,
         cu,
         PlantCreate(name="Sansevieria", care_notes="Bright indirect light."),
-        files=_FILES,
     )
     await db_session.commit()
 
@@ -144,9 +147,7 @@ async def test_create_plant_grants_owner_and_emits_event(db_session: AsyncSessio
 async def test_plant_can_be_created_bare_then_filled_in_later(db_session: AsyncSession) -> None:
     """The user's stated flow: name only up front, notes and description later."""
     cu = await _owner(db_session, "plants-later@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     assert plant.care_notes is None
 
     updated = await service.update_plant(
@@ -162,9 +163,7 @@ async def test_plant_can_be_created_bare_then_filled_in_later(db_session: AsyncS
 
 async def test_interval_first_due_is_last_done_plus_interval(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-interval@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
 
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=15)
@@ -187,7 +186,7 @@ async def test_interval_anchored_to_a_past_last_done_is_already_due(
 ) -> None:
     """ "I last watered it 20 days ago" must land in the past, not the future."""
     cu = await _owner(db_session, "plants-backdated@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Ficus"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Ficus"))
 
     water = await service.add_interval(
         db_session,
@@ -201,7 +200,7 @@ async def test_interval_anchored_to_a_past_last_done_is_already_due(
 
 async def test_future_last_done_is_rejected(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-future@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Ficus"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Ficus"))
 
     with pytest.raises(AppError) as exc:
         await service.add_interval(
@@ -226,9 +225,7 @@ async def test_completing_late_reschedules_from_the_completion_date(
 ) -> None:
     """Due the 1st, done the 3rd, 15-day cycle -> next due the 18th (not the 16th)."""
     cu = await _owner(db_session, "plants-reschedule@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session,
         cu,
@@ -253,9 +250,7 @@ async def test_overdue_count_grows_each_day_until_the_action_is_done(
 ) -> None:
     """Day 2 says "1 day behind", day 3 says "2 days behind", then it clears."""
     cu = await _owner(db_session, "plants-behind@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session,
         cu,
@@ -280,7 +275,7 @@ async def test_completing_early_also_reschedules_from_completion(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-early@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Aloe"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Aloe"))
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=15)
     )
@@ -295,7 +290,7 @@ async def test_completion_can_be_backdated_but_not_future_dated(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-backdate@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Aloe"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Aloe"))
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=10)
     )
@@ -334,7 +329,7 @@ async def test_changing_the_cadence_rederives_the_next_due_date(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-cadence@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Monstera"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Monstera"))
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=15)
     )
@@ -358,7 +353,7 @@ async def test_changing_the_cadence_rederives_the_next_due_date(
 
 async def test_inactive_intervals_are_never_due(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-inactive@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Cactus"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Cactus"))
     water = await service.add_interval(
         db_session,
         cu,
@@ -383,9 +378,7 @@ async def test_due_summary_spans_plants_and_sorts_most_overdue_first(
 ) -> None:
     cu = await _owner(db_session, "plants-summary@example.com")
 
-    sansevieria = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    sansevieria = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -400,7 +393,7 @@ async def test_due_summary_spans_plants_and_sorts_most_overdue_first(
             name="Green Fertilizer", interval_days=30, last_done_on=TODAY - timedelta(days=30)
         ),
     )
-    fern = await service.create_plant(db_session, cu, PlantCreate(name="Fern"), files=_FILES)
+    fern = await service.create_plant(db_session, cu, PlantCreate(name="Fern"))
     await service.add_interval(
         db_session,
         cu,
@@ -443,15 +436,15 @@ async def test_plant_rollups_badge_the_list_view(db_session: AsyncSession) -> No
 
 async def test_list_plants_filters_by_name_and_hides_deleted(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-list@example.com")
-    await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES)
-    fern = await service.create_plant(db_session, cu, PlantCreate(name="Boston Fern"), files=_FILES)
+    await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
+    fern = await service.create_plant(db_session, cu, PlantCreate(name="Boston Fern"))
 
     matched = await service.list_plants(
         db_session, cu, limit=20, cursor=None, q="fern", files=_FILES
     )
     assert [p.name for p in matched.items] == ["Boston Fern"]
 
-    await service.delete_plant(db_session, cu, fern.id)
+    await service.delete_plant(db_session, cu, fern.id, files=_FILES)
     remaining = await service.list_plants(
         db_session, cu, limit=20, cursor=None, q=None, files=_FILES
     )
@@ -469,9 +462,7 @@ async def test_list_plants_filters_by_name_and_hides_deleted(db_session: AsyncSe
 async def test_another_users_plant_is_invisible(db_session: AsyncSession) -> None:
     owner = await _owner(db_session, "plants-owner@example.com")
     stranger = await _owner(db_session, "plants-stranger@example.com")
-    plant = await service.create_plant(
-        db_session, owner, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, owner, PlantCreate(name="Sansevieria"))
 
     with pytest.raises(AppError) as exc:
         await service.get_plant(db_session, stranger, plant.id, files=_FILES)
@@ -485,9 +476,7 @@ async def test_another_users_plant_is_invisible(db_session: AsyncSession) -> Non
 async def test_read_share_permits_reading_but_not_completing(db_session: AsyncSession) -> None:
     owner = await _owner(db_session, "plants-share-owner@example.com")
     guest = await _owner(db_session, "plants-share-guest@example.com")
-    plant = await service.create_plant(
-        db_session, owner, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, owner, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session, owner, plant.id, CareIntervalCreate(name="Water", interval_days=15)
     )
@@ -512,8 +501,8 @@ async def test_read_share_permits_reading_but_not_completing(db_session: AsyncSe
 
 async def test_interval_from_another_plant_is_not_addressable(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-crossplant@example.com")
-    first = await service.create_plant(db_session, cu, PlantCreate(name="One"), files=_FILES)
-    second = await service.create_plant(db_session, cu, PlantCreate(name="Two"), files=_FILES)
+    first = await service.create_plant(db_session, cu, PlantCreate(name="One"))
+    second = await service.create_plant(db_session, cu, PlantCreate(name="Two"))
     water = await service.add_interval(
         db_session, cu, second.id, CareIntervalCreate(name="Water", interval_days=15)
     )
@@ -533,9 +522,7 @@ async def test_deleting_an_interval_keeps_its_completed_history(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-history@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=15)
     )
@@ -555,9 +542,7 @@ async def test_calendar_shows_completed_past_and_projected_future(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-calendar@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session,
         cu,
@@ -583,9 +568,7 @@ async def test_calendar_shows_completed_past_and_projected_future(
 
 async def test_calendar_marks_a_missed_action_overdue(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-cal-overdue@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -601,9 +584,7 @@ async def test_calendar_marks_a_missed_action_overdue(db_session: AsyncSession) 
 async def test_calendar_for_a_past_month_projects_nothing(db_session: AsyncSession) -> None:
     """A past month is history only — a projection there never happened."""
     cu = await _owner(db_session, "plants-cal-past@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=3)
     )
@@ -625,7 +606,7 @@ async def test_calendar_projection_is_bounded_for_a_daily_interval(
 ) -> None:
     """A 1-day cadence anchored far in the past must not iterate from the anchor."""
     cu = await _owner(db_session, "plants-cal-daily@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Seedling"), files=_FILES)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Seedling"))
     await service.add_interval(
         db_session,
         cu,
@@ -648,9 +629,7 @@ async def test_calendar_projection_is_bounded_for_a_daily_interval(
 
 async def test_tile_summarises_what_is_due(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-tile@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -721,9 +700,7 @@ def _platform(notifier: _RecordingNotifier) -> SimpleNamespace:
 
 async def test_daily_job_sends_one_digest_per_user(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-daily@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -759,9 +736,7 @@ async def test_daily_job_skips_a_user_who_turned_the_push_off(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-daily-off@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -794,9 +769,7 @@ async def test_daily_job_look_ahead_setting_widens_the_digest(
     db_session: AsyncSession,
 ) -> None:
     cu = await _owner(db_session, "plants-daily-ahead@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.add_interval(
         db_session,
         cu,
@@ -827,97 +800,103 @@ async def test_daily_job_look_ahead_setting_widens_the_digest(
 
 
 async def test_image_round_trips_through_the_file_store(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
 ) -> None:
-    files = _local_files(tmp_path)
+    files = _photo_files(session_maker)
     cu = await _owner(db_session, "plants-image@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"), files=files)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
 
     updated = await service.set_plant_image(
         db_session, cu, plant.id, source=_upload(PNG_1PX), filename="photo.png", files=files
     )
     assert updated.has_image is True
     assert updated.image_url is not None
-    assert updated.image_url.startswith("/api/files/")
+    # A presigned bucket URL with the photo's 7-day ceiling (M18 §9.1).
+    assert updated.image_url.startswith(get_settings().files_s3_public_endpoint_url or "")
+    assert "X-Amz-Expires=604800" in updated.image_url
 
-    row = await db_session.get(Plant, plant.id)
-    assert row is not None
-    body = b""
-    async for chunk in await files.open(db_session, row.image_asset_id):
-        body += chunk
-    assert body == PNG_1PX
+    async with httpx.AsyncClient() as http:
+        response = await http.get(updated.image_url)
+    assert response.status_code == 200
+    assert response.content == PNG_1PX
+
+    detail = await service.get_plant(db_session, cu, plant.id, files=files)
+    page = await service.list_plants(db_session, cu, limit=20, cursor=None, q=None, files=files)
+    assert detail.image_url == updated.image_url
+    assert page.items[0].image_url == updated.image_url
+    assert (
+        await service.plant_image_redirect_url(db_session, cu, plant.id, files=files)
+        == updated.image_url
+    )
 
 
-async def test_image_survives_a_relative_files_root(
-    db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+async def test_replacing_an_image_deletes_the_old_file(
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
 ) -> None:
-    """`DISP_FILES_ROOT`'s configured default (`var/media`) is a *relative*
-    path. The historical `_variant_paths` resolved-path regression this once
-    pinned now lives at the core level
-    (`tests/core/files/test_local_backend_relative_root.py`) — this is a
-    thin integration check that the plants port still routes through that
-    same, already-fixed code path end to end.
-    """
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("DISP_FILES_ROOT", "var/media")
-    get_settings.cache_clear()
-    try:
-        files = FileStore.from_settings(get_settings())
-        cu = await _owner(db_session, "plants-image-relative@example.com")
-        plant = await service.create_plant(
-            db_session, cu, PlantCreate(name="Sansevieria"), files=files
-        )
-        updated = await service.set_plant_image(
-            db_session, cu, plant.id, source=_upload(PNG_1PX), filename="photo.png", files=files
-        )
-        assert updated.has_image is True
-
-        row = await db_session.get(Plant, plant.id)
-        assert row is not None
-        body = b""
-        async for chunk in await files.open(db_session, row.image_asset_id):
-            body += chunk
-        assert body == PNG_1PX
-    finally:
-        get_settings.cache_clear()
-
-
-async def test_replacing_an_image_soft_deletes_the_old_asset(
-    db_session: AsyncSession, tmp_path: Path
-) -> None:
-    files = _local_files(tmp_path)
+    files = _photo_files(session_maker)
     cu = await _owner(db_session, "plants-image-replace@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"), files=files)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
 
     await service.set_plant_image(
         db_session, cu, plant.id, source=_upload(PNG_1PX, "a.png"), filename="a.png", files=files
     )
+    await db_session.commit()
     row = await db_session.get(Plant, plant.id)
     assert row is not None
-    old_asset_id = row.image_asset_id
+    old = await db_session.get(FileRecord, row.image_file_id)
+    assert old is not None
+    old_id, old_key = old.id, old.storage_key
+
     await service.set_plant_image(
         db_session, cu, plant.id, source=_upload(JPEG_HEAD, "b.jpg"), filename="b.jpg", files=files
     )
-    # `row` is the same identity-mapped ORM instance set_plant_image just
-    # mutated — its attribute is already current, no re-fetch needed.
-    new_asset_id = row.image_asset_id
+    new_id = row.image_file_id
+    assert new_id != old_id
+    new = await db_session.get(FileRecord, new_id)
+    assert new is not None and new.content_type == "image/jpeg"
 
-    assert new_asset_id != old_asset_id
-    old_row = await db_session.get(Asset, old_asset_id)
-    assert old_row is not None
-    assert old_row.deleted_at is not None  # I2: soft-deleted, bytes untouched
+    await db_session.commit()
+    await files.wait_for_purges()
+    keys = await _bucket_keys(files)
+    assert old_key not in keys
+    assert new.storage_key in keys
+    db_session.expunge_all()
+    assert await db_session.get(FileRecord, old_id) is None
 
-    new_row = await db_session.get(Asset, new_asset_id)
-    assert new_row is not None
-    assert new_row.content_type == "image/jpeg"
+
+async def test_deleting_a_plant_deletes_its_photo(
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
+) -> None:
+    """M18 §8.4: the plant is only soft-deleted, so before v2 its photo
+    stayed in storage forever."""
+    files = _photo_files(session_maker)
+    cu = await _owner(db_session, "plants-image-plant-del@example.com")
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
+    await service.set_plant_image(
+        db_session, cu, plant.id, source=_upload(PNG_1PX), filename="photo.png", files=files
+    )
+    await db_session.commit()
+    row = await db_session.get(Plant, plant.id)
+    assert row is not None and row.image_file_id is not None
+    file_id = row.image_file_id
+    assert len(await _bucket_keys(files)) == 1
+
+    await service.delete_plant(db_session, cu, plant.id, files=files)
+    assert row.image_file_id is None
+    await db_session.commit()
+    await files.wait_for_purges()
+
+    assert await _bucket_keys(files) == set()
+    db_session.expunge_all()
+    assert await db_session.get(FileRecord, file_id) is None
 
 
 async def test_image_type_is_sniffed_not_taken_on_trust(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
 ) -> None:
-    files = _local_files(tmp_path)
+    files = _photo_files(session_maker)
     cu = await _owner(db_session, "plants-image-sniff@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"), files=files)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
 
     with pytest.raises(AppError) as exc:
         await service.set_plant_image(
@@ -932,20 +911,21 @@ async def test_image_type_is_sniffed_not_taken_on_trust(
     assert exc.value.code == "core.files.unsupported_type"
     row = await db_session.get(Plant, plant.id)
     assert row is not None
-    assert row.image_asset_id is None
+    assert row.image_file_id is None
+    assert await _bucket_keys(files) == set()  # nothing reached the bucket
 
 
 async def test_oversized_image_is_rejected(
-    db_session: AsyncSession, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    db_session: AsyncSession,
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("DISP_PLANTS_MAX_IMAGE_BYTES", "128")
     get_plants_settings.cache_clear()
     try:
-        files = _local_files(tmp_path)
+        files = _photo_files(session_maker)
         cu = await _owner(db_session, "plants-image-big@example.com")
-        plant = await service.create_plant(
-            db_session, cu, PlantCreate(name="Sansevieria"), files=files
-        )
+        plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
 
         with pytest.raises(AppError) as exc:
             await service.set_plant_image(
@@ -962,25 +942,24 @@ async def test_oversized_image_is_rejected(
         get_plants_settings.cache_clear()
 
 
-async def test_deleting_an_image_soft_deletes_the_asset_and_clears_the_pointer(
-    db_session: AsyncSession, tmp_path: Path
+async def test_clearing_an_image_deletes_the_file_and_clears_the_pointer(
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
 ) -> None:
-    files = _local_files(tmp_path)
+    files = _photo_files(session_maker)
     cu = await _owner(db_session, "plants-image-del@example.com")
-    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"), files=files)
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     await service.set_plant_image(
         db_session, cu, plant.id, source=_upload(PNG_1PX), filename="photo.png", files=files
     )
     plant_row = await db_session.get(Plant, plant.id)
     assert plant_row is not None
-    asset_id = plant_row.image_asset_id
+    file_id = plant_row.image_file_id
 
     await service.clear_plant_image(db_session, cu, plant.id, files=files)
-    assert plant_row.image_asset_id is None
-
-    row = await db_session.get(Asset, asset_id)
-    assert row is not None
-    assert row.deleted_at is not None  # I2: soft-deleted, never touches bytes directly
+    assert plant_row.image_file_id is None
+    record = await db_session.get(FileRecord, file_id)
+    assert record is not None
+    assert record.deleted_at is not None  # marked; the bucket purge waits for commit (I2)
 
     with pytest.raises(AppError) as exc:
         await service.plant_image_redirect_url(db_session, cu, plant.id, files=files)
@@ -989,14 +968,12 @@ async def test_deleting_an_image_soft_deletes_the_asset_and_clears_the_pointer(
 
 
 async def test_image_of_a_plant_you_cannot_see_is_a_404(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, session_maker: async_sessionmaker[AsyncSession]
 ) -> None:
-    files = _local_files(tmp_path)
+    files = _photo_files(session_maker)
     owner = await _owner(db_session, "plants-image-owner@example.com")
     stranger = await _owner(db_session, "plants-image-stranger@example.com")
-    plant = await service.create_plant(
-        db_session, owner, PlantCreate(name="Sansevieria"), files=files
-    )
+    plant = await service.create_plant(db_session, owner, PlantCreate(name="Sansevieria"))
     await service.set_plant_image(
         db_session, owner, plant.id, source=_upload(PNG_1PX), filename="photo.png", files=files
     )
@@ -1005,6 +982,30 @@ async def test_image_of_a_plant_you_cannot_see_is_a_404(
         await service.plant_image_redirect_url(db_session, stranger, plant.id, files=files)
     assert exc.value.status_code == 404
     assert exc.value.code == "modules.plants.not_found"
+
+
+async def test_http_image_route_redirects_to_the_presigned_link(
+    client: httpx.AsyncClient, db_session: AsyncSession
+) -> None:
+    email = "plants-http-redirect@example.com"
+    await make_user(db_session, email=email)
+    login = await client.post(
+        "/api/auth/login", json={"email": email, "password": DEFAULT_PASSWORD}
+    )
+    client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
+    plant_id = (await client.post("/api/plants", json={"name": "Sansevieria"})).json()["id"]
+
+    put = await client.put(
+        f"/api/plants/{plant_id}/image", files={"file": ("p.png", PNG_1PX, "image/png")}
+    )
+    assert put.status_code == 200, put.text
+    image_url = put.json()["image_url"]
+
+    redirect = await client.get(f"/api/plants/{plant_id}/image")
+    assert redirect.status_code == 302
+    assert redirect.headers["location"] == image_url
+    async with httpx.AsyncClient() as http:
+        assert (await http.get(image_url)).content == PNG_1PX
 
 
 async def test_http_oversized_upload_is_rejected_mid_stream(
@@ -1053,9 +1054,7 @@ async def test_unknown_plant_and_interval_ids_are_404(db_session: AsyncSession) 
 
 async def test_intervals_and_logs_are_scoped_to_their_plant(db_session: AsyncSession) -> None:
     cu = await _owner(db_session, "plants-scoped@example.com")
-    plant = await service.create_plant(
-        db_session, cu, PlantCreate(name="Sansevieria"), files=_FILES
-    )
+    plant = await service.create_plant(db_session, cu, PlantCreate(name="Sansevieria"))
     water = await service.add_interval(
         db_session, cu, plant.id, CareIntervalCreate(name="Water", interval_days=15)
     )

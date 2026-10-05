@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: disp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
@@ -16,15 +16,9 @@ services:
 
   api:
     build: .
+    # Uploaded files live in the Cloudflare R2 bucket named by .env's
+    # DISP_FILES_S3_* (docs/milestones/server/M18-files.md) — no volume.
     env_file: .env
-    environment:
-      # Uploaded files (plant photos and anything else routed through
-      # core.files) live on a volume, not in Postgres, so `pg_dump` stays
-      # small and text-only. Back this volume up alongside the database —
-      # see docs/operations.md.
-      DISP_FILES_ROOT: /data/files
-    volumes:
-      - media:/data/files
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:
@@ -75,14 +69,9 @@ services:
   worker:
     build: .
     command: ["python", "-m", "disp.worker"]
+    # core.sweep_files (M18-files.md §8.3) runs here, so this process needs
+    # the same DISP_FILES_S3_* as `api` — both come from .env.
     env_file: .env
-    environment:
-      # core.sweep_files (M18-files.md §8.3) runs in this process and must
-      # see the same volume as `api`, or it can never find the objects it's
-      # meant to reap — mount it here too, not just on `api`.
-      DISP_FILES_ROOT: /data/files
-    volumes:
-      - media:/data/files
     depends_on:
       postgres: {condition: service_healthy}
     restart: unless-stopped
@@ -102,7 +91,6 @@ services:
 
 volumes:
   pgdata:
-  media:
 
 # `edge` is the shared Traefik network, created by the standalone infra
 # project (../infra/docker-compose.yml — see that project's README for the

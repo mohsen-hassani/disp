@@ -72,9 +72,8 @@ async def create_plant(
     response: Response,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
-    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> PlantOut:
-    plant = await service.create_plant(session, user, payload, files=files)
+    plant = await service.create_plant(session, user, payload)
     response.headers["Location"] = f"/api/plants/{plant.id}"
     return plant
 
@@ -156,8 +155,9 @@ async def delete_plant(
     plant_id: UUID,
     user: Annotated[CurrentUser, Depends(current_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    files: Annotated[FileStore, Depends(get_file_store)],
 ) -> Response:
-    await service.delete_plant(session, user, plant_id)
+    await service.delete_plant(session, user, plant_id, files=files)
     return Response(status_code=204)
 
 
@@ -167,7 +167,7 @@ async def delete_plant(
     summary="Fetch a plant's photo",
     operation_id="plants_get_image",
     responses={
-        302: {"description": "Redirect to a signed /api/files URL"},
+        302: {"description": "Redirect to a presigned link to the photo in the file store"},
         404: {"description": "Plant not visible to the caller, or it has no photo"},
     },
 )

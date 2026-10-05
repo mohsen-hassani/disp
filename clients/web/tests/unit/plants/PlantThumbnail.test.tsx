@@ -35,7 +35,7 @@ describe('PlantThumbnail', () => {
     renderThumbnail(
       <PlantThumbnail
         plantId="plant-1"
-        imageUrl="/api/files/asset-1?exp=1&sig=x"
+        imageUrl="https://acct.r2.cloudflarestorage.com/disp/plants/a.png?X-Amz-Signature=x"
         hasImage
         name="Monstera"
       />,
@@ -43,17 +43,17 @@ describe('PlantThumbnail', () => {
     expect(screen.getByRole('img', { name: 'Monstera' })).toBeInTheDocument();
   });
 
-  // M18-files.md §13: `image_url` is now a bucketed-expiry signed URL — the
-  // first `onError` invalidates the owning queries (which re-mints the URL
-  // on refetch) and retries, rather than falling straight back to the
-  // placeholder. An `<img>` load never exposes an HTTP status, so an actual
-  // 404 and a merely-expired signature look identical here; both get one
+  // M18-files.md §12: `image_url` is a presigned bucket link — the first
+  // `onError` invalidates the owning queries (which mint a fresh link on
+  // refetch) and retries, rather than falling straight back to the
+  // placeholder. An `<img>` load never exposes an HTTP status, so a missing
+  // object and a merely-expired link look identical here; both get one
   // retry before giving up.
   it('invalidates the plants queries and keeps the image on the first failure', () => {
     const { queryClient } = renderThumbnail(
       <PlantThumbnail
         plantId="plant-1"
-        imageUrl="/api/files/asset-1?exp=1&sig=x"
+        imageUrl="https://acct.r2.cloudflarestorage.com/disp/plants/a.png?X-Amz-Signature=x"
         hasImage
         name="Monstera"
       />,
@@ -73,7 +73,7 @@ describe('PlantThumbnail', () => {
     const { queryClient } = renderThumbnail(
       <PlantThumbnail
         plantId="plant-1"
-        imageUrl="/api/files/asset-1?exp=1&sig=x"
+        imageUrl="https://acct.r2.cloudflarestorage.com/disp/plants/a.png?X-Amz-Signature=x"
         hasImage
         name="Monstera"
       />,
@@ -94,7 +94,7 @@ describe('PlantThumbnail', () => {
     const { queryClient, rerenderWith } = renderThumbnail(
       <PlantThumbnail
         plantId="plant-1"
-        imageUrl="/api/files/asset-1?exp=1&sig=x"
+        imageUrl="https://acct.r2.cloudflarestorage.com/disp/plants/a.png?X-Amz-Signature=x"
         hasImage
         name="Monstera"
       />,
@@ -108,7 +108,7 @@ describe('PlantThumbnail', () => {
     rerenderWith(
       <PlantThumbnail
         plantId="plant-1"
-        imageUrl="/api/files/asset-1?exp=2&sig=y"
+        imageUrl="https://acct.r2.cloudflarestorage.com/disp/plants/a.png?X-Amz-Signature=y"
         hasImage
         name="Monstera"
       />,

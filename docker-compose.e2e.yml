@@ -2,7 +2,7 @@
 # `docker compose -f docker-compose.yml -f docker-compose.e2e.yml up` — not
 # standalone like `docker-compose.test.yml` (Postgres only, for local dev
 # against a directly `uv run`-launched API) and not a copy of
-# `docker-compose.yml` itself. Three jobs, only:
+# `docker-compose.yml` itself. Four jobs, only:
 #
 # 1. Point `api`/`worker`/`migrate` at *this* file's Postgres, not whatever
 #    `DISP_DATABASE_URL` happens to be in the developer's own `.env`
@@ -22,6 +22,14 @@
 #    Traefik's path routing (§24.4), since the `web` container Traefik would
 #    normally route to doesn't exist yet (`clients/web` has no Dockerfile
 #    until M12).
+# 4. Replace the production file store (Cloudflare R2, via `.env`) with a
+#    throwaway MinIO bucket. EVERY `DISP_FILES_S3_*` value is overridden on
+#    every app service via the `x-e2e-files` anchor below — never inherited
+#    from `.env` — because an e2e stack pointed at the real bucket would run
+#    a sweeper that deletes every object its own (empty) database doesn't
+#    know about (M18-files.md §3). The API reaches MinIO as `minio:9000`;
+#    the Playwright browser loads links from `localhost:9000`, which is what
+#    DISP_FILES_S3_PUBLIC_ENDPOINT_URL is for (§9.2).
 #
 # Postgres uses its own `pgdata_e2e` volume — separate from
 # `docker-compose.yml`'s `pgdata` (real prod data) and
@@ -38,7 +46,40 @@
 # Requires `POSTGRES_PASSWORD` (docker-compose.yml has no default for it) —
 # export a throwaway value, e.g. `POSTGRES_PASSWORD=e2e docker compose -f
 # docker-compose.yml -f docker-compose.e2e.yml up -d --build`.
+x-e2e-files: &e2e-files
+  DISP_FILES_BACKEND: s3
+  DISP_FILES_S3_BUCKET: disp-e2e
+  DISP_FILES_S3_ENDPOINT_URL: http://minio:9000
+  DISP_FILES_S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
+  DISP_FILES_S3_REGION: us-east-1
+  DISP_FILES_S3_ACCESS_KEY_ID: minioadmin
+  DISP_FILES_S3_SECRET_ACCESS_KEY: minioadmin
+  DISP_FILES_S3_PREFIX: ""
+  DISP_FILES_S3_FORCE_PATH_STYLE: "true"
+
 services:
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/disp-e2e
+    depends_on:
+      minio: {condition: service_healthy}
+
   postgres:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-e2e}
@@ -54,6 +95,7 @@ services:
       DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_SEED_PASSWORD: ${DISP_SEED_PASSWORD:-e2e-admin-password}
+      <<: *e2e-files
     depends_on:
       postgres:
         condition: service_healthy
@@ -76,6 +118,7 @@ services:
       DISP_COOKIE_SECURE: "false"
       DISP_ENV: development
       DISP_RATE_LIMIT_ENABLED: "false"
+      <<: *e2e-files
     ports:
       - "8000:8000"
     depends_on:
@@ -83,16 +126,21 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
 
   worker:
     environment:
       DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-e2e}@postgres:5432/disp_db
       DISP_ENV: development
+      <<: *e2e-files
     depends_on:
       postgres:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      minio-init:
         condition: service_completed_successfully
 
 volumes:

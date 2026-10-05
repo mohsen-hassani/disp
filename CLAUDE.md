@@ -2,6 +2,28 @@
 
 Guidance for Claude Code when working in this repository.
 
+## Milestones are the source of truth (docs-first workflow)
+
+`docs/milestones/` (`server/` and `client/`) holds every technical detail of this project and is the
+source of truth. The code implements the milestones, not the other way round. This section takes
+precedence over any older wording below that treats other documents, or the code, as authoritative.
+
+1. **Docs first, then code.** Every change — whether the user asks for it, we decide it together, or
+   you decide it yourself — MUST first be written into the relevant `docs/milestones/` document (the
+   milestone that owns that area; create a new milestone only if none fits). Only after the document
+   says it, make the code change. Never edit code first and document afterwards.
+2. **Answer questions from the milestones, not from the code.** When asked about how some part of
+   the system works, read the owning milestone's implementation details first and answer from them.
+   Milestones are expected to point to the implemented code (file paths, symbols); open the code
+   only when the milestone sends you there or does not cover the question.
+3. **Docs and code must not drift.** After implementing a change, verify that the milestone and the
+   code say the same thing. If you find drift (from your own change or pre-existing), do not silently
+   "fix" either side: report it to the user, and sync the two together only after they confirm which
+   side is right.
+4. **A milestone that lacks the answer is itself a gap.** If a question or a change touches
+   something the milestones do not describe, say so, and propose adding it to the milestone as part of
+   the work.
+
 ## What this is
 
 DISP: a self-hosted personal platform (FastAPI backbone + plug-in module contract + built-in auth
@@ -35,7 +57,7 @@ time, never stored.
 ## Commands
 
 ```
-./dev up          # start local Postgres (docker-compose.test.yml — NOT docker-compose.yml)
+./dev up          # start local Postgres + MinIO (docker-compose.test.yml — NOT docker-compose.yml)
 ./dev down
 ./dev migrate [branch]     # alembic upgrade head, all branches or one
 ./dev makemigration <branch> "<msg>"
@@ -48,12 +70,12 @@ time, never stored.
 ```
 
 `docker-compose.yml` is the *production* stack (Postgres, api, worker, web, pgweb). Traefik is
-**not** part of this repo — it's shared reverse-proxy infrastructure for every app on the droplet,
+**not** part of this repo — it's shared reverse-proxy infrastructure for every app on the Hetzner server (this project is hosted on Hetzner, no longer a DigitalOcean droplet),
 defined in a separate standalone `infra` project (a sibling directory, not a subdirectory of
 `disp_repo`); this repo's `api`/`web` services only join its `edge` Docker network and carry
 routing labels (`docker-compose.yml`'s own trailing comment has the full pointer). Bring `infra` up
 before this repo's `docker compose up`, or it fails with `network edge declared as external, but
-could not be found`. Local dev only ever needs `docker-compose.test.yml` (Postgres alone) — the app
+could not be found`. Local dev only ever needs `docker-compose.test.yml` (Postgres + a MinIO bucket) — the app
 runs via `uv run` directly.
 
 ## Module boundaries (enforced by `tests/core/test_boundaries.py`, not just convention)
@@ -154,33 +176,34 @@ branches explicitly). Don't reintroduce a hardcoded module list in either derive
 
 ## `core.files` gotchas (full reasoning in `docs/milestones/server/M18-files.md`)
 
-- **Uploaded files are objects on a volume plus a `core.assets` row, never both stored in Postgres.**
-  `DISP_FILES_ROOT`, mounted as `media:/data/files` in `docker-compose.yml` — on **both** `api` and
-  `worker`, not just `api`: `core.sweep_files` runs in the worker process and needs to see the same
-  files the API wrote, which the pre-M18 `plants`-only setup never had to account for (nothing ran in
-  the worker that touched images). `pg_dump` does **not** contain object bytes, and a database-only
-  restore fails *visibly* (`404 core.files.missing_object`, distinct from `core.files.not_found`) —
-  `docs/operations.md` has the volume backup cron and the `disp-admin files verify` restore step.
-- **`files_root`'s default is a *relative* path** (`var/media`). Anything comparing paths under it
-  must compare resolved-to-resolved: a bug where a write deleted the file it had just written
-  (originally found in `plants`' own pre-M18 storage code, `_variant_paths`) survived a whole unit
-  suite because pytest's `tmp_path` is absolute and already resolved, and only showed up running the
-  real server. `tests/core/files/test_local_backend_relative_root.py` pins it. More generally: when
-  behaviour depends on a config's *shape*, test the shipped default's shape, not just a convenient
-  one.
-- **A row with a missing object must never be swept (I3).** The sweeper's two passes are asymmetric
-  on purpose: it deletes objects with no row, and rows that were soft-deleted past grace — but never
-  a row because its *object* is missing. Getting this backwards turns a recoverable "volume didn't
-  mount" into permanent, silent metadata loss across every asset on a database-only restore.
-- **`GET /api/files/usage` must stay declared above `GET /api/files/{asset_id}`** in `routes.py`,
-  same reasoning as the plants gotcha below.
+- **S3 only — there is no local backend and no media volume.** Production is Cloudflare R2; dev
+  (`./dev up`), the test suite (a testcontainer started in `tests/conftest.py`) and e2e
+  (`docker-compose.e2e.yml`) all run **MinIO**. The API refuses to boot without
+  `DISP_FILES_S3_BUCKET` and credentials. **Never point a non-production database at the production
+  bucket**: the sweeper deletes every object under the prefix that has no row in *its own* database.
+- **Links are presigned bucket URLs, signed by core's own `files/sigv4.py`, not botocore.** That's
+  deliberate. botocore signs with "now", so every refetch would hand the `<img>` a new URL and
+  re-download it. `sigv4.py` signs at a time bucketed to `clamp(ttl//10, 1, 3600)` seconds, so URLs
+  are stable within a window and never outlive the file's TTL. Its known-answer test is the AWS
+  published vector — if you touch canonicalisation, that test is the arbiter.
+- **The signed host must be the host the browser reaches.** `DISP_FILES_S3_PUBLIC_ENDPOINT_URL`
+  exists because in e2e the API talks to `minio:9000` while the browser loads `localhost:9000`.
+- **Deleting purges from the bucket after commit, not inside the transaction.** `files.delete()`
+  marks the row; an `after_commit` hook purges in a *fresh* session that only acts on committed
+  marks. In the test suite a `client` request's "commit" only releases a SAVEPOINT, so that purge is
+  a no-op there — test purges with a `FileStore` built on the per-test `session_maker`
+  (`tests/core/files/test_purge.py`).
+- **A module that soft-deletes a record MUST still `files.delete` its files** (M18 §8.4) — the
+  soft-deleted row lives forever, and so would its bytes in a bucket billed per GB.
+- **A row with a missing object must never be swept (I3).** The sweeper deletes objects with no row
+  and rows marked deleted — never a row because its *object* is missing.
 
 ## `plants` gotchas (full reasoning in that module's `TECHNICAL-SPEC.md`)
 
 - **`/due` and `/calendar` must stay declared above `/{plant_id}` in `router.py`.** FastAPI matches
   in declaration order; reordering makes `GET /api/plants/due` try to parse `"due"` as a UUID (422).
-- **Plant photos are no longer this module's own storage concern** — `plant.image_asset_id` points
-  into `core.assets`; see the `core.files` gotchas above for what actually backs it.
+- **Plant photos are no longer this module's own storage concern** — `plant.image_file_id` points
+  into `core.files`; see the `core.files` gotchas above for what actually backs it.
 
 ## Testing
 

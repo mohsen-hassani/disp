@@ -211,7 +211,7 @@ Module-owned, in `config.py`. A separate `BaseSettings` with its own prefix — 
 |---|---|---|
 | `DISP_PLANTS_MAX_IMAGE_BYTES` | `2097152` (2 MiB) | Upload size ceiling, tightens core's `ACCEPT_IMAGES.max_bytes` for this module only. |
 
-Photo storage location (`DISP_FILES_ROOT`) is core configuration now — see
+Photo storage (the S3/R2 bucket and its credentials, `DISP_FILES_S3_*`) is core configuration — see
 `docs/milestones/server/M18-files.md` §3. It moved out of this table when photo storage did (§11).
 
 Rationale: a module MUST NOT require an edit to `core/` to be installable (§8 of the platform spec).
@@ -228,8 +228,10 @@ ignored. This was confirmed empirically before the design was committed to, not 
 
 ## 5. Schema `plants` — DDL
 
-Authoritative target state, after `0001_plants_initial` **and** `0002_plants_image_asset` (M18 —
-replaces the three ad-hoc image columns with a single `core.assets` pointer). `alembic --name=plants
+Authoritative target state, after `0001_plants_initial`, `0002_plants_image_asset` (M18 v1 —
+replaced the three ad-hoc image columns with a single file pointer) **and** `0003_plants_image_file`
+(M18 v2 — renamed it to `image_file_id` and nulled existing values, since v2 started with an empty
+`core.files` table). `alembic --name=plants
 check` reports no drift against `models.py`.
 
 ```sql
@@ -241,7 +243,7 @@ CREATE TABLE plants.plant (
     name               TEXT        NOT NULL,
     description        TEXT,
     care_notes         TEXT,
-    image_asset_id     UUID,                          -- core.assets id; no FK, same convention as user_id
+    image_file_id      UUID,                          -- core.files id; no FK, same convention as user_id
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     deleted_at         TIMESTAMPTZ,
@@ -561,16 +563,19 @@ dance, and the `_variant_paths` resolved-path regression it took a real-server r
 to core and now backs any module, not just plants. Read `docs/milestones/server/M18-files.md` and
 `src/disp/core/files/` for the mechanism; this module only does three things with it:
 
-- `plant.image_asset_id` is a bare `core.assets` id (no cross-schema FK, same convention as
-  `user_id`). Assets are immutable — replacing a photo creates a new asset and drops the reference
-  to the old one (soft-deleted, reaped by the sweeper after a grace period), never overwrites bytes.
-- `PUT /api/plants/{id}/image` streams the upload straight into `platform.files.put(...)` — no
-  buffer-then-check, no manual sniffing here; `413`/`415` are `core.files.too_large` /
+- `plant.image_file_id` is a bare `core.files` id (no cross-schema FK, same convention as
+  `user_id`). Files are immutable — replacing a photo uploads a new file and `files.delete`s the old
+  one, whose object is purged from the bucket right after the transaction commits.
+- **Deleting a plant deletes its photo.** `delete_plant` soft-deletes the plant row but calls
+  `files.delete` on `image_file_id` in the same transaction. Before M18 v2 it did not, so a deleted
+  plant's photo stayed stored (and billed) forever — M18 §8.4.
+- `PUT /api/plants/{id}/image` streams the upload straight into `platform.files.put(...)` with
+  `purpose="plant_photo"` and `link_ttl=7 days` (the SigV4 maximum: photos are low-sensitivity and a
+  long link keeps the browser cache warm). `413`/`415` are `core.files.too_large` /
   `core.files.unsupported_type`, raised by `FileStore.put` itself.
-- `GET /api/plants/{id}/image` authorizes for `read`, then `302`-redirects to a signed
-  `/api/files/{asset_id}` URL (`FileStore.signed_url`) — the redirect target streams the bytes, sets
-  its own cache headers, and needs no session, which is what makes the photo actually render in an
-  `<img src>` (§17.4 below).
+- `PlantOut.image_url` is a presigned bucket URL from `files.links(...)`, fetched in **one** call per
+  response (list pages included). `GET /api/plants/{id}/image` authorizes for `read`, then
+  `302`-redirects to `files.link(...)`.
 
 `DISP_PLANTS_MAX_IMAGE_BYTES` still tightens `ACCEPT_IMAGES.max_bytes` for this module's uploads
 specifically; the type allow-list (JPEG/PNG/WebP/GIF) and the sniffing logic are core's, not this
@@ -742,22 +747,19 @@ would call today.
 No date library and no calendar library was added — a month grid is a small amount of arithmetic,
 and `Intl` covers the formatting.
 
-### 17.4 Photos render via a signed URL, not a bearer-only route
+### 17.4 Photos render via a presigned bucket URL, not a bearer-only route
 
-**Fixed by `docs/milestones/server/M18-files.md`.** `plant.image_url` (`PlantOut`/`PlantDetailOut`) is now
-`platform.files.signed_url(plant.image_asset_id)` — a relative `/api/files/{asset_id}?exp=&sig=` URL
-verified by HMAC, not by session — so a plain `<img src={imageUrl}>` (`components/plants/
-PlantThumbnail.tsx`) works unauthenticated, which is the whole reason this mechanism exists: a
-browser attaches neither cookies (`Path=/api/auth`) nor a JS-held bearer token to an image load.
-`GET /api/plants/{id}/image` itself now authorizes for `read` and `302`-redirects to that same signed
-URL, so the old bearer-only route keeps working through one extra hop.
+`plant.image_url` (`PlantOut`/`PlantDetailOut`) is a SigV4 presigned `GET` URL pointing straight at the
+bucket (R2 in production, MinIO in dev/e2e). It carries its own authorization, so a plain
+`<img src={imageUrl}>` (`components/plants/PlantThumbnail.tsx`) works with no session. That is the
+point: a browser attaches neither cookies (`Path=/api/auth`) nor a JS-held bearer token to an image
+load. The URL is cross-origin, which is why the web CSP lists the bucket host (M18 §12).
+`GET /api/plants/{id}/image` authorizes for `read` and `302`-redirects to a fresh link.
 
-`PlantThumbnail`'s `onError` handler still exists, but its job changed: a signed URL's bucketed
-expiry (M18 §9.1) means the same URL can go stale in cache without the underlying photo being gone,
-so `onError` now invalidates the parent query (re-minting a fresh URL) and retries once before
-falling back to the `Sprout` placeholder — see `docs/milestones/client` for the exact sequence. A genuine
-401/403 and a merely-expired signature are otherwise indistinguishable to an `<img>` tag, which is
-why this is a retry-then-fallback, not an immediate one.
+`PlantThumbnail`'s `onError` handler invalidates the parent query (minting a fresh link) and retries
+once before falling back to the `Sprout` placeholder. An expired link and a missing object are
+indistinguishable to an `<img>` tag, which is why this is a retry-then-fallback, not an immediate
+one.
 
 ---
 
@@ -767,17 +769,18 @@ why this is a retry-then-fallback, not an immediate one.
 |---|---|---|
 | `modules.plants.not_found` | 404 | Plant absent, soft-deleted, or not readable by the caller |
 | `modules.plants.interval_not_found` | 404 | Interval absent, or belongs to a different plant |
-| `modules.plants.no_image` | 404 | Plant has no photo (`image_asset_id IS NULL`) |
+| `modules.plants.no_image` | 404 | Plant has no photo (`image_file_id IS NULL`) |
 | `modules.plants.future_date` | 400 | `last_done_on` / `completed_on` in the future |
 | `modules.plants.date_too_old` | 400 | `completed_on` more than 365 days ago |
 | `modules.plants.invalid_month` | 400 | `month` not parseable as `YYYY-MM` |
-
-Upload-time errors (empty upload, oversized, unsupported type) are raised by `FileStore.put` itself
-as `core.files.empty_upload` / `core.files.too_large` / `core.files.unsupported_type` — see M18's
-Appendix A amendment. This module no longer re-codes them into its own namespace (a module MUST NOT
-do that; a client handles "file too large" once, not once per domain).
 | `core.acl.forbidden` | 403 | Caller can read the plant but lacks the permission |
 | `core.pagination.invalid_cursor` | 400 | Undecodable cursor (platform-shared) |
+
+Upload-time errors (empty upload, oversized, unsupported type, bucket unavailable) are raised by
+`FileStore.put` itself as `core.files.empty_upload` / `core.files.too_large` /
+`core.files.unsupported_type` / `core.files.storage_unavailable` — see M18 §7. This module does not
+re-code them into its own namespace (a module MUST NOT do that; a client handles "file too large"
+once, not once per domain).
 
 ---
 
@@ -817,25 +820,18 @@ default's shape.**
 
 ### 20.1 Photos are not in the database backup
 
-> `scripts/backup.sh` covers Postgres only. **Restoring only the database returns every plant,
-> schedule and log with its `image_asset_id` intact and the image bytes gone.**
-
-The failure is now `404 core.files.missing_object` — visibly distinct from "no photo"
-(`modules.plants.no_image`, raised only when `image_asset_id IS NULL`), which is an improvement over
-this module's pre-M18 behaviour where both cases collapsed onto the same silent 404. The `media`
-volume MUST be backed up alongside the dump; `docs/operations.md` carries a worked cron example and
-the `disp-admin files verify` restore-first-step. This is core's concern now, not plants'
-specifically — the volume backs every module that uses `core.files`.
+> `scripts/backup.sh` covers Postgres only. Photos live in the object store (R2), which does not
+> version objects. Restoring an older database dump can leave `image_file_id`s whose objects were
+> purged since; `disp-admin files verify` reports them. That is core's concern, not plants'
+> specifically — see `docs/operations.md`.
 
 ### 20.2 Deployment checklist
 
-- `docker-compose.yml` mounts `media:/data/files` on **both** `api` and `worker`, and sets
-  `DISP_FILES_ROOT=/data/files` on both. Unlike the pre-M18 setup, **the worker now needs the
-  volume** — `core.sweep_files` runs there and must see the same files `api` writes.
-- Migration: `docker compose run --rm api alembic --name=plants upgrade head`, but only **after**
-  running `disp-admin files adopt --domain plants --purpose plant_photo --root <old media root>`
-  against the pre-upgrade media root — the migration drops the columns `adopt` reads from.
-- The worker process must be running for reminders to be delivered, and now also for the sweeper.
+- `DISP_FILES_S3_*` must be set on **both** `api` and `worker`: uploads happen in `api`, and the
+  `core.sweep_files` sweeper runs in the worker. There is no media volume any more.
+- Migration: `docker compose run --rm api alembic --name=plants upgrade head`
+  (`0003_plants_image_file` nulls every existing photo pointer — M18 v2 started fresh).
+- The worker process must be running for reminders to be delivered, and for the sweeper.
 
 ---
 

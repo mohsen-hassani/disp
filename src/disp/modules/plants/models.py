@@ -55,10 +55,10 @@ class Plant(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     care_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # A core.assets id (M18-files.md) — bare column, no cross-schema FK, same
-    # convention as user_id above. Nulled and re-pointed on every photo
-    # replacement (assets are immutable; a new upload is a new asset).
-    image_asset_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    # A core.files id (M18-files.md) — bare column, no cross-schema FK, same
+    # convention as user_id above. Re-pointed on every photo replacement
+    # (files are immutable; a new upload is a new file, the old one deleted).
+    image_file_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

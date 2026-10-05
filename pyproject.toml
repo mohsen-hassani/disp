@@ -29,17 +29,42 @@ dependencies = [
     "platformdirs>=4.3",
     "tomli-w>=1.1",
     "slowapi>=0.1.9",
+    # M19: core LLM service (src/disp/core/llm/). Imported in exactly one
+    # file, src/disp/core/llm/client.py — see L4/§10, enforced by
+    # tests/core/test_boundaries.py.
+    "anthropic>=0.68",
+    # M20: learning module (src/disp/modules/learning/). SQLAlchemy Vector
+    # type over the pgvector/pgvector:pg16 extension (learning/models.py §5.1).
+    "pgvector>=0.3",
+    # M20 §8.1: flat text extraction for uploaded PDF sources (no layout
+    # recovery — structure recovery from PDF is explicitly out of scope, §27).
+    "pypdf>=6.16.1",
+    # M20 §8.1/§8.2: SRT caption parsing (timestamps, drift, malformed cues)
+    # for the srt->plain_text structural pass ahead of §8.2's LLM sectioning.
+    "srt>=3.5.3",
+    # M18 v2: core file service — S3-compatible object storage (Cloudflare R2
+    # in production, MinIO in dev/tests). Imported only in
+    # src/disp/core/files/backends/s3.py; link presigning is core's own
+    # src/disp/core/files/sigv4.py, not botocore (M18-files.md §9.2).
+    "aioboto3>=13",
 ]
+
+[project.optional-dependencies]
+# M19: DISP_EMBEDDING_PROVIDER=local (src/disp/core/llm/embeddings.py). Not a
+# hard dependency — no network, no key, no per-token cost, but a meaningfully
+# worse retrieval quality and a large image, so it stays opt-in.
+local-embeddings = ["sentence-transformers>=3.0"]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=6.0",
-    "testcontainers[postgres]>=4.8",
+    "testcontainers[minio,postgres]>=4.8",
     "ruff>=0.8",
     "mypy>=1.13",
     "types-python-dateutil",
+    "types-aioboto3[s3]>=15.5.0",
 ]
 
 [project.scripts]
@@ -85,6 +110,19 @@ select = ["E", "F", "I", "N", "UP", "B", "S", "A", "C4", "DTZ", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
 "**/migrations/versions/*.py" = ["E501"]
+# The public error-type names (LLMRefused, LLMTruncated, LLMInvalidOutput,
+# LLMInputTooLarge, LLMUnavailable, LLMNotConfigured) are fixed by
+# docs/milestones/server/M19-llm.md §10's literal public surface and mirrored in
+# tests/core/test_boundaries.py's ALLOWED_LLM_NAMES — not renamable to
+# satisfy N818's "Error" suffix convention.
+"src/disp/core/llm/errors.py" = ["N818"]
+# Same reasoning for the translation error types (TranslationNotSupported,
+# TranslationUnavailable, TranslationQuotaExceeded, TranslationRejected,
+# TranslationNotConfigured, TranslationInputTooLarge,
+# TranslationInvalidResponse): fixed by docs/milestones/server/M22-translation.md
+# §9's literal public surface and mirrored in tests/core/test_boundaries.py's
+# ALLOWED_TRANSLATION_NAMES.
+"src/disp/core/translation/errors.py" = ["N818"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -93,3 +131,9 @@ disallow_untyped_defs = true
 [[tool.mypy.overrides]]
 module = "disp.core.*"
 strict = true
+
+[[tool.mypy.overrides]]
+# No published type stubs (M20 §8.1: SRT structural parsing in
+# learning/service/ingest.py).
+module = "srt"
+ignore_missing_imports = true

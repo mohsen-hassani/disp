@@ -1,7 +1,9 @@
 from disp.core.files.store import (
     ACCEPT_DOCUMENTS,
     ACCEPT_IMAGES,
+    ACCEPT_VIDEOS,
     AcceptSpec,
+    FileLink,
     FileStore,
     StoredFile,
     UsageRow,
@@ -12,7 +14,9 @@ from disp.core.files.store import (
 __all__ = [
     "ACCEPT_DOCUMENTS",
     "ACCEPT_IMAGES",
+    "ACCEPT_VIDEOS",
     "AcceptSpec",
+    "FileLink",
     "FileStore",
     "StoredFile",
     "UsageRow",

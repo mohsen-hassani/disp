@@ -57,17 +57,17 @@ comparison goes through `service.today()`.
 
 ## Photos
 
-Stored through the core file/asset service (`src/disp/core/files/`, see `docs/milestones/server/
-M18-files.md`), not this module — `plant.image_asset_id` is a bare `core.assets` id, no cross-schema
-FK. `GET /api/plants/{id}/image` authorizes against the plant's ACL, then `302`-redirects to a
-signed `/api/files/{asset_id}` URL that works in a plain `<img src>` with no session (`DISP_PLANTS_
-MAX_IMAGE_BYTES` still tightens the platform's default upload cap for this module's uploads only).
+Stored through the core file service (`src/disp/core/files/`, see `docs/milestones/server/
+M18-files.md`), not this module. `plant.image_file_id` is a bare `core.files` id, with no
+cross-schema FK. `PlantOut.image_url` is a presigned S3/R2 URL (7-day ceiling) that works in a plain
+`<img src>` with no session. `GET /api/plants/{id}/image` authorizes against the plant's ACL, then
+`302`-redirects to a fresh one. `DISP_PLANTS_MAX_IMAGE_BYTES` still tightens the platform's default
+upload cap for this module's uploads only.
 
 The declared `Content-Type` is ignored — the type is sniffed from the leading bytes and rejected
-unless it is JPEG, PNG, WebP or GIF (core's sniffable-type table). Uploaded bytes are not in
-Postgres — `pg_dump` stays small and text-only, but **the files volume needs backing up
-separately**, and it's shared by every module that uses `core.files`, not plants-specific — see
-`docs/operations.md`.
+unless it is JPEG, PNG, WebP or GIF (core's sniffable-type table). Replacing or clearing a photo, or
+deleting the plant, deletes the old file. Its object leaves the bucket right after the transaction
+commits.
 
 ## Access control
 

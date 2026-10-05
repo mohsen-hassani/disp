@@ -318,20 +318,19 @@ class Settings(BaseSettings):
 | `DISP_TIMEZONE` | str | no | `Europe/Amsterdam` | IANA name; used for "today" boundaries |
 | `DISP_RATE_LIMIT_ENABLED` | bool | no | `true` | |
 | `DISP_ENV` | str | no | `production` | `production` \| `development` \| `test` |
-| `DISP_FILES_BACKEND` | str | no | `local` | `local` \| `s3` |
-| `DISP_FILES_ROOT` | str | no | `var/media` | local backend only |
-| `DISP_FILES_MAX_BYTES` | int | no | `26214400` (25 MiB) | > 0; hard ceiling, an `AcceptSpec` may be stricter, never looser |
-| `DISP_FILES_URL_TTL_SECONDS` | int | no | `3600` | 60–86400 |
-| `DISP_FILES_SWEEP_GRACE_SECONDS` | int | no | `86400` | > 0 |
-| `DISP_FILES_SWEEP_CRON` | str | no | `30 4 * * *` | 5-field cron |
-| `DISP_FILES_S3_BUCKET` | str | no | `""` | required if `DISP_FILES_BACKEND=s3` |
-| `DISP_FILES_S3_ENDPOINT_URL` | str \| None | no | `None` | unset for AWS; set for R2/B2/MinIO |
-| `DISP_FILES_S3_REGION` | str | no | `auto` | |
-| `DISP_FILES_S3_ACCESS_KEY_ID` | SecretStr | no | `""` | required if `DISP_FILES_BACKEND=s3` |
-| `DISP_FILES_S3_SECRET_ACCESS_KEY` | SecretStr | no | `""` | required if `DISP_FILES_BACKEND=s3` |
-| `DISP_FILES_S3_PREFIX` | str | no | `""` | key prefix inside the bucket |
-| `DISP_FILES_S3_FORCE_PATH_STYLE` | bool | no | `true` | MinIO requires it; R2/B2 tolerate it |
-| `DISP_FILES_S3_NATIVE_PRESIGN` | bool | no | `false` | off by default — breaks same-origin `img-src` CSP if enabled |
+| `DISP_FILES_BACKEND` | str | no | `s3` | `s3` (the only backend; the key new writes go to — M18-files.md §2) |
+| `DISP_FILES_S3_BUCKET` | str | **yes** | `""` | must be non-empty |
+| `DISP_FILES_S3_ENDPOINT_URL` | str \| None | no | `None` | server-side endpoint; unset for AWS, set for R2/MinIO |
+| `DISP_FILES_S3_PUBLIC_ENDPOINT_URL` | str \| None | no | `None` | host signed links point at; defaults to the endpoint (M18-files.md §9.2) |
+| `DISP_FILES_S3_REGION` | str | no | `auto` | R2 accepts `auto` |
+| `DISP_FILES_S3_ACCESS_KEY_ID` | SecretStr | **yes** | `""` | must be non-empty |
+| `DISP_FILES_S3_SECRET_ACCESS_KEY` | SecretStr | **yes** | `""` | must be non-empty |
+| `DISP_FILES_S3_PREFIX` | str | no | `""` | key prefix inside the bucket; the sweeper only touches keys under it |
+| `DISP_FILES_S3_FORCE_PATH_STYLE` | bool | no | `true` | MinIO requires it; R2 accepts it |
+| `DISP_FILES_MAX_BYTES` | int | no | `104857600` (100 MiB) | > 0; hard ceiling, an `AcceptSpec` may be stricter, never looser |
+| `DISP_FILES_DEFAULT_LINK_TTL_SECONDS` | int | no | `3600` | 60–604800; link TTL ceiling for files stored without one |
+| `DISP_FILES_ORPHAN_GRACE_SECONDS` | int | no | `3600` | > 0; age before an unreferenced object is swept |
+| `DISP_FILES_SWEEP_CRON` | str | no | `17 * * * *` | 5-field cron |
 
 `get_settings()` MUST be `@lru_cache`-decorated and MUST be the only way settings are obtained.
 
@@ -342,7 +341,7 @@ On boot the application MUST fail fast (log a fatal error, exit code 1) if:
 - `JWT_SECRET` is shorter than 32 characters;
 - `SETTINGS_KEY` is not a valid Fernet key;
 - `DISP_ENV == "production"` and `COOKIE_SECURE` is false;
-- `DISP_FILES_BACKEND == "s3"` and the bucket or credentials are empty;
+- `DISP_FILES_S3_BUCKET` or either S3 credential is empty (there is no storage fallback — M18-files.md §3);
 - the database is unreachable after 5 retries with 2-second backoff.
 
 ### 5.4 `.env.example`
@@ -618,7 +617,7 @@ class TileSize(StrEnum):
 class TileNavSpec(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    label: str = Field(min_length=1, max_length=32)   # "Manage plants"
+    label: str = Field(min_length=1, max_length=32)  # "Manage plants"
     path: str = Field(default="", pattern=SUBPATH_RE)  # sub-path under /<domain>
 
 
@@ -771,7 +770,7 @@ class Platform:
     scheduler: SchedulerFacade  # .task(name), .defer(name, **kwargs)
     notifier: NotifierFacade  # .send(...)
     store: SettingsStore
-    files: FileStore  # .put(...), .get(...), .open(...), .delete(...), .signed_url(...)
+    files: FileStore  # .put(...), .get(...), .link(...), .links(...), .delete(...), .usage(...)
     registry: "Registry"  # read-only accessors only
 ```
 
@@ -1393,7 +1392,6 @@ Response envelope for every list endpoint:
 | `POST /api/auth/accept-invite` | 10/hour per IP |
 | `POST /api/auth/tokens` | 20/hour per user |
 | `POST /api/auth/password` | 5/hour per user |
-| `GET /api/files/{asset_id}` | 300/minute per IP — stated explicitly, not just inherited: this is the platform's first unauthenticated route (the signed-URL path), shared by every thumbnail on a page |
 | all other routes | 300/minute per IP |
 
 Exceeding a limit returns `429` with `Retry-After`.
@@ -1687,7 +1685,7 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 | S14 | `docs_url` and `redoc_url` are disabled when `DISP_ENV=production`. |
 | S15 | The container runs as a non-root user (`uid 10001`). |
 | S16 | Dependencies are pinned via a committed lock file. |
-| S17 | Signed file URLs are HMAC-SHA256 capabilities over `(asset id, bucketed expiry)`, verified with `hmac.compare_digest`; the signature does not bind a user id (M18-files.md §9). |
+| S17 | File links are S3 SigV4 presigned `GET` capabilities pointing at the bucket, never longer-lived than the file's stored TTL ceiling (≤ 7 days); the signature does not bind a user id; deleting a file purges its object after commit, which kills outstanding links (M18-files.md §8.2, §9). |
 | S18 | No component of a storage key derives from client input (M18-files.md I4). |
 | S19 | Only a positively sniffed type may be served `Content-Disposition: inline`; everything else, including the unsniffable text family, is `attachment` (M18-files.md I6). |
 
@@ -1705,10 +1703,8 @@ The refresh cookie is discarded. The CLI authenticates only with the PAT.
 - Time-dependent tests use `freezegun` or explicit injected `now` parameters — never `sleep`. The
   `core.files` sweeper and its signing layer thread `now` explicitly through every call rather than
   mocking wall-clock time, so no `freezegun` dependency was needed for that suite.
-- The `core.files` backend conformance suite (`tests/core/files/test_backends.py`) currently runs
-  against the local backend only — the S3 backend (M18-files.md §6.2) is deferred, so there is no
-  MinIO testcontainer yet. When S3 lands, its conformance run is still localhost (a testcontainer),
-  not outbound network I/O.
+- `core.files` tests run against a MinIO testcontainer started once per session next to Postgres
+  (`tests/conftest.py`). It is localhost, not outbound network I/O; nothing in the suite talks to R2.
 
 ### 22.2 Coverage
 
@@ -2072,10 +2068,8 @@ the backbone registry.
 | `core.files.empty_upload` | 400 | Upload contained no bytes |
 | `core.files.too_large` | 413 | Over the effective `AcceptSpec`/`DISP_FILES_MAX_BYTES` ceiling |
 | `core.files.unsupported_type` | 415 | Bytes are not a type the caller's `AcceptSpec` allows |
-| `core.files.not_found` | 404 | No such asset, or it was soft-deleted |
-| `core.files.missing_object` | 404 | Row exists but the backend has no matching object (§15.3) |
-| `core.files.url_expired` | 403 | Signed URL's signature is invalid, or its bucketed expiry has passed |
-| `core.files.forbidden` | 403 | Bearer-authenticated caller is neither the asset's owner nor an admin |
+| `core.files.not_found` | 404 | No such file, it was deleted, or it belongs to another domain |
+| `core.files.storage_unavailable` | 503 | The object store rejected or could not be reached for an upload |
 | `modules.notes.not_found` | 404 | Note absent or not readable |
 | `modules.notes.user_not_found` | 404 | Share target email unknown |
 | `modules.notes.cannot_share_with_self` | 400 | Share target is the caller |

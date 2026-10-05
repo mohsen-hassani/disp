@@ -98,13 +98,19 @@ with psycopg.connect(url) as conn, conn.cursor() as cur:
         # coverage.thresholds, which is a Vitest feature and does not port --
         # so each gated directory is a separate report over the .coverage file
         # pytest just wrote. Add a line here per gated directory; see
-        # docs/milestones/server/M18-files.md §14.
+        # docs/milestones/server/M18-files.md, "Testing".
         uv run coverage report --include='src/disp/core/auth/*' --fail-under=95 >/dev/null \
             || { echo "FAIL: src/disp/core/auth/ below 95% coverage"; \
                  uv run coverage report --include='src/disp/core/auth/*'; exit 1; }
         uv run coverage report --include='src/disp/core/files/*' --fail-under=95 >/dev/null \
             || { echo "FAIL: src/disp/core/files/ below 95% coverage"; \
                  uv run coverage report --include='src/disp/core/files/*'; exit 1; }
+        uv run coverage report --include='src/disp/core/llm/*' --fail-under=95 >/dev/null \
+            || { echo "FAIL: src/disp/core/llm/ below 95% coverage"; \
+                 uv run coverage report --include='src/disp/core/llm/*'; exit 1; }
+        uv run coverage report --include='src/disp/core/translation/*' --fail-under=95 >/dev/null \
+            || { echo "FAIL: src/disp/core/translation/ below 95% coverage"; \
+                 uv run coverage report --include='src/disp/core/translation/*'; exit 1; }
         ;;
     lint)
         uv run ruff check .

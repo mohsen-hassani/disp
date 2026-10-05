@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 
 from disp.core.auth.passwords import hash_password
 from disp.core.cli_admin_files import files_app
+from disp.core.cli_admin_translation import translation_app
 from disp.core.config import get_settings
 from disp.core.db import create_engine, create_session_maker
 from disp.core.models import User
@@ -20,6 +21,7 @@ def _callback() -> None:
 
 
 app.add_typer(files_app, name="files")
+app.add_typer(translation_app, name="translation")
 
 
 @app.command("seed-admin")

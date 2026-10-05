@@ -7,6 +7,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     LargeBinary,
     Text,
     func,
@@ -301,61 +302,48 @@ class NotificationLog(Base):
     )
 
 
-class Asset(Base):
-    """M18: core file/asset service. Assets are immutable — there is no update,
-    only soft-delete (`deleted_at`) followed by the sweeper reaping the object
-    and the row once past the grace period. See src/disp/core/files/ and
-    docs/milestones/server/M18-files.md §4.
+class FileRecord(Base):
+    """M18 v2: core file service — one row per object in the S3/R2 bucket.
+    Files are immutable — there is no update, only `deleted_at` marking
+    followed by the post-commit purge (object, then row). See
+    src/disp/core/files/ and docs/milestones/server/M18-files.md §4.
+
+    Named FileRecord, not File, to keep it visibly distinct from the
+    module-facing StoredFile DTO and from Python file objects.
     """
 
-    __tablename__ = "assets"
+    __tablename__ = "files"
     __table_args__ = (
-        CheckConstraint(
-            "domain ~ '^[a-z][a-z0-9_]{1,31}$'",
-            name="ck_assets_domain",
-        ),
-        CheckConstraint(
-            "purpose ~ '^[a-z][a-z0-9_]{1,63}$'",
-            name="ck_assets_purpose",
-        ),
-        CheckConstraint(
-            "byte_size > 0",
-            name="ck_assets_byte_size",
-        ),
-        CheckConstraint(
-            "sha256 ~ '^[0-9a-f]{64}$'",
-            name="ck_assets_sha256",
-        ),
+        CheckConstraint("domain ~ '^[a-z][a-z0-9_]{1,31}$'", name="ck_files_domain"),
+        CheckConstraint("purpose ~ '^[a-z][a-z0-9_]{1,63}$'", name="ck_files_purpose"),
+        CheckConstraint("length(name) BETWEEN 1 AND 255", name="ck_files_name"),
+        CheckConstraint("byte_size > 0", name="ck_files_byte_size"),
+        CheckConstraint("sha256 ~ '^[0-9a-f]{64}$'", name="ck_files_sha256"),
+        CheckConstraint("link_ttl_seconds BETWEEN 60 AND 604800", name="ck_files_link_ttl"),
+        Index("uq_files_location", "backend", "bucket", "storage_key", unique=True),
         Index(
-            "uq_assets_backend_storage_key",
-            "backend",
-            "storage_key",
-            unique=True,
-        ),
-        Index(
-            "ix_assets_owner",
+            "ix_files_owner",
             "owner_user_id",
             text("created_at DESC"),
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index(
-            "ix_assets_lookup",
+            "ix_files_lookup",
             "domain",
             "purpose",
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index(
-            "ix_assets_sweep",
+            "ix_files_purge",
             "deleted_at",
             postgresql_where=text("deleted_at IS NOT NULL"),
         ),
         {"schema": SCHEMA},
     )
 
-    # Both a Python-side default and a server_default, unlike every other
-    # table here: §5 requires the id be known *before* the row is even
-    # constructed, because it's baked into the storage key the backend writes
-    # bytes to first (I1). server_default stays for hand-written SQL.
+    # Both a Python-side default and a server_default, unlike most tables
+    # here: the id is baked into the storage key, and the bytes are uploaded
+    # before the row exists (I1), so it must be known in Python first.
     id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True),
         primary_key=True,
@@ -369,14 +357,18 @@ class Asset(Base):
     )
     domain: Mapped[str] = mapped_column(Text, nullable=False)
     purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
     content_type: Mapped[str] = mapped_column(Text, nullable=False)
     byte_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     sha256: Mapped[str] = mapped_column(Text, nullable=False)
-    original_filename: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # A registry key ("s3"), never a class path — a class rename must not
+    # orphan the table (M18-files.md §4).
     backend: Mapped[str] = mapped_column(Text, nullable=False)
+    bucket: Mapped[str] = mapped_column(Text, nullable=False)
     storage_key: Mapped[str] = mapped_column(Text, nullable=False)
-    # none_as_null=False, unlike Setting.value_json (:255-260): attributes is
-    # NOT NULL with a '{}' default and never needs to represent SQL NULL.
+    link_ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False)
+    # none_as_null=False, unlike Setting.value_json: attributes is NOT NULL
+    # with a '{}' default and never needs to represent SQL NULL.
     attributes: Mapped[dict[str, object]] = mapped_column(
         JSONB(none_as_null=False), nullable=False, server_default=text("'{}'::jsonb")
     )
@@ -386,14 +378,99 @@ class Asset(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class LLMCallRow(Base):
+    """M19: core LLM usage accounting. See src/disp/core/llm/ and
+    docs/milestones/server/M19-llm.md §6.
+
+    user_id has NO foreign key, unlike FileRecord.owner_user_id directly above —
+    deliberate, per TECHNICAL-SPEC.md §6.1's cross-schema-FK avoidance, and
+    nullable for system-initiated calls with no owning user. This is a
+    divergence from the FileRecord pattern, not an oversight.
+    """
+
+    __tablename__ = "llm_call"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('ok','refused','truncated','invalid_output','unavailable','too_large')",
+            name="ck_llm_call_outcome",
+        ),
+        Index("ix_core_llm_call_created", text("created_at DESC")),
+        Index("ix_core_llm_call_name_created", "call_name", text("created_at DESC")),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    call_name: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    cached_read_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class TranslationCallRow(Base):
+    """M22: core translation usage accounting. See src/disp/core/translation/
+    and docs/milestones/server/M22-translation.md §7.
+
+    Same no-FK, nullable `user_id` shape as LLMCallRow above, for the same
+    reason (TECHNICAL-SPEC.md §6.1's cross-schema-FK avoidance).
+
+    `char_count` is the load-bearing column: DeepL bills per source character
+    against a hard monthly ceiling, so "how many characters have I spent" is
+    the question this table exists to answer — not "how many calls". No source
+    or translated text is stored (T6).
+    """
+
+    __tablename__ = "translation_call"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('ok','not_supported','unavailable','quota_exceeded',"
+            "'rejected','too_large','invalid_response')",
+            name="ck_translation_call_outcome",
+        ),
+        Index("ix_core_translation_call_created", text("created_at DESC")),
+        Index("ix_core_translation_call_backend_created", "backend", text("created_at DESC")),
+        {"schema": SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    backend: Mapped[str] = mapped_column(Text, nullable=False)
+    operation: Mapped[str] = mapped_column(Text, nullable=False)
+    source_lang: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_lang: Mapped[str | None] = mapped_column(Text, nullable=True)
+    text_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    char_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 __all__ = [
     "SCHEMA",
     "Acl",
     "ApiToken",
-    "Asset",
+    "FileRecord",
     "Invite",
+    "LLMCallRow",
     "NotificationLog",
     "Session",
     "Setting",
+    "TranslationCallRow",
     "User",
 ]

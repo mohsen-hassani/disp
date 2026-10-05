@@ -1,174 +1,127 @@
-"""`disp-admin files ...` — operational commands for the core file/asset
-service (M18-files.md §12, §15.3). No Platform in CLI context, so every
+"""`disp-admin files ...` — operational commands for the core file service
+(M18-files.md §8.3, docs/operations.md). No Platform in CLI context, so every
 command builds its own engine/session-maker, mirroring seed_admin in
 cli_admin.py.
 """
 
 import asyncio
-from pathlib import Path
-from typing import Annotated
-from uuid import UUID
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 import typer
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from disp.core.config import get_settings
 from disp.core.db import create_engine, create_session_maker
-from disp.core.errors import AppError
-from disp.core.files.store import ACCEPT_IMAGES, FileStore
-from disp.core.models import Asset
+from disp.core.files.store import FileStore
+from disp.core.files.sweep import run_sweep
+from disp.core.models import FileRecord
 
-files_app = typer.Typer(add_completion=False, help="Manage the core file/asset service.")
-
-
-@files_app.command("adopt")
-def adopt(
-    domain: Annotated[str, typer.Option("--domain", help="Asset domain to adopt files into")],
-    purpose: Annotated[str, typer.Option("--purpose", help="Asset purpose to adopt files into")],
-    root: Annotated[Path, typer.Option("--root", help="Pre-existing media root to walk")],
-) -> None:
-    """Backfill core.assets from a module's pre-M18 ad-hoc media storage.
-
-    Idempotent and re-runnable — prints a summary rather than assuming
-    success. Only `--domain plants` is supported: ownership resolution is
-    necessarily domain-specific (there is no generic way to find who owns an
-    orphaned file on disk), and plants is the only module this milestone
-    ports (M18-files.md §12).
-    """
-    if domain != "plants":
-        typer.secho(
-            f"adopt only supports --domain plants today (got {domain!r}) — ownership "
-            "resolution is domain-specific and there is no generic implementation yet",
-            fg=typer.colors.RED,
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    asyncio.run(_adopt_plants(purpose=purpose, root=root))
+files_app = typer.Typer(add_completion=False, help="Manage the core file service.")
 
 
-async def _adopt_plants(*, purpose: str, root: Path) -> None:
-    # Cross-schema read from CLI code, not module code — the module-boundary
-    # AST check (tests/core/test_boundaries.py) only scans src/disp/modules/,
-    # so this is exempt; it is still a deliberate, narrow exception to "core
-    # doesn't know about specific modules", scoped to this one migration tool.
-    from disp.modules.plants.models import Plant
-
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    session_maker = create_session_maker(engine)
-    files = FileStore.from_settings(settings)
-
-    adopted: list[str] = []
-    already_adopted = 0
-    orphaned: list[str] = []
-    errors: list[str] = []
-
-    try:
-        async with session_maker() as session:
-            if not root.is_dir():
-                typer.secho(f"No such directory: {root}", fg=typer.colors.RED, err=True)
-                raise typer.Exit(code=1)
-
-            for path in sorted(root.iterdir()):
-                if not path.is_file():
-                    continue
-                try:
-                    plant_id = UUID(path.stem)
-                except ValueError:
-                    orphaned.append(path.name)
-                    continue
-
-                plant = await session.get(Plant, plant_id)
-                if plant is None:
-                    orphaned.append(path.name)
-                    continue
-                if plant.image_asset_id is not None:
-                    already_adopted += 1
-                    continue
-
-                data = path.read_bytes()
-                try:
-                    stored = await files.put(
-                        session,
-                        owner=plant.user_id,
-                        domain="plants",
-                        purpose=purpose,
-                        source=data,
-                        filename=path.name,
-                        accept=ACCEPT_IMAGES,
-                    )
-                except AppError as exc:
-                    errors.append(f"{path.name}: {exc.detail}")
-                    continue
-
-                plant.image_asset_id = stored.id
-                adopted.append(path.name)
-
-            await session.commit()
-    finally:
-        await engine.dispose()
-
-    typer.echo(f"Adopted: {len(adopted)}")
-    typer.echo(f"Already adopted (skipped): {already_adopted}")
-    typer.echo(f"Orphaned (no matching plant): {len(orphaned)}")
-    for name in orphaned:
-        typer.secho(f"  {name}", fg=typer.colors.YELLOW)
-    if errors:
-        typer.echo(f"Errors: {len(errors)}")
-        for err in errors:
-            typer.secho(f"  {err}", fg=typer.colors.RED)
+@dataclass
+class VerifyReport:
+    rows_missing_objects: list[tuple[str, str]] = field(default_factory=list)
+    objects_missing_rows: list[str] = field(default_factory=list)
+    pending_purge: int = 0
+    other_buckets: int = 0
 
 
 @files_app.command("verify")
 def verify() -> None:
-    """Report assets whose rows have no backing object, and objects with no
-    row. Deletes nothing (I3) — the first thing to run after any restore
-    (§15.3): a mistaken-deletion here would turn a recoverable mount error
-    into permanent metadata loss.
-    """
-    asyncio.run(_verify())
+    """Report rows whose object is missing from the bucket, and bucket objects
+    no row references. Deletes nothing (I3) — the first thing to run after a
+    database restore."""
+    report = asyncio.run(_verify())
 
-
-async def _verify() -> None:
-    settings = get_settings()
-    engine = create_engine(settings.database_url)
-    session_maker = create_session_maker(engine)
-    files = FileStore.from_settings(settings)
-
-    try:
-        async with session_maker() as session:
-            rows_missing_objects, objects_missing_rows = await _diff(session, files)
-    finally:
-        await engine.dispose()
-
-    typer.echo(f"Rows with no backing object: {len(rows_missing_objects)}")
-    for asset_id, storage_key in rows_missing_objects:
-        typer.secho(f"  {asset_id}  {storage_key}", fg=typer.colors.YELLOW)
-
-    typer.echo(f"Objects with no row: {len(objects_missing_rows)}")
-    for key in objects_missing_rows:
+    typer.echo(f"Rows with no backing object: {len(report.rows_missing_objects)}")
+    for file_id, storage_key in report.rows_missing_objects:
+        typer.secho(f"  {file_id}  {storage_key}", fg=typer.colors.YELLOW)
+    typer.echo(f"Objects with no row: {len(report.objects_missing_rows)}")
+    for key in report.objects_missing_rows:
         typer.secho(f"  {key}", fg=typer.colors.YELLOW)
+    if report.pending_purge:
+        typer.echo(f"Rows marked deleted, awaiting purge: {report.pending_purge}")
+    if report.other_buckets:
+        typer.echo(f"Rows in other buckets/backends (not checked): {report.other_buckets}")
 
-    if not rows_missing_objects and not objects_missing_rows:
+    if not report.rows_missing_objects and not report.objects_missing_rows:
         typer.secho(
             "Clean: every row has an object, every object has a row.", fg=typer.colors.GREEN
         )
 
 
-async def _diff(session: AsyncSession, files: FileStore) -> tuple[list[tuple[str, str]], list[str]]:
-    result = await session.execute(select(Asset).where(Asset.deleted_at.is_(None)))
-    assets = list(result.scalars())
+async def _verify() -> VerifyReport:
+    settings = get_settings()
+    engine = create_engine(settings.database_url)
+    session_maker = create_session_maker(engine)
+    files = FileStore.from_settings(settings, session_maker=session_maker)
+    try:
+        return await diff_bucket(files)
+    finally:
+        await engine.dispose()
 
-    rows_missing_objects: list[tuple[str, str]] = []
+
+async def diff_bucket(files: FileStore) -> VerifyReport:
+    """Rows vs. one ListObjectsV2 pass over the active bucket's prefix — a
+    single listing rather than a HEAD per row (each a billed operation)."""
+    backend = files.backend
+    report = VerifyReport()
+    async with files.open_session() as session:
+        result = await session.execute(
+            select(
+                FileRecord.id,
+                FileRecord.backend,
+                FileRecord.bucket,
+                FileRecord.storage_key,
+                FileRecord.deleted_at,
+            )
+        )
+        rows = result.all()
+
+    live: dict[str, str] = {}
     known_keys: set[str] = set()
-    for asset in assets:
-        known_keys.add(asset.storage_key)
-        if not await files.backend.exists(asset.storage_key):
-            rows_missing_objects.append((str(asset.id), asset.storage_key))
+    for row in rows:
+        if row.backend != backend.name or row.bucket != backend.bucket:
+            report.other_buckets += 1
+            continue
+        known_keys.add(row.storage_key)
+        if row.deleted_at is not None:
+            report.pending_purge += 1
+        else:
+            live[row.storage_key] = str(row.id)
 
-    objects_missing_rows: list[str] = [
-        key async for key, _last_modified in files.backend.iter_objects() if key not in known_keys
+    present: set[str] = set()
+    async for key, _last_modified in backend.iter_objects(files.prefix):
+        present.add(key)
+        if key not in known_keys:
+            report.objects_missing_rows.append(key)
+
+    report.rows_missing_objects = [
+        (file_id, key) for key, file_id in sorted(live.items()) if key not in present
     ]
+    return report
 
-    return rows_missing_objects, objects_missing_rows
+
+@files_app.command("sweep")
+def sweep() -> None:
+    """Run the core.sweep_files sweeper now instead of waiting for its cron."""
+    settings = get_settings()
+
+    async def _run() -> None:
+        engine = create_engine(settings.database_url)
+        try:
+            files = FileStore.from_settings(settings, session_maker=create_session_maker(engine))
+            result = await run_sweep(
+                files,
+                grace_seconds=settings.files_orphan_grace_seconds,
+                now=datetime.now(UTC),
+            )
+        finally:
+            await engine.dispose()
+        typer.echo(f"Purged rows: {result.swept_rows}")
+        typer.echo(f"Deleted orphan objects: {result.swept_objects}")
+        typer.echo(f"Orphans still in grace: {result.skipped_in_grace}")
+
+    asyncio.run(_run())

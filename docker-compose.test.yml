@@ -8,11 +8,16 @@
 # developer's own .env (typically `localhost`, per .env.example's
 # uv-run-oriented default — see docker-compose.e2e.yml's header for the same
 # override pattern). The automated test suite does NOT use this file either
-# — `tests/conftest.py` starts its own ephemeral Postgres 16 via
+# — `tests/conftest.py` starts its own ephemeral Postgres 16 and MinIO via
 # testcontainers, per §22.1.
+#
+# `minio` is the local stand-in for the production Cloudflare R2 bucket (the
+# file service is S3-only — docs/milestones/server/M18-files.md §3), and
+# `minio-init` creates the `disp-dev` bucket .env.example points at. Images
+# are pgsty/* — upstream minio/minio and minio/mc are no longer pullable.
 services:
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: disp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-disp}
@@ -35,9 +40,40 @@ services:
     environment:
       DISP_DATABASE_URL: postgresql+asyncpg://disp_user:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp_db
       DISP_DATABASE_URL_SYNC: postgresql+psycopg://disp_user:${POSTGRES_PASSWORD:-disp}@postgres:5432/disp_db
+      # Inside this network MinIO is `minio`, not .env's `localhost`; links
+      # must still name the host the browser reaches (M18-files.md §9.2).
+      DISP_FILES_S3_ENDPOINT_URL: http://minio:9000
+      DISP_FILES_S3_PUBLIC_ENDPOINT_URL: http://localhost:9000
     depends_on:
       postgres: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
     restart: unless-stopped
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"  # S3 API — DISP_FILES_S3_ENDPOINT_URL in .env.example
+      - "9001:9001"  # web console, for poking at the bucket by hand
+    volumes:
+      - minio_dev:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio-init:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/disp-dev
+    depends_on:
+      minio: {condition: service_healthy}
 
   pgweb:
     image: sosedoff/pgweb:latest
@@ -51,3 +87,4 @@ services:
 
 volumes:
   pgdata_dev:
+  minio_dev:

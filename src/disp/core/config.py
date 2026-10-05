@@ -29,21 +29,46 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = True
     env: Literal["production", "development", "test"] = "production"
 
-    # M18: core file/asset service (src/disp/core/files/).
-    files_backend: Literal["local", "s3"] = "local"
-    files_root: str = "var/media"
-    files_max_bytes: int = Field(default=26_214_400, gt=0)
-    files_url_ttl_seconds: int = Field(default=3600, ge=60, le=86400)
-    files_sweep_grace_seconds: int = Field(default=86400, gt=0)
-    files_sweep_cron: str = "30 4 * * *"
+    # M18 v2: core file service (src/disp/core/files/) — S3-compatible
+    # object storage only (Cloudflare R2 in production, MinIO elsewhere).
+    files_backend: Literal["s3"] = "s3"
     files_s3_bucket: str = ""
     files_s3_endpoint_url: str | None = None
+    files_s3_public_endpoint_url: str | None = None
     files_s3_region: str = "auto"
     files_s3_access_key_id: SecretStr = SecretStr("")
     files_s3_secret_access_key: SecretStr = SecretStr("")
     files_s3_prefix: str = ""
     files_s3_force_path_style: bool = True
-    files_s3_native_presign: bool = False
+    files_max_bytes: int = Field(default=104_857_600, gt=0)
+    files_default_link_ttl_seconds: int = Field(default=3600, ge=60, le=604_800)
+    files_orphan_grace_seconds: int = Field(default=3600, gt=0)
+    files_sweep_cron: str = "17 * * * *"
+
+    # M19: core LLM service (src/disp/core/llm/).
+    llm_enabled: bool = False
+    llm_api_key: SecretStr = SecretStr("")
+    llm_model: str = "claude-opus-5"
+    llm_fast_model: str = "claude-haiku-4-5"
+    llm_max_output_tokens: int = Field(default=16000, gt=0)
+    llm_timeout_seconds: int = Field(default=600, ge=10, le=1800)
+    llm_max_retries: int = Field(default=2, ge=0)
+    llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    embedding_enabled: bool = False
+    embedding_provider: Literal["voyage", "local"] = "voyage"
+    embedding_api_key: SecretStr = SecretStr("")
+    embedding_model: str = "voyage-3"
+    embedding_dimensions: int = Field(default=1024, gt=0)
+
+    # M22: core translation service (src/disp/core/translation/).
+    translation_enabled: bool = False
+    translation_backend: Literal["deepl", "fake"] = "deepl"
+    translation_api_key: SecretStr = SecretStr("")
+    translation_base_url: str = ""
+    translation_default_target_lang: str = ""
+    translation_timeout_seconds: int = Field(default=30, ge=1, le=300)
+    translation_max_retries: int = Field(default=2, ge=0)
+    translation_max_chars: int = Field(default=120_000, gt=0)
 
     @field_validator("database_url")
     @classmethod
@@ -94,14 +119,52 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_files_s3_configured(self) -> "Settings":
-        if self.files_backend == "s3" and (
+        # No storage fallback exists (M18-files.md §3): a deployment without a
+        # bucket must refuse to boot, not fail on its first upload.
+        if (
             not self.files_s3_bucket
             or not self.files_s3_access_key_id.get_secret_value()
             or not self.files_s3_secret_access_key.get_secret_value()
         ):
             raise ValueError(
                 "DISP_FILES_S3_BUCKET, DISP_FILES_S3_ACCESS_KEY_ID and "
-                "DISP_FILES_S3_SECRET_ACCESS_KEY are required when DISP_FILES_BACKEND=s3"
+                "DISP_FILES_S3_SECRET_ACCESS_KEY are required (M18-files.md §3)"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_llm_configured(self) -> "Settings":
+        if self.llm_enabled and not self.llm_api_key.get_secret_value():
+            raise ValueError("DISP_LLM_API_KEY is required when DISP_LLM_ENABLED=true")
+        return self
+
+    @model_validator(mode="after")
+    def _validate_embedding_configured(self) -> "Settings":
+        if (
+            self.embedding_enabled
+            and self.embedding_provider == "voyage"
+            and not self.embedding_api_key.get_secret_value()
+        ):
+            raise ValueError(
+                "DISP_EMBEDDING_API_KEY is required when DISP_EMBEDDING_ENABLED=true "
+                "and DISP_EMBEDDING_PROVIDER=voyage"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_translation_configured(self) -> "Settings":
+        # Provider-conditional, like _validate_embedding_configured above: the
+        # `fake` backend needs no credential, so a hermetic dev or test
+        # deployment can set DISP_TRANSLATION_ENABLED=true without inventing
+        # one (M22-translation.md §3).
+        if (
+            self.translation_enabled
+            and self.translation_backend == "deepl"
+            and not self.translation_api_key.get_secret_value()
+        ):
+            raise ValueError(
+                "DISP_TRANSLATION_API_KEY is required when DISP_TRANSLATION_ENABLED=true "
+                "and DISP_TRANSLATION_BACKEND=deepl"
             )
         return self
 

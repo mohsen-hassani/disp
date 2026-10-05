@@ -19,22 +19,75 @@ docker compose run --rm api disp-admin seed-admin --email you@example.com --disp
 branch, as modules are added — see `docs/adding-a-module.md`.) All three console scripts were
 verified against a real Postgres 16 as part of writing this document.
 
-### Upgrading an existing deployment to M18 (core file/asset service)
+### File storage: Cloudflare R2 (M18 v2)
 
-An existing deployment with plant photos already on disk must run the backfill **before** applying
-`plants`' `0002_plants_image_asset` migration — that migration drops the columns the backfill reads
-from, and after it runs there is no way to recover which asset belongs to which plant:
+Uploaded files live in an S3-compatible bucket — Cloudflare R2 in production — never on a volume
+(`docs/milestones/server/M18-files.md`). One-time setup:
+
+1. **Create a bucket** in the R2 dashboard (e.g. `disp-media`). Use a *separate* bucket for any
+   non-production environment: the hourly sweeper deletes every object under the prefix that has no
+   row in *its own* database, so a dev database pointed at the production bucket would treat every
+   production file as garbage.
+2. **Create an R2 API token** scoped to that bucket only, with *Object Read & Write*. Note the access
+   key id, the secret, and the S3 endpoint `https://<account-id>.r2.cloudflarestorage.com`.
+3. **Set, in `.env`, for both `api` and `worker`:**
+   ```
+   DISP_FILES_S3_BUCKET=disp-media
+   DISP_FILES_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+   DISP_FILES_S3_ACCESS_KEY_ID=...
+   DISP_FILES_S3_SECRET_ACCESS_KEY=...
+   ```
+   The API refuses to boot if the bucket or either credential is empty.
+4. **(Belt and braces) add a lifecycle rule** "abort incomplete multipart uploads after 1 day". The
+   platform never starts a multipart upload (every file is a single `PutObject`), so this only guards
+   against a future change billing you for half-finished uploads.
+5. No CORS rule is needed: `<img>`/`<video>` loads of presigned links don't require one. The web
+   client's CSP already allows `https://*.r2.cloudflarestorage.com` (`clients/web/security-headers.conf`).
+   **Moving to a provider other than R2 means editing that CSP line.**
+
+### File maintenance commands
+
+Neither command needs the app running; each builds its own database connection and talks to the
+bucket directly.
 
 ```
-docker compose run --rm api disp-admin files adopt \
-  --domain plants --purpose plant_photo --root /data/media/plants
-docker compose run --rm api alembic --name=plants upgrade head
+docker compose run --rm api disp-admin files verify   # read-only bucket <-> table diff
+docker compose run --rm api disp-admin files sweep    # run core.sweep_files now
 ```
 
-`adopt` is idempotent and re-runnable — safe to run again if interrupted. It walks the given root,
-matches each `<uuid>.<ext>` filename against a `plants.plant` row, creates a `core.assets` row per
-photo, and sets `plant.image_asset_id`; files with no matching plant are reported, not deleted. A
-fresh deployment with no existing photos can skip straight to the migration.
+- **`verify`** lists the bucket once (under `DISP_FILES_S3_PREFIX`) and compares it with
+  `core.files`. It reports:
+  - rows whose object is missing;
+  - objects no row references;
+  - rows still awaiting purge;
+  - rows in another bucket or backend, which it does not check.
+
+  It **deletes nothing**. Run it first after any database restore (step 7 of "Restore procedure" below).
+- **`sweep`** runs the same two passes as the hourly `core.sweep_files` job, immediately:
+  - it purges every row marked deleted (object, then row);
+  - it deletes unreferenced objects older than `DISP_FILES_ORPHAN_GRACE_SECONDS`.
+
+  Use it to reclaim storage right away instead of waiting for the next `:17`. Like the job, it
+  never deletes a row just because its object is missing. **Don't run it right after a restore
+  before `verify`:** objects the restored database no longer references count as orphans, and
+  `sweep` deletes them.
+
+### Upgrading from M18 v1 (local `media` volume) to v2
+
+v2 started fresh by decision: existing uploaded files are **not** migrated.
+
+1. **Remove the v1 keys from `.env`** — `DISP_FILES_ROOT`, `DISP_FILES_URL_TTL_SECONDS`,
+   `DISP_FILES_SWEEP_GRACE_SECONDS`, `DISP_FILES_S3_NATIVE_PRESIGN`. `Settings` is
+   `extra="forbid"` and reads `.env` directly, so a leftover key **refuses to boot** with a
+   pydantic "extra inputs are not permitted" error.
+2. Add the R2 settings above.
+3. Migrate:
+   ```
+   docker compose run --rm api alembic --name=core upgrade head       # 0005: drops core.assets, creates core.files
+   docker compose run --rm api alembic --name=plants upgrade head     # 0003: image_asset_id -> image_file_id, nulled
+   docker compose run --rm api alembic --name=learning upgrade head   # asset_id -> file_id, nulled
+   ```
+4. Once the new stack is up, delete the orphaned volume: `docker volume rm disp_media`.
 
 ## SSH deploy
 
@@ -112,6 +165,10 @@ docker compose logs -f worker
 
 Every HTTP request log line includes `request_id`, which also appears in every `application/problem+json` error body's `request_id` field — use it to correlate a user-reported error with the corresponding log line. Refresh-token reuse (a potential credential-theft signal) logs at `WARNING` with `user_id` and `family_id`; treat repeated occurrences as worth investigating.
 
+### LLM cost monitoring
+
+`GET /api/llm/usage` (admin-only) reports token and call totals grouped by call name and day. For anything the endpoint doesn't aggregate, query `core.llm_call` directly — it holds every call's outcome, model, and token counts (never a prompt or completion; see the backup note below).
+
 ## Backups
 
 `scripts/backup.sh` performs a nightly logical backup:
@@ -122,25 +179,15 @@ Every HTTP request log line includes `request_id`, which also appears in every `
 
 ### Uploaded files are not in the database dump
 
-`scripts/backup.sh` covers Postgres only. The core file/asset service
-(`docs/milestones/server/M18-files.md`) stores uploaded bytes — currently plant photos, and any future
-module that adopts it — as files on the `media` volume (`/data/files` in `docker-compose.yml`,
-`DISP_FILES_ROOT`), which keeps `pg_dump` small and text-only but puts them outside every backup
-above. Restoring only the database gives you every plant, schedule and care log back with its
-`image_asset_id` pointer intact and the object bytes missing — the fetch then returns
-`404 core.files.missing_object`, a **visible** failure distinct from "no photo"
-(`core.files.not_found`), rather than degrading silently.
+`scripts/backup.sh` covers Postgres only. Uploaded bytes live in the R2 bucket, and **R2 does not
+version objects**: a file deleted through the platform is purged from the bucket right after the
+deleting transaction commits (M18 §8.2), with no undo. If you need file backups, mirror the bucket
+off-site (e.g. a nightly `rclone sync r2:disp-media /var/backups/disp/media`). The platform does not
+do this for you.
 
-**On the `s3` backend** (once `DISP_FILES_BACKEND=s3` is available — see M18-files.md §6.2, not yet
-shipped), rely on the provider's own versioning/lifecycle policy instead of this cron; drop it
-entirely in that configuration.
-
-Back the volume up alongside the dump, e.g.:
-
-```cron
-15 3 * * * docker run --rm -v disp_media:/data:ro -v /var/backups/disp:/out alpine \
-  tar czf /out/media-$(date -u +\%Y\%m\%dT\%H\%M\%SZ).tar.gz -C /data .
-```
+Restoring an older database dump can produce `core.files` rows whose objects have since been purged,
+and the bucket can hold objects newer than the dump. Run `disp-admin files verify` after any restore
+(step 7 below).
 
 Run the database backup nightly via cron, e.g.:
 
@@ -155,6 +202,31 @@ Run the database backup nightly via cron, e.g.:
 `pg_dump` backs up the **database**, not the environment. `core.settings.value_encrypted` is Fernet-encrypted with `DISP_SETTINGS_KEY`, which lives only in the environment (S11) — it is never stored in the database. **If `DISP_SETTINGS_KEY` is lost, every encrypted setting (currently: notification-channel Apprise URLs) becomes permanently unrecoverable, even with a perfect database restore.** Back this key up separately, in a secrets manager or an offline copy — not alongside the `pg_dump` output.
 
 By contrast, losing `DISP_JWT_SECRET` is low-severity: it only invalidates every outstanding access token (users re-authenticate via their still-valid refresh cookie or PAT) and does not affect any stored data.
+
+### `DISP_LLM_API_KEY` and `DISP_EMBEDDING_API_KEY` also live only in the environment
+
+Like `DISP_SETTINGS_KEY`, neither credential is ever written to the database (`docs/milestones/server/M19-llm.md` §3 — putting it in `core.settings` would be circular, since the settings store needs `DISP_SETTINGS_KEY` to decrypt its own secret fields before it could produce this one). Unlike `DISP_SETTINGS_KEY`, **losing either key is not a data-loss event**: both are re-issuable from the provider (the Anthropic console, or Voyage AI's), so a lost key is an inconvenience, not something to treat as a restore scenario. `core.llm_call` never stores a prompt or completion either (L2), so there is nothing to recover from a database backup even in principle.
+
+### `DISP_TRANSLATION_API_KEY` too — with one rotation trap the others don't have
+
+Same story as the two keys above (`docs/milestones/server/M22-translation.md` §3, §12): environment-only, never persisted, re-issuable from the provider, and `core.translation_call` stores no source or translated text (T6), so a lost key is an inconvenience rather than a restore scenario.
+
+**The trap is the API host.** A DeepL free-tier key ends in `:fx` and must reach `api-free.deepl.com`; a paid key must reach `api.deepl.com`. The backend derives the right host from the key's suffix **only when `DISP_TRANSLATION_BASE_URL` is empty**. So if that variable was ever set explicitly — for a proxy, or to pin a host — then upgrading a free key to a paid one silently 403s every call with a message that reads like a bad credential. Clear or update `DISP_TRANSLATION_BASE_URL` in the same change as the key, or leave it unset and let the derivation do its job.
+
+### Watching the translation character budget
+
+Providers meter **source characters**, and a free tier is a hard monthly ceiling (DeepL: 500 000, returning `456`, surfaced as `TranslationQuotaExceeded`) rather than an overage charge — so the useful question is "how many characters this month", not "how many calls".
+
+```
+docker compose run --rm api disp-admin translation usage --days 30
+docker compose run --rm api disp-admin translation usage --days 30 --backend deepl
+```
+
+One line per (day, backend, operation, outcome) group plus a total. There is deliberately no HTTP endpoint for this (M22 §10); `core.translation_call` is available directly for anything the command does not aggregate. Note that a free account's ceiling resets on the billing date, not the 1st.
+
+### The `pgvector/pgvector:pg16` image swap (M19) is a rebuild, not a data migration
+
+All three compose files and the test container now run `pgvector/pgvector:pg16` instead of stock `postgres:16-alpine`/`postgres:16`. This is the same Postgres 16 with the `vector` extension available, not installed by default — existing volumes mount unchanged, and there is no dump/restore step. An operator who reads "new database image" and schedules a maintenance window for a migration is doing unnecessary work; a plain image pull and container recreate is sufficient.
 
 ### Restore procedure (verified)
 
@@ -219,20 +291,22 @@ This procedure was executed against a real dump of the dev database as part of w
    psql -U disp_user -d postgres -c "DROP DATABASE disp_restore_test;"
    ```
 
-7. **If the media volume was restored separately from the database** (or not restored at all —
-   §"Uploaded files are not in the database dump" above), run `disp-admin files verify` before
-   anything else touches `core.assets`. It reports rows with no backing object and objects with no
-   row, and **deletes nothing** — running the sweeper (`core.sweep_files`) against a mismatched
-   restore before verifying would misread a mount failure as garbage and permanently destroy the
-   affected rows' metadata (I3 in M18-files.md §2).
+7. **Reconcile files against the bucket.** Run `disp-admin files verify` before anything else touches
+   `core.files`. It reports rows with no backing object and objects with no row, and **deletes
+   nothing**. Rows without objects stay as they are (I3 in M18-files.md §2): they show up as broken
+   links, never as silently vanished records. Objects without rows *will* be deleted by the next
+   hourly sweep (I7) — if the restore is the thing that's wrong, mirror those objects aside first.
 
 ## Key rotation
 
 | Key | Rotation impact | Procedure |
 |---|---|---|
-| `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Also invalidates every outstanding **signed file URL** (`/api/files/...?exp=&sig=`, M18-files.md §9.2 — the signing key is derived from this secret), exactly like sessions. Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call; any page holding a stale image URL re-mints one on its next query refetch. |
+| `DISP_JWT_SECRET` | Every outstanding access token is instantly invalid; refresh cookies and PATs are unaffected (different secret space). Low blast radius. | Set the new value, restart the API. Users with an expired access token get a fresh one via their next `/api/auth/refresh` or PAT-authenticated call. |
 | `DISP_SETTINGS_KEY` | Every previously-encrypted setting becomes undecryptable (`SettingsDecryptionError`, surfaced as `500 core.settings.decryption_failed`) — this is **not** a live re-encryption, it is data loss for existing rows. No HTTP endpoint reveals secret values in plaintext (`GET /api/settings/{domain}` always masks them, by design — §14.3). | Before rotating: run a one-off script, using the *old* key, that instantiates `SettingsStore(Fernet(old_key))` directly and calls `get_all(..., reveal_secrets=True)` for every (user, domain) pair to recover each plaintext value. Then rotate the env var, restart, and re-`PUT` each setting through the normal API so it gets re-encrypted under the new key. |
 | Postgres credentials (`POSTGRES_PASSWORD`) | None to application data; only affects new connections. | Update the password in Postgres and in `.env`'s `DISP_DATABASE_URL`(`_SYNC`)/`POSTGRES_PASSWORD`, then restart `api` and `worker`. |
+| `DISP_FILES_S3_ACCESS_KEY_ID` / `DISP_FILES_S3_SECRET_ACCESS_KEY` (R2 token) | None to stored files. Every outstanding file link is presigned with the token's secret, so **revoking the old token kills every outstanding link**; pages re-mint links on their next query refetch, and the web client retries a failed image once with a fresh link. | Create the new R2 token, set both values, `docker compose up -d api worker`, then revoke the old token in the R2 dashboard. |
+| `DISP_LLM_API_KEY` / `DISP_EMBEDDING_API_KEY` | None to stored data — neither credential is ever persisted (§3). In-flight calls at the moment of restart fail and are recorded in `core.llm_call` with `outcome='unavailable'`; nothing is silently dropped. | Set the new value, `docker compose up -d api worker`. No re-encryption step, unlike `DISP_SETTINGS_KEY`. |
+| `DISP_TRANSLATION_API_KEY` | None to stored data — never persisted (M22 §3). In-flight calls fail and are recorded in `core.translation_call` with `outcome='unavailable'`. | Set the new value, `docker compose up -d api worker`. **If the free/paid tier changed, clear or update `DISP_TRANSLATION_BASE_URL` in the same change** — see the host trap above; otherwise every call 403s with a message that looks like a bad key. |
 
 Neither key rotation requires a database migration — both are purely environment-variable changes plus, for `DISP_SETTINGS_KEY`, the manual re-encryption pass described above.
 

@@ -9,6 +9,7 @@ from disp.core.db import create_engine, create_session_maker
 from disp.core.events import EventBus, set_event_bus
 from disp.core.files.store import FileStore
 from disp.core.files.sweep import register_task as register_sweep_task
+from disp.core.llm import LLMFacade
 from disp.core.logging import configure_logging
 from disp.core.notifier import NOTIFIER_SETTINGS_PANEL, NotifierFacade
 from disp.core.notifier import configure as configure_notifier
@@ -17,6 +18,7 @@ from disp.core.registry import Registry
 from disp.core.scheduler import SchedulerFacade, set_registry
 from disp.core.scheduler import app as procrastinate_app
 from disp.core.settings_store import SettingsStore
+from disp.core.translation import TranslationFacade
 
 logger = structlog.get_logger(__name__)
 
@@ -42,7 +44,9 @@ def _build_platform() -> Platform:
     scheduler_facade = SchedulerFacade(procrastinate_app)
     notifier_facade = NotifierFacade(scheduler_facade)
     configure_notifier(store=store, session_maker=session_maker, registry=registry)
-    files_store = FileStore.from_settings(settings)
+    files_store = FileStore.from_settings(settings, session_maker=session_maker)
+    llm_facade = LLMFacade.from_settings(settings, session_maker)
+    translation_facade = TranslationFacade.from_settings(settings, session_maker)
 
     platform = Platform(
         settings=settings,
@@ -51,6 +55,8 @@ def _build_platform() -> Platform:
         notifier=notifier_facade,
         store=store,
         files=files_store,
+        llm=llm_facade,
+        translation=translation_facade,
         registry=registry,
     )
 
@@ -74,8 +80,8 @@ def _build_platform() -> Platform:
         ScheduledJobSpec(
             name="core.sweep_files",
             cron=settings.files_sweep_cron,
-            description="Reaps soft-deleted assets past their grace period and orphaned "
-            "storage objects.",
+            description="Purges files marked deleted whose post-commit purge didn't run, "
+            "and bucket objects no row references.",
         )
     )
     if freshly_registered:
@@ -85,7 +91,7 @@ def _build_platform() -> Platform:
 
 
 async def _run() -> None:
-    _build_platform()
+    platform = _build_platform()
     await procrastinate_app.open_async()
     try:
         await procrastinate_app.run_worker_async(
@@ -94,6 +100,8 @@ async def _run() -> None:
             listen_notify=True,
         )
     finally:
+        # A job that deleted a file may have a post-commit purge in flight.
+        await platform.files.wait_for_purges()
         await procrastinate_app.close_async()
 
 

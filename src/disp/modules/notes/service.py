@@ -1,5 +1,4 @@
 import logging
-
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -232,10 +231,10 @@ async def share_note(
 async def purge_deleted(session: AsyncSession) -> int:
     logger.info("Start purging notes.")
     cutoff = datetime.now(UTC) - timedelta(days=PURGE_AFTER_DAYS)
-    logger.info("Cutoff time is set to %s." % str(cutoff))
+    logger.info(f"Cutoff time is set to {cutoff}.")
     result = await session.execute(
         sa_delete(Note).where(Note.deleted_at.is_not(None), Note.deleted_at < cutoff)
     )
     row_count = cast("CursorResult[Any]", result).rowcount
-    logger.info("%d row(s) has been purged." % row_count)
+    logger.info(f"{row_count} row(s) has been purged.")
     return row_count

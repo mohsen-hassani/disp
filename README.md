@@ -195,8 +195,9 @@ reference production stack (Postgres, the API, the worker) — see `docs/operati
 it. TLS termination and routing are handled by Traefik, which lives outside this repo in a
 separate `infra` project shared across every app on the host (not disp-specific) — this repo's
 `docker-compose.yml` only joins its `edge` network and carries the routing labels.
-`docker-compose.test.yml` is unrelated: a Postgres-only override `./dev up`/`./dev down` use for
-local development (the automated test suite uses its own ephemeral testcontainers Postgres
-instead, per `TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes both images via
+`docker-compose.test.yml` is unrelated: Postgres plus a MinIO bucket (the dev stand-in for the
+production Cloudflare R2 file store, M18) that `./dev up`/`./dev down` use for local development
+(the automated test suite uses its own ephemeral testcontainers Postgres and MinIO instead, per
+`TECHNICAL-SPEC.md` §22.1). Every push to `prod` builds and pushes both images via
 GitHub Actions. The pull-and-redeploy step over SSH is currently disabled during the Kubernetes
 migration (`k8s/roadmap.md`) — see `docs/operations.md`'s "SSH deploy" section.

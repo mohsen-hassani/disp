@@ -1,4 +1,5 @@
 import calendar as calendar_module
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -12,7 +13,7 @@ from disp.core.auth import CurrentUser, Permission, can, grant, readable_ids
 from disp.core.config import get_settings
 from disp.core.errors import AppError
 from disp.core.events import publish_after_commit
-from disp.core.files import ACCEPT_IMAGES, AcceptSpec, FileStore
+from disp.core.files import ACCEPT_IMAGES, AcceptSpec, FileLink, FileStore
 from disp.core.pagination import Page, decode_cursor, encode_cursor
 from disp.modules.plants.config import get_plants_settings
 from disp.modules.plants.events import CareCompleted, PlantCreated, PlantDeleted
@@ -35,6 +36,10 @@ from disp.modules.plants.schemas import (
 )
 
 RESOURCE_TYPE = "plants.plant"
+FILES_DOMAIN = "plants"
+# Photos are low-sensitivity, and a long link keeps the browser cache warm:
+# the SigV4 maximum (M18-files.md §9.1).
+PHOTO_LINK_TTL = timedelta(days=7)
 
 # How far back a completion may be back-dated. Long enough to cover "I forgot
 # to log last month's repotting", short enough that a typo'd year is rejected.
@@ -145,23 +150,39 @@ def _to_log_out(log: CareLog) -> CareLogOut:
 
 
 def _to_plant_out(
-    plant: Plant, intervals: list[CareInterval], on_day: date, files: FileStore
+    plant: Plant,
+    intervals: list[CareInterval],
+    on_day: date,
+    image_links: Mapping[UUID, FileLink],
 ) -> PlantOut:
     active = [i for i in intervals if i.active]
     overdue = [_days_overdue(i.next_due_on, on_day) for i in active]
     due = [d for d in overdue if d >= 0]
+    # Absent from image_links when the file row is gone (e.g. a database
+    # restored from before a purge): has_image stays true, the URL is None,
+    # and the client shows its placeholder.
+    link = image_links.get(plant.image_file_id) if plant.image_file_id is not None else None
     return PlantOut(
         id=plant.id,
         name=plant.name,
         description=plant.description,
         care_notes=plant.care_notes,
-        has_image=plant.image_asset_id is not None,
-        image_url=files.signed_url(plant.image_asset_id) if plant.image_asset_id else None,
+        has_image=plant.image_file_id is not None,
+        image_url=link.url if link is not None else None,
         due_count=len(due),
         max_days_overdue=max(due) if due else 0,
         next_due_on=min((i.next_due_on for i in active), default=None),
         created_at=plant.created_at,
         updated_at=plant.updated_at,
+    )
+
+
+async def _image_links(
+    session: AsyncSession, files: FileStore, plants: list[Plant]
+) -> dict[UUID, FileLink]:
+    # One query for every photo on the page (M18-files.md §7, `links`).
+    return await files.links(
+        session, [plant.image_file_id for plant in plants], domain=FILES_DOMAIN
     )
 
 
@@ -238,8 +259,9 @@ async def list_plants(
 
     on_day = today()
     intervals = await _intervals_for(session, [row.id for row in rows])
+    links = await _image_links(session, files, rows)
     return Page[PlantOut](
-        items=[_to_plant_out(row, intervals.get(row.id, []), on_day, files) for row in rows],
+        items=[_to_plant_out(row, intervals.get(row.id, []), on_day, links) for row in rows],
         next_cursor=next_cursor,
         has_more=has_more,
     )
@@ -253,16 +275,14 @@ async def get_plant(
 
     on_day = today()
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    base = _to_plant_out(plant, intervals, on_day, files)
+    base = _to_plant_out(plant, intervals, on_day, await _image_links(session, files, [plant]))
     return PlantDetailOut(
         **base.model_dump(),
         intervals=[_to_interval_out(interval, on_day) for interval in intervals],
     )
 
 
-async def create_plant(
-    session: AsyncSession, user: CurrentUser, payload: PlantCreate, *, files: FileStore
-) -> PlantOut:
+async def create_plant(session: AsyncSession, user: CurrentUser, payload: PlantCreate) -> PlantOut:
     plant = Plant(
         user_id=user.id,
         name=payload.name,
@@ -281,7 +301,7 @@ async def create_plant(
         granted_by=user.id,
     )
     publish_after_commit(session, PlantCreated(plant_id=plant.id, user_id=user.id, name=plant.name))
-    return _to_plant_out(plant, [], today(), files)
+    return _to_plant_out(plant, [], today(), {})
 
 
 async def update_plant(
@@ -300,12 +320,21 @@ async def update_plant(
     plant.updated_at = datetime.now(UTC)
 
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    return _to_plant_out(plant, intervals, today(), files)
+    return _to_plant_out(plant, intervals, today(), await _image_links(session, files, [plant]))
 
 
-async def delete_plant(session: AsyncSession, user: CurrentUser, plant_id: UUID) -> None:
+async def delete_plant(
+    session: AsyncSession, user: CurrentUser, plant_id: UUID, *, files: FileStore
+) -> None:
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "delete")
+
+    # The plant row is only soft-deleted and lives forever, so its photo
+    # must be deleted explicitly or it stays in the bucket (and billed)
+    # forever — M18-files.md §8.4.
+    if plant.image_file_id is not None:
+        await files.delete(session, plant.image_file_id, domain=FILES_DOMAIN)
+        plant.image_file_id = None
 
     now = datetime.now(UTC)
     plant.deleted_at = now
@@ -657,24 +686,25 @@ async def set_plant_image(
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "update")
 
-    old_asset_id = plant.image_asset_id
+    old_file_id = plant.image_file_id
     accept = AcceptSpec(ACCEPT_IMAGES.content_types, get_plants_settings().max_image_bytes)
     stored = await files.put(
         session,
         owner=user,
-        domain="plants",
+        domain=FILES_DOMAIN,
         purpose="plant_photo",
         source=source,
-        filename=filename,
+        name=filename,
         accept=accept,
+        link_ttl=PHOTO_LINK_TTL,
     )
-    if old_asset_id is not None:
-        await files.delete(session, old_asset_id)
-    plant.image_asset_id = stored.id
+    if old_file_id is not None:
+        await files.delete(session, old_file_id, domain=FILES_DOMAIN)
+    plant.image_file_id = stored.id
     plant.updated_at = datetime.now(UTC)
 
     intervals = (await _intervals_for(session, [plant_id])).get(plant_id, [])
-    return _to_plant_out(plant, intervals, today(), files)
+    return _to_plant_out(plant, intervals, today(), await _image_links(session, files, [plant]))
 
 
 async def clear_plant_image(
@@ -683,11 +713,11 @@ async def clear_plant_image(
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "update")
 
-    old_asset_id = plant.image_asset_id
-    plant.image_asset_id = None
+    old_file_id = plant.image_file_id
+    plant.image_file_id = None
     plant.updated_at = datetime.now(UTC)
-    if old_asset_id is not None:
-        await files.delete(session, old_asset_id)
+    if old_file_id is not None:
+        await files.delete(session, old_file_id, domain=FILES_DOMAIN)
 
 
 async def plant_image_redirect_url(
@@ -696,14 +726,15 @@ async def plant_image_redirect_url(
     plant = await _resolve_plant(session, plant_id)
     await _authorize(session, user, plant_id, "read")
 
-    if plant.image_asset_id is None:
+    if plant.image_file_id is None:
         raise AppError(
             status_code=404,
             code="modules.plants.no_image",
             title="No image",
             detail="This plant has no image.",
         )
-    return files.signed_url(plant.image_asset_id)
+    link = await files.link(session, plant.image_file_id, domain=FILES_DOMAIN)
+    return link.url
 
 
 async def list_history(

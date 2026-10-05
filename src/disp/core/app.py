@@ -24,6 +24,8 @@ from disp.core.events import EventBus, set_event_bus
 from disp.core.files import routes as files_routes
 from disp.core.files.store import FileStore
 from disp.core.files.sweep import register_task as register_sweep_task
+from disp.core.llm import LLMFacade
+from disp.core.llm import routes as llm_routes
 from disp.core.logging import RequestIdMiddleware, configure_logging
 from disp.core.notifier import NOTIFIER_SETTINGS_PANEL, NotifierFacade
 from disp.core.notifier import configure as configure_notifier
@@ -32,6 +34,7 @@ from disp.core.registry import Registry
 from disp.core.scheduler import SchedulerFacade, set_registry
 from disp.core.scheduler import app as procrastinate_app
 from disp.core.settings_store import SettingsStore
+from disp.core.translation import TranslationFacade
 
 logger = structlog.get_logger(__name__)
 
@@ -81,7 +84,9 @@ def create_app() -> FastAPI:
     scheduler_facade = SchedulerFacade(procrastinate_app)
     notifier_facade = NotifierFacade(scheduler_facade)
     configure_notifier(store=store, session_maker=session_maker, registry=registry)
-    files_store = FileStore.from_settings(settings)
+    files_store = FileStore.from_settings(settings, session_maker=session_maker)
+    llm_facade = LLMFacade.from_settings(settings, session_maker)
+    translation_facade = TranslationFacade.from_settings(settings, session_maker)
 
     platform = Platform(
         settings=settings,
@@ -90,6 +95,8 @@ def create_app() -> FastAPI:
         notifier=notifier_facade,
         store=store,
         files=files_store,
+        llm=llm_facade,
+        translation=translation_facade,
         registry=registry,
     )
 
@@ -103,6 +110,15 @@ def create_app() -> FastAPI:
             yield
         finally:
             await procrastinate_app.close_async()
+            # Let in-flight post-commit file purges finish rather than
+            # cancelling them mid-delete; the sweeper would catch them, but
+            # an hour later (M18-files.md §8.2).
+            await files_store.wait_for_purges()
+            # The translation backend owns long-lived httpx clients; closing
+            # them here is the correction of llm/embeddings.py's leaked
+            # AsyncClient that M22 §4 calls out.
+            await translation_facade.aclose()
+            translation_facade.close()
             await engine.dispose()
 
     app = FastAPI(
@@ -142,6 +158,7 @@ def create_app() -> FastAPI:
     app.include_router(dashboard_module.router, prefix="/api/dashboard")
     app.include_router(settings_store_module.router, prefix="/api/settings")
     app.include_router(files_routes.router, prefix="/api/files")
+    app.include_router(llm_routes.router, prefix="/api/llm")
 
     registry.discover()
     registry.wire(app, platform)
@@ -166,8 +183,8 @@ def create_app() -> FastAPI:
         ScheduledJobSpec(
             name="core.sweep_files",
             cron=settings.files_sweep_cron,
-            description="Reaps soft-deleted assets past their grace period and orphaned "
-            "storage objects.",
+            description="Purges files marked deleted whose post-commit purge didn't run, "
+            "and bucket objects no row references.",
         )
     )
     if freshly_registered:

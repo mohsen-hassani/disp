@@ -13,16 +13,16 @@ interface PlantThumbnailProps {
 }
 
 /**
- * M18-files.md §13: `imageUrl` is a bucketed-expiry signed URL now, not a
- * bearer-only route — a stale cached URL can fail with
- * `core.files.url_expired` even though the photo itself still exists.
- * `onError` can't see the HTTP status (an `<img>` tag never exposes it), so
- * a genuine 404/403 and a merely-expired signature are indistinguishable:
- * the fix is the same either way — invalidate the query that owns
- * `imageUrl` so it re-mints on refetch, retry once, then fall back to the
- * placeholder. State (not a `key`-based remount) tracks both, because
- * `imageUrl` itself only changes once the invalidated query actually
- * refetches — the `error` event fires well before that.
+ * M18-files.md §12: `imageUrl` is a presigned link straight to the bucket (R2
+ * in production), not an API route. A cached link can expire, and a photo
+ * deleted in the meantime is gone from the bucket, even while the query
+ * still holds the old URL. `onError` can't see the HTTP status (an `<img>`
+ * tag never exposes it), so an expired link and a missing object are
+ * indistinguishable: the fix is the same either way — invalidate the query
+ * that owns `imageUrl` so it mints a fresh link on refetch, retry once, then
+ * fall back to the placeholder. State (not a `key`-based remount) tracks
+ * both, because `imageUrl` itself only changes once the invalidated query
+ * actually refetches — the `error` event fires well before that.
  */
 export function PlantThumbnail({
   plantId,
@@ -37,8 +37,8 @@ export function PlantThumbnail({
   const baseClass =
     'bg-surface-sunken text-text-muted flex shrink-0 items-center justify-center overflow-hidden rounded-md';
 
-  // A fresh `imageUrl` (the invalidated query refetched with a re-minted
-  // signature) means the next failure is a new problem, not the one that was
+  // A fresh `imageUrl` (the invalidated query refetched with a newly minted
+  // link) means the next failure is a new problem, not the one that was
   // just retried — give it its own single retry rather than going straight
   // to the fallback forever.
   useEffect(() => {
