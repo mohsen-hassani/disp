@@ -1,0 +1,19 @@
+# Non-secret settings for BOTH api (T6) and worker (T7): same image, same
+# Settings class, so both mount this via envFrom. Credentials live in the
+# Secret `api-secrets` (k8s/secrets/, applied by hand — see roadmap.md T4).
+#
+# Every value must be a string: quote booleans, or `kubectl apply` rejects it.
+#
+# The DISP_FILES_S3_* (Cloudflare R2) settings are deliberately absent: T8 owns
+# them and adds them here. Settings refuses to boot without a bucket and keys,
+# so pods using this ConfigMap fail loudly until T8 lands.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-configs
+  namespace: mohsen-hassani-disp
+data:
+  DISP_BASE_URL: https://disp.mohsen-hassani.com # no trailing slash (validated)
+  DISP_ENV: production
+  DISP_COOKIE_SECURE: "true" # must stay true while DISP_ENV=production (validated)
+  DISP_RATE_LIMIT_ENABLED: "true"

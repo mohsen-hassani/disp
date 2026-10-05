@@ -18,8 +18,8 @@ board.
 | T1 | Namespace | Done |
 | T2 | Registry pull credentials | Skipped — images are publicly pullable, see T2 |
 | T3 | Postgres via CloudNativePG (CNPG) | Done — applied and Ready 2026-10-05; backups deferred to T13 |
-| T4 | `api`/`worker` ConfigMap + Secret | Not started |
-| T5 | Migration Job | Not started |
+| T4 | `api`/`worker` ConfigMap + Secret | Files written and validated 2026-10-05 (server dry-run + real `Settings`); **not yet applied**; R2 vars deferred to T8 |
+| T5 | Migration Job | Not started — apply only after T8 (Procrastinate step needs full `Settings`, see T4 resolution) |
 | T6 | `api` Deployment + Service | Not started |
 | T7 | `worker` Deployment | Not started |
 | T8 | File storage — Cloudflare R2 | Not started — needs an R2 bucket + API token created (outside kubectl) |
@@ -520,7 +520,43 @@ see above, CNPG generates its own.
 
 ### T4 — `api`/`worker` ConfigMap + Secret
 
-**Where this stands today:** A version of this existed at `k8s/configs/api.yaml`
+**Resolution (2026-10-05) — supersedes the file list and content below where they differ:**
+- **Object names:** ConfigMap **`api-configs`**, Secret **`api-secrets`** (the names T6/T7
+  reference). The ConfigMap is a plain object in `k8s/base/api/` (no `configMapGenerator`:
+  a hash suffix would break the fixed `envFrom` names). The Secret is applied by hand from
+  `k8s/secrets/` (outside the kustomize root, so `kubectl apply -k` never touches it).
+- **R2 vars are NOT in T4's files; T8 adds them.** T8 owns that decision (bucket and account
+  id don't exist yet) and committing placeholders risks a pod that boots against a fake
+  endpoint. `Settings` refuses to boot without a bucket and both keys, so until T8 lands any
+  pod loading `api-configs`/`api-secrets` fails loudly at startup, which is the designed
+  behaviour (M18 §3), not a T4 bug.
+- **Ordering consequence for T5, found while writing this:** Alembic itself only reads
+  `DISP_DATABASE_URL` (`migrations/env.py`), but the Job's second step,
+  `procrastinate --app=disp.core.scheduler.app schema --apply`, imports
+  `disp.core.scheduler`, which calls `get_settings()` at import time, so it needs the full
+  validated `Settings`, R2 included. **T8 must be done before T5 is applied.**
+- **`DISP_DATABASE_URL` is copied, not composed at runtime.** Per the original plan below:
+  the gitignored `api.secret.yaml` holds
+  `postgresql+asyncpg://disp_user:<password>@postgres-rw:5432/disp_db`, with user, password,
+  host and dbname taken from T3's `postgres-app` Secret. CNPG does not rotate that password
+  by itself. If it is ever changed, `api.secret.yaml` must be updated and re-applied, and
+  `api`/`worker` restarted. (The alternative, `secretKeyRef` + `$(VAR)` interpolation in each
+  pod's `env`, avoids the copy but breaks the single-`envFrom` convention and must be repeated
+  in T5/T6/T7. Not chosen.)
+- **Validated, not applied (2026-10-05):** `kubectl apply -k k8s/overlays/prod
+  --dry-run=server` and `kubectl apply -f k8s/secrets/api.secret.yaml --dry-run=server`
+  both accepted. The real values were also loaded through the actual `Settings` class
+  (with dummy R2 values) and pass every validator; without R2 it refuses to boot.
+  To apply: `kubectl apply -k k8s/overlays/prod` (ConfigMap) and
+  `kubectl apply -f k8s/secrets/api.secret.yaml` (Secret). The Secret file was generated
+  locally (JWT secret and Fernet key freshly generated, DB password read from
+  `postgres-app`) and is gitignored. Losing it means regenerating, which invalidates
+  existing sessions/encrypted settings, so back it up outside the repo.
+- **TLS:** the URL carries no `ssl` parameter. asyncpg's default (`prefer`) negotiates TLS
+  with CNPG's server cert without verifying it. Not yet exercised against the live database;
+  T5's Job is the first real connection.
+
+**Where this stands today (original text):** A version of this existed at `k8s/configs/api.yaml`
 and `k8s/secrets/api.secret{,.example}.yaml` before the directory reset. That
 earlier work already fixed several real bugs (unquoted YAML booleans, secret
 material sitting in a `ConfigMap`, a missing required `DISP_JWT_SECRET`) — this task
@@ -746,10 +782,13 @@ DISP_FILES_S3_REGION: auto        # matches config.py's own default for this fie
 DISP_FILES_S3_ACCESS_KEY_ID: <R2 access key id>
 DISP_FILES_S3_SECRET_ACCESS_KEY: <R2 secret access key>
 ```
-`config.py`'s other S3 fields (`files_s3_force_path_style: bool = True`,
-`files_s3_native_presign: bool = False`) already default to values that work with
-R2 — confirm against Cloudflare's S3-compatibility docs during implementation, but
-don't expect to need overrides. No `PersistentVolumeClaim`, no volume mount on T6/T7
+`config.py`'s other S3 fields (`files_s3_force_path_style: bool = True`) already
+default to values that work with R2 — confirm against Cloudflare's S3-compatibility
+docs during implementation, but don't expect to need overrides. (Corrected
+2026-10-05: this paragraph used to cite `files_s3_native_presign`, which no longer
+exists in `Settings`; and `files_backend` is now `Literal["s3"]`, so setting
+`DISP_FILES_BACKEND` is optional but harmless.) **T8 completes T4's objects and gates
+T5:** see the T4 resolution. No `PersistentVolumeClaim`, no volume mount on T6/T7
 at all.
 
 **Why this task exists:** `disp`'s plant-photo uploads and any other `core.files`
